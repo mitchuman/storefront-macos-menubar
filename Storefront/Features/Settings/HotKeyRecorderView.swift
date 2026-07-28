@@ -10,7 +10,7 @@ struct HotKeyRecorderView: View {
     @FocusState private var isFocused: Bool
 
     var body: some View {
-        Text(isRecording ? "Press keys…" : combo.displayString)
+        Text(isRecording ? "Record keys…" : combo.displayString)
             .font(.mono(12, weight: .medium))
             .foregroundStyle(isRecording ? Theme.textSecondary : Theme.textPrimary)
             .padding(.horizontal, 10)

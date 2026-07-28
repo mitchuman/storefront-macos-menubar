@@ -9,6 +9,7 @@ struct StoresTabView: View {
     @State private var storePendingDeletion: Store?
     @State private var newDomain = ""
     @State private var newDisplayName = ""
+    @State private var newColorHex = "1f6f4a"
 
     var orderedStores: [Store] {
         appState.stores.sorted { $0.sortOrder < $1.sortOrder }
@@ -35,7 +36,7 @@ struct StoresTabView: View {
             .overlay(RoundedRectangle(cornerRadius: 9).strokeBorder(Theme.borderColor, lineWidth: 1))
 
             HStack(spacing: 8) {
-                SettingsPillButton(title: "＋ Add store…") { isAddingStore = true }
+                SettingsPillButton(title: "＋ Add store…") { beginAdding() }
                 SettingsPillButton(title: "Import CSV…", action: importCSV)
                 SettingsPillButton(title: "Export CSV…", action: exportCSV)
             }
@@ -44,14 +45,14 @@ struct StoresTabView: View {
         }
         .padding(18)
         .sheet(isPresented: $isAddingStore) {
-            storeSheet(title: "Add a store", confirmTitle: "Add", store: nil, domain: $newDomain, displayName: $newDisplayName) {
+            storeSheet(title: "Add a store", confirmTitle: "Add", store: nil, domain: $newDomain, displayName: $newDisplayName, colorBinding: newColorBinding) {
                 addStore()
             } onCancel: {
                 isAddingStore = false
             }
         }
         .sheet(item: $editingStore) { store in
-            storeSheet(title: "Edit store", confirmTitle: "Save", store: store, domain: $newDomain, displayName: $newDisplayName) {
+            storeSheet(title: "Edit store", confirmTitle: "Save", store: store, domain: $newDomain, displayName: $newDisplayName, colorBinding: colorBinding(for: store)) {
                 saveEdits(to: store)
             } onCancel: {
                 editingStore = nil
@@ -85,7 +86,7 @@ struct StoresTabView: View {
             }
             .buttonStyle(.plain)
 
-            colorSwatch(for: store)
+            colorSwatch(color: colorBinding(for: store))
 
             Text(store.displayName)
                 .font(.system(size: 12.5, weight: .medium))
@@ -118,12 +119,12 @@ struct StoresTabView: View {
         .opacity(store.isVisible ? 1 : 0.5)
     }
 
-    private func colorSwatch(for store: Store) -> some View {
+    private func colorSwatch(color: Binding<Color>) -> some View {
         // ColorPicker itself always renders as a rounded-rect swatch (no "circle"
         // style option), so we clip its own rendering to a circle directly rather
         // than layering a separate near-invisible ColorPicker over a Circle — that
         // opacity-hack's hit-testing didn't survive being hosted inside a `.sheet`.
-        ColorPicker("", selection: colorBinding(for: store), supportsOpacity: false)
+        ColorPicker("", selection: color, supportsOpacity: false)
             .labelsHidden()
             .frame(width: 20, height: 20)
             .clipShape(Circle())
@@ -158,12 +159,26 @@ struct StoresTabView: View {
         editingStore = store
     }
 
+    private func beginAdding() {
+        let palette = ["1f6f4a", "c07a2c", "3a6ea8", "7a4b8c", "4a7a5c", "a8563a"]
+        newColorHex = palette[appState.stores.count % palette.count]
+        isAddingStore = true
+    }
+
+    private var newColorBinding: Binding<Color> {
+        Binding(
+            get: { Color(hex: newColorHex) },
+            set: { newColorHex = $0.hexString }
+        )
+    }
+
     private func storeSheet(
         title: String,
         confirmTitle: String,
         store: Store?,
         domain: Binding<String>,
         displayName: Binding<String>,
+        colorBinding: Binding<Color>,
         onConfirm: @escaping () -> Void,
         onCancel: @escaping () -> Void
     ) -> some View {
@@ -187,17 +202,15 @@ struct StoresTabView: View {
                     .textFieldStyle(.roundedBorder)
             }
 
-            if let store {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Color")
-                        .font(.system(size: 11, weight: .medium))
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Color")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(Theme.textSecondary)
+                HStack(spacing: 8) {
+                    colorSwatch(color: colorBinding)
+                    Text("Click the swatch to change it")
+                        .font(.system(size: 11))
                         .foregroundStyle(Theme.textSecondary)
-                    HStack(spacing: 8) {
-                        colorSwatch(for: store)
-                        Text("Click the swatch to change it")
-                            .font(.system(size: 11))
-                            .foregroundStyle(Theme.textSecondary)
-                    }
                 }
             }
 
@@ -228,9 +241,7 @@ struct StoresTabView: View {
         if !domain.hasSuffix(".myshopify.com") {
             domain = domain.replacingOccurrences(of: ".myshopify.com", with: "") + ".myshopify.com"
         }
-        let palette = ["1f6f4a", "c07a2c", "3a6ea8", "7a4b8c", "4a7a5c", "a8563a"]
-        let colorHex = palette[appState.stores.count % palette.count]
-        appState.addStore(domain: domain, displayName: newDisplayName, colorHex: colorHex)
+        appState.addStore(domain: domain, displayName: newDisplayName, colorHex: newColorHex)
         newDomain = ""
         newDisplayName = ""
         isAddingStore = false
@@ -294,7 +305,7 @@ private extension View {
                 pendingStore.wrappedValue = nil
             }
         } message: {
-            Text("This removes it from Storefront only — your Shopify store itself isn't affected.")
+            Text("This removes it from Storefront only. Your Shopify store itself isn't affected.")
         }
     }
 }

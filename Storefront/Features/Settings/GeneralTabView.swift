@@ -31,12 +31,17 @@ struct GeneralTabView: View {
                 Text("Store color").tag(MenubarIconStyle.colorTag)
             }
 
-            Section("About") {
-                LabeledContent("Developed by") {
-                    Link("nuotsu", destination: URL(string: "https://nuotsu.dev")!)
-                }
+            Text("ABOUT")
+                .font(.system(size: 10, weight: .semibold))
+                .tracking(1.0)
+                .foregroundStyle(Theme.textMeta40)
+                .padding(.top, 14)
+
+            LabeledContent("Developed by") {
+                Link("nuotsu", destination: URL(string: "https://nuotsu.dev")!)
             }
         }
         .padding(18)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
 }

@@ -161,7 +161,7 @@ enum StaticLinkCatalog {
             return [
                 LinkRow(id: "content.files", title: "Files", path: "/content/files", iconName: "FileIcon"),
                 LinkRow(id: "content.metafields", title: "Metafield definitions", path: "/settings/custom_data", iconName: "MetaobjectListIcon"),
-                LinkRow(id: "content.pages", title: "Pages", path: "/content/pages", iconName: "PageIcon"),
+                LinkRow(id: "content.pages", title: "Pages", path: "/pages", iconName: "PageIcon"),
                 LinkRow(id: "content.blogs", title: "Blogs", path: "/content/blogs", iconName: "BlogIcon"),
                 LinkRow(id: "content.blog", title: "Blog posts", path: "/content/articles", iconName: "BlogIcon"),
             ]
