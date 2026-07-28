@@ -1,0 +1,321 @@
+import SwiftUI
+import AppKit
+import UniformTypeIdentifiers
+
+struct StoresTabView: View {
+    @EnvironmentObject var appState: AppState
+    @State private var isAddingStore = false
+    @State private var editingStore: Store?
+    @State private var storePendingDeletion: Store?
+    @State private var newDomain = ""
+    @State private var newDisplayName = ""
+
+    var orderedStores: [Store] {
+        appState.stores.sorted { $0.sortOrder < $1.sortOrder }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("SHOW IN PANEL")
+                .font(.mono(10, weight: .semibold))
+                .tracking(1.2)
+                .foregroundStyle(Theme.textMeta40)
+
+            List {
+                ForEach(orderedStores) { store in
+                    storeRow(store: store)
+                        .listRowBackground(Theme.settingsCardFill)
+                }
+                .onMove(perform: moveStores)
+            }
+            .listStyle(.plain)
+            .scrollContentBackground(.hidden)
+            .background(Theme.settingsCardFill)
+            .clipShape(RoundedRectangle(cornerRadius: 9))
+            .overlay(RoundedRectangle(cornerRadius: 9).strokeBorder(Theme.borderColor, lineWidth: 1))
+
+            HStack(spacing: 8) {
+                SettingsPillButton(title: "＋ Add store…") { isAddingStore = true }
+                SettingsPillButton(title: "Import CSV…", action: importCSV)
+                SettingsPillButton(title: "Export CSV…", action: exportCSV)
+            }
+
+            Spacer()
+        }
+        .padding(18)
+        .sheet(isPresented: $isAddingStore) {
+            storeSheet(title: "Add a store", confirmTitle: "Add", store: nil, domain: $newDomain, displayName: $newDisplayName) {
+                addStore()
+            } onCancel: {
+                isAddingStore = false
+            }
+        }
+        .sheet(item: $editingStore) { store in
+            storeSheet(title: "Edit store", confirmTitle: "Save", store: store, domain: $newDomain, displayName: $newDisplayName) {
+                saveEdits(to: store)
+            } onCancel: {
+                editingStore = nil
+            }
+        }
+        .deleteConfirmation(pendingStore: $storePendingDeletion, appState: appState, editingStore: $editingStore)
+    }
+
+    private func storeRow(store: Store) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: "line.3.horizontal")
+                .foregroundStyle(Theme.textMeta25)
+
+            Button {
+                toggleVisibility(store)
+            } label: {
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(store.isVisible ? Theme.accent : Theme.settingsCardFill)
+                    .frame(width: 16, height: 16)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 4)
+                            .strokeBorder(store.isVisible ? .clear : Theme.borderColor, lineWidth: 1)
+                    )
+                    .overlay {
+                        if store.isVisible {
+                            Image(systemName: "checkmark")
+                                .font(.system(size: 9, weight: .bold))
+                                .foregroundStyle(.white)
+                        }
+                    }
+            }
+            .buttonStyle(.plain)
+
+            colorSwatch(for: store)
+
+            Text(store.displayName)
+                .font(.system(size: 12.5, weight: .medium))
+                .foregroundStyle(Theme.textPrimary)
+
+            Spacer(minLength: 12)
+
+            Button {
+                beginEditing(store)
+            } label: {
+                Image("EditIcon")
+                    .renderingMode(.template)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 13, height: 13)
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(Theme.textMeta40)
+
+            Button {
+                storePendingDeletion = store
+            } label: {
+                Image(systemName: "trash")
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(Theme.textMeta40)
+        }
+        .padding(.horizontal, 11)
+        .padding(.vertical, 9)
+        .opacity(store.isVisible ? 1 : 0.5)
+    }
+
+    private func colorSwatch(for store: Store) -> some View {
+        // ColorPicker itself always renders as a rounded-rect swatch (no "circle"
+        // style option), so we clip its own rendering to a circle directly rather
+        // than layering a separate near-invisible ColorPicker over a Circle — that
+        // opacity-hack's hit-testing didn't survive being hosted inside a `.sheet`.
+        ColorPicker("", selection: colorBinding(for: store), supportsOpacity: false)
+            .labelsHidden()
+            .frame(width: 20, height: 20)
+            .clipShape(Circle())
+            .overlay(Circle().strokeBorder(Theme.borderColor, lineWidth: 1))
+            .contentShape(Circle())
+    }
+
+    private func toggleVisibility(_ store: Store) {
+        guard let index = appState.stores.firstIndex(where: { $0.id == store.id }) else { return }
+        appState.stores[index].isVisible.toggle()
+        appState.save()
+    }
+
+    private func moveStores(from source: IndexSet, to destination: Int) {
+        appState.moveStore(fromOffsets: source, toOffset: destination)
+    }
+
+    private func colorBinding(for store: Store) -> Binding<Color> {
+        Binding(
+            get: { store.color },
+            set: { newColor in
+                guard let index = appState.stores.firstIndex(where: { $0.id == store.id }) else { return }
+                appState.stores[index].colorHex = newColor.hexString
+                appState.save()
+            }
+        )
+    }
+
+    private func beginEditing(_ store: Store) {
+        newDisplayName = store.displayName
+        newDomain = store.myshopifyDomain
+        editingStore = store
+    }
+
+    private func storeSheet(
+        title: String,
+        confirmTitle: String,
+        store: Store?,
+        domain: Binding<String>,
+        displayName: Binding<String>,
+        onConfirm: @escaping () -> Void,
+        onCancel: @escaping () -> Void
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text(title)
+                .font(.system(size: 15, weight: .semibold))
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Store URL")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(Theme.textSecondary)
+                TextField("mystore.myshopify.com", text: domain)
+                    .textFieldStyle(.roundedBorder)
+            }
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Display name")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(Theme.textSecondary)
+                TextField("Display name", text: displayName)
+                    .textFieldStyle(.roundedBorder)
+            }
+
+            if let store {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Color")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(Theme.textSecondary)
+                    HStack(spacing: 8) {
+                        colorSwatch(for: store)
+                        Text("Click the swatch to change it")
+                            .font(.system(size: 11))
+                            .foregroundStyle(Theme.textSecondary)
+                    }
+                }
+            }
+
+            HStack {
+                if let store {
+                    Button("Delete…", role: .destructive) {
+                        storePendingDeletion = store
+                    }
+                }
+                Spacer()
+                Button("Cancel", action: onCancel)
+                Button(confirmTitle, action: onConfirm)
+                    .keyboardShortcut(.defaultAction)
+                    .disabled(domain.wrappedValue.isEmpty || displayName.wrappedValue.isEmpty)
+            }
+        }
+        .padding(20)
+        .frame(width: 380)
+        // Attached here too (not just on the outer body): a `.confirmationDialog`
+        // can only present over whichever presentation layer it's attached to, and
+        // while this sheet is up, the outer body's copy is behind it and can't
+        // surface until the sheet dismisses.
+        .deleteConfirmation(pendingStore: $storePendingDeletion, appState: appState, editingStore: $editingStore)
+    }
+
+    private func addStore() {
+        var domain = newDomain.trimmingCharacters(in: .whitespaces)
+        if !domain.hasSuffix(".myshopify.com") {
+            domain = domain.replacingOccurrences(of: ".myshopify.com", with: "") + ".myshopify.com"
+        }
+        let palette = ["1f6f4a", "c07a2c", "3a6ea8", "7a4b8c", "4a7a5c", "a8563a"]
+        let colorHex = palette[appState.stores.count % palette.count]
+        appState.addStore(domain: domain, displayName: newDisplayName, colorHex: colorHex)
+        newDomain = ""
+        newDisplayName = ""
+        isAddingStore = false
+    }
+
+    private func saveEdits(to store: Store) {
+        var domain = newDomain.trimmingCharacters(in: .whitespaces)
+        if !domain.hasSuffix(".myshopify.com") {
+            domain = domain.replacingOccurrences(of: ".myshopify.com", with: "") + ".myshopify.com"
+        }
+        guard let index = appState.stores.firstIndex(where: { $0.id == store.id }) else {
+            editingStore = nil
+            return
+        }
+        appState.stores[index].displayName = newDisplayName
+        appState.stores[index].myshopifyDomain = domain
+        appState.save()
+        editingStore = nil
+    }
+
+    // MARK: - CSV import/export
+
+    private func exportCSV() {
+        let panel = NSSavePanel()
+        panel.nameFieldStringValue = "storefront-stores.csv"
+        panel.allowedContentTypes = [.commaSeparatedText]
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        try? appState.storesCSV().write(to: url, atomically: true, encoding: .utf8)
+    }
+
+    private func importCSV() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.commaSeparatedText]
+        panel.allowsMultipleSelection = false
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        guard let contents = try? String(contentsOf: url, encoding: .utf8) else { return }
+        appState.importStoresCSV(contents)
+    }
+}
+
+private extension View {
+    /// Applied at both the outer Stores list and inside the edit sheet, since a
+    /// `.confirmationDialog` only presents over the layer it's attached to.
+    func deleteConfirmation(pendingStore: Binding<Store?>, appState: AppState, editingStore: Binding<Store?>) -> some View {
+        confirmationDialog(
+            "Remove \(pendingStore.wrappedValue?.displayName ?? "this store")?",
+            isPresented: Binding(
+                get: { pendingStore.wrappedValue != nil },
+                set: { if !$0 { pendingStore.wrappedValue = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            Button("Remove", role: .destructive) {
+                if let store = pendingStore.wrappedValue {
+                    appState.removeStore(store)
+                }
+                pendingStore.wrappedValue = nil
+                editingStore.wrappedValue = nil
+            }
+            Button("Cancel", role: .cancel) {
+                pendingStore.wrappedValue = nil
+            }
+        } message: {
+            Text("This removes it from Storefront only — your Shopify store itself isn't affected.")
+        }
+    }
+}
+
+/// A plain, chrome-free button matching the design's white/bordered pill style.
+/// Avoids `.buttonStyle(.bordered)`'s system hover chrome, which can subtly resize on hover.
+private struct SettingsPillButton: View {
+    let title: String
+    var isEnabled: Bool = true
+    let action: () -> Void
+
+    var body: some View {
+        Text(title)
+            .font(.system(size: 11.5, weight: .medium))
+            .foregroundStyle(isEnabled ? Theme.textBody : Theme.textMeta40)
+            .padding(.horizontal, 11)
+            .padding(.vertical, 6)
+            .background(Theme.settingsCardFill)
+            .clipShape(RoundedRectangle(cornerRadius: 7))
+            .overlay(RoundedRectangle(cornerRadius: 7).strokeBorder(Theme.borderColor, lineWidth: 1))
+            .contentShape(Rectangle())
+            .onTapGesture { if isEnabled { action() } }
+    }
+}
