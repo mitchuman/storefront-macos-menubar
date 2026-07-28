@@ -31,7 +31,7 @@ struct StoreRailView: View {
 
             Spacer(minLength: 0)
 
-            railAction(title: "Settings…", shortcut: "⌘,") {
+            railAction(title: "Settings", shortcut: "⌘,") {
                 openSettings()
                 NSApp.activate(ignoringOtherApps: true)
             }
@@ -149,7 +149,7 @@ private struct StarButton: View {
     var body: some View {
         Image(systemName: isFavorite ? "star.fill" : "star")
             .font(.system(size: 10))
-            .foregroundStyle(isFavorite ? Theme.accent : Theme.textMeta30)
+            .foregroundStyle(isFavorite ? Theme.textPrimary : Theme.textMeta30)
             .frame(width: 16, height: 16)
             .opacity(isFavorite || isRowHovering ? 1 : 0)
             .contentShape(Rectangle())
