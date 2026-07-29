@@ -1,5 +1,6 @@
 'use client'
 
+import posthog from 'posthog-js'
 import { cn } from '@/lib/utils'
 import type { BlogCategory } from '@/sanity/types'
 import { useBlogIndexStore } from '@/modules/blog-index/store'
@@ -21,11 +22,12 @@ export default function ({
 					: 'ghost',
 			)}
 			onClick={() => {
-				if (categoryParam === slug) {
-					setCategoryParam(null)
-				} else {
-					setCategoryParam(slug ?? null)
-				}
+				const selectedCategory = categoryParam === slug ? null : (slug ?? null)
+
+				setCategoryParam(selectedCategory)
+				posthog.capture('blog_category_filtered', {
+					category_slug: selectedCategory ?? 'all',
+				})
 			}}
 		>
 			{children || category?.title}

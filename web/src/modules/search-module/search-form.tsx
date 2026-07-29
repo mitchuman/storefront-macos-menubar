@@ -1,6 +1,7 @@
 'use client'
 
 import { useQueryState } from 'nuqs'
+import posthog from 'posthog-js'
 import { VscSearch } from 'react-icons/vsc'
 import { count, debounce } from '@/lib/utils'
 import type { SearchModule } from '@/sanity/types'
@@ -26,11 +27,21 @@ export default function ({ scope }: Partial<SearchModule>) {
 					defaultValue={query}
 					onChange={debounce((e) => {
 						setQuery(e.target.value)
+						const searchQuery = e.target.value.trim()
+
 						handleSearch({
 							scope,
-							query: e.target.value,
+							query: searchQuery,
 							setLoading,
 							setResults,
+						}).then((searchResults) => {
+							if (!searchQuery) return
+
+							posthog.capture('site_search_performed', {
+								search_scope: scope ?? 'all',
+								query_length: searchQuery.length,
+								result_count: searchResults?.length ?? 0,
+							})
 						})
 					})}
 				/>

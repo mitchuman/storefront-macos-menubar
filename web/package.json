@@ -14,6 +14,8 @@
     "next": "16.2.12",
     "next-sanity": "^13.2.3",
     "nuqs": "^2.9.3",
+    "posthog-js": "^1.408.0",
+    "posthog-node": "^5.46.1",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "react-icons": "^5.7.0",

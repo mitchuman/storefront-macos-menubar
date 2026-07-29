@@ -1,6 +1,7 @@
 'use client'
 
 import { parseAsInteger, useQueryState } from 'nuqs'
+import posthog from 'posthog-js'
 import { useCallback, useEffect } from 'react'
 
 type PaginationProps = React.ComponentProps<'nav'> &
@@ -67,6 +68,10 @@ export function usePagination<T>({
 					className={prevClassName || buttonClassName}
 					onClick={() => {
 						onPrev()
+						posthog.capture('blog_page_changed', {
+							page: page - 1,
+							direction: 'previous',
+						})
 						onClick()
 					}}
 					disabled={atStart}
@@ -85,6 +90,10 @@ export function usePagination<T>({
 					className={nextClassName || buttonClassName}
 					onClick={() => {
 						onNext()
+						posthog.capture('blog_page_changed', {
+							page: page + 1,
+							direction: 'next',
+						})
 						onClick()
 					}}
 					disabled={atEnd}

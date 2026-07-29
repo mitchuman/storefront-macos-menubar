@@ -53,6 +53,8 @@ export async function handleSearch({
 
 	setResults(results)
 	setLoading(false)
+
+	return results
 }
 
 const SEARCH_QUERY = groq`*[
