@@ -22,7 +22,7 @@ export default async function ({
 				<Img
 					image={logo}
 					width={100}
-					className="inline-block h-full w-auto object-contain"
+					className="inline-block h-full w-auto object-contain rounded-[10px] [corner-shape:squircle] shadow-(--drop-shadow)"
 					alt={site?.title ?? ''}
 				/>
 			) : (

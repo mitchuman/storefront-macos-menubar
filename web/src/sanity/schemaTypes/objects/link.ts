@@ -1,5 +1,6 @@
 import { defineField, defineType } from 'sanity'
 import { LinkIcon } from '@sanity/icons/Link'
+import { MACOS_DMG_URL } from '@/lib/macos-download'
 import resolveSlug from '@/sanity/lib/resolve-slug'
 
 export default defineType({
@@ -20,7 +21,11 @@ export default defineType({
 			type: 'string',
 			options: {
 				layout: 'radio',
-				list: ['internal', 'external'],
+				list: [
+					'internal',
+					'external',
+					{ title: 'Download (macOS)', value: 'download_macos' },
+				],
 			},
 		}),
 		defineField({
@@ -51,15 +56,19 @@ export default defineType({
 	preview: {
 		select: {
 			label: 'label',
+			type: 'type',
 			_type: 'internal._type',
 			title: 'internal.title',
 			internal: 'internal.metadata.slug.current',
 			params: 'params',
 			external: 'external',
 		},
-		prepare: ({ label, title, _type, internal, params, external }) => ({
+		prepare: ({ label, type, title, _type, internal, params, external }) => ({
 			title: label || title,
-			subtitle: resolveSlug({ _type, internal, params, external }),
+			subtitle:
+				type === 'download_macos'
+					? MACOS_DMG_URL
+					: resolveSlug({ _type, internal, params, external }),
 		}),
 	},
 })

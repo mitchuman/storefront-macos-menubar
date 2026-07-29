@@ -3,7 +3,7 @@
 @theme {
 	/* --font-sans: 'Geist', sans-serif; */
 
-	--color-background: #dfe1e3;
+	--color-background: #fff;
 	--color-foreground: var(--color-neutral-900);
 	--color-stroke: #cdcfd0;
 
@@ -21,13 +21,20 @@
 @custom-variant headings (& :is(h1, h2, h3, h4, h5, h6));
 
 @layer base {
-	@supports (interpolate-size: allow-keywords) {
-		:root {
-			interpolate-size: allow-keywords;
-		}
+	:root {
+		--drop-shadow:
+			0 1px 1px hsl(0deg 0% 0% / 0.075),
+			0 2px 2px hsl(0deg 0% 0% / 0.075),
+			0 4px 4px hsl(0deg 0% 0% / 0.075),
+			0 8px 8px hsl(0deg 0% 0% / 0.075),
+			0 16px 16px hsl(0deg 0% 0% / 0.075);
 
-		:open::details-content {
-			height: auto;
+		@supports (interpolate-size: allow-keywords) {
+			interpolate-size: allow-keywords;
+
+			:open::details-content {
+				height: auto;
+			}
 		}
 	}
 

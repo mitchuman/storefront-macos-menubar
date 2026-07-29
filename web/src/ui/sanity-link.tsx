@@ -1,5 +1,6 @@
 import { stegaClean } from 'next-sanity'
 import NextLink, { type LinkProps } from 'next/link'
+import { MACOS_DMG_FILENAME, MACOS_DMG_URL } from '@/lib/macos-download'
 import type { Link, Page } from '@/sanity/types'
 
 export type SanityLinkType = Omit<Link, 'internal'> & {
@@ -37,6 +38,15 @@ export default function ({
 
 	if (type === 'external' && external)
 		return <NextLink href={stegaClean(external)} {...linkProps} />
+
+	if (type === 'download_macos')
+		return (
+			<NextLink
+				href={MACOS_DMG_URL}
+				download={MACOS_DMG_FILENAME}
+				{...linkProps}
+			/>
+		)
 
 	return <span {...linkProps} />
 }

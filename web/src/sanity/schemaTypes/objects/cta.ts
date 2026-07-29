@@ -38,7 +38,9 @@ export default defineType({
 						: [pageSlug && `/${pageSlug}`, link.params].filter(Boolean).join('')
 					: link.type === 'external'
 						? link.external
-						: null
+						: link.type === 'download_macos'
+							? 'Download (macOS)'
+							: null
 
 			return {
 				title: link.label || pageTitle,
