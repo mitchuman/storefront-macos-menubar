@@ -6,6 +6,17 @@ Built for people who live across many Shopify stores at once — **Shopify Partn
 
 ![Storefront panel](screenshot.png)
 
+## Download
+
+**[Download the latest release](https://github.com/mitchuman/storefront-macos-menubar/releases/latest/download/Storefront.dmg)** (macOS 14+)
+
+This build isn't signed with an Apple Developer ID, so macOS Gatekeeper will flag it on first launch. To open it:
+
+1. Right-click (or Control-click) `Storefront.app` and choose **Open**, then confirm in the dialog that appears — you only need to do this once.
+2. If macOS still refuses, run this in Terminal instead: `xattr -cr /Applications/Storefront.app`
+
+The app checks for updates automatically after that (Settings → General, or **Check for Updates…** in the status-bar right-click menu).
+
 ## Features
 
 - **Multi-store rail** — search, favorite, and reorder the stores you manage
@@ -51,4 +62,4 @@ Re-run `xcodegen generate` any time `project.yml` changes (adding/removing files
 
 ## License
 
-Developed by [nuotsu](https://nuotsu.dev).
+[MIT](LICENSE). Developed by [nuotsu](https://nuotsu.dev).
