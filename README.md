@@ -8,7 +8,7 @@ Built for people who live across many Shopify stores at once — **Shopify Partn
 
 ## Download
 
-**[Download the latest release](https://github.com/mitchuman/storefront-macos-menubar/releases/latest/download/Storefront.dmg)** (macOS 14+)
+**[Download the latest release](https://github.com/nuotsu/storefront-macos-menubar/releases/latest/download/Storefront.dmg)** (macOS 14+)
 
 This build isn't signed with an Apple Developer ID, so macOS Gatekeeper will flag it on first launch. To open it:
 

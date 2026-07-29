@@ -31,7 +31,7 @@
 	<key>SUEnableAutomaticChecks</key>
 	<true/>
 	<key>SUFeedURL</key>
-	<string>https://github.com/mitchuman/storefront-macos-menubar/releases/latest/download/appcast.xml</string>
+	<string>https://github.com/nuotsu/storefront-macos-menubar/releases/latest/download/appcast.xml</string>
 	<key>SUPublicEDKey</key>
 	<string>v/SVpv1UO0YocJuBwLCj9eF9DV5SooDM3VxnarGWJf0=</string>
 	<key>SUScheduledCheckInterval</key>
