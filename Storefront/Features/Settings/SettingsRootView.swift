@@ -17,6 +17,9 @@ struct SettingsRootView: View {
             GeneralTabView()
                 .tabItem { Label("General", systemImage: "gearshape") }
                 .tag(SettingsTab.general)
+            AboutTabView()
+                .tabItem { Label("About", systemImage: "info.circle") }
+                .tag(SettingsTab.about)
         }
         .frame(width: 660, height: 420)
     }

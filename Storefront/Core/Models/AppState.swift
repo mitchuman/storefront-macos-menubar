@@ -16,6 +16,7 @@ enum SettingsTab: Hashable {
     case stores
     case sections
     case shortcuts
+    case about
 }
 
 @MainActor

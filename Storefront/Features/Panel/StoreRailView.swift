@@ -27,6 +27,7 @@ struct StoreRailView: View {
                     }
                 }
             }
+            .padding(.vertical, 4)
             .frame(maxHeight: .infinity)
 
             Divider().overlay(Theme.hairline)
