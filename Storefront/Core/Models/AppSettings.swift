@@ -7,11 +7,6 @@ struct LinkTemplate: Identifiable, Codable, Equatable {
     var pathTemplate: String
 }
 
-enum MenubarIconStyle: String, Codable, CaseIterable {
-    case monochrome
-    case colorTag
-}
-
 struct AppSettings: Codable, Equatable {
     /// All sections, in display/order — separate from which are enabled, so toggling
     /// one off doesn't reshuffle the list.
@@ -19,6 +14,5 @@ struct AppSettings: Codable, Equatable {
     var enabledSections: Set<SectionID> = Set(SectionID.allCases)
     var launchAtLogin: Bool = false
     var globalHotkey: KeyCombo = .default
-    var menubarIconStyle: MenubarIconStyle = .monochrome
     var customLinks: [LinkTemplate] = []
 }

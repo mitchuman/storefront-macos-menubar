@@ -67,9 +67,28 @@ struct StoreRailView: View {
     /// menu).
     private var navigationLegend: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text("Navigate:")
-                .font(.system(size: 10, weight: .semibold))
-                .foregroundStyle(Theme.textMeta36)
+            HStack(spacing: 4) {
+                Text("Navigate:")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(Theme.textMeta36)
+                Spacer()
+                Button {
+                    appState.selectedSettingsTab = .shortcuts
+                    // Reuses the same path the status-item menu's tab shortcuts use —
+                    // `AppDelegate` posts this same notification because it's an `NSObject`
+                    // outside the SwiftUI hierarchy and can't hold `@Environment(\.openSettings)`
+                    // itself; from here (a SwiftUI view) it'd be simpler to call it directly,
+                    // but reusing the one existing path keeps "how Settings gets opened" in
+                    // a single place rather than two slightly different ones.
+                    NotificationCenter.default.post(name: .openSettingsRequested, object: nil)
+                } label: {
+                    Image(systemName: "keyboard")
+                        .font(.system(size: 9.5, weight: .medium))
+                        .foregroundStyle(Theme.textMeta30)
+                }
+                .buttonStyle(.plain)
+                .help("All keyboard shortcuts")
+            }
             legendItem(symbolNames: ["arrow.up", "arrow.down"], label: "Stores")
             legendItem(symbolNames: ["arrow.left", "arrow.right"], label: "Cards")
             legendItem(symbolNames: ["arrow.up", "arrow.down"], label: "Links")

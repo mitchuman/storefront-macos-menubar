@@ -11,6 +11,9 @@ struct SettingsRootView: View {
             SectionsTabView()
                 .tabItem { Label("Sections", systemImage: "square.grid.2x2") }
                 .tag(SettingsTab.sections)
+            ShortcutsTabView()
+                .tabItem { Label("Shortcuts", systemImage: "keyboard") }
+                .tag(SettingsTab.shortcuts)
             GeneralTabView()
                 .tabItem { Label("General", systemImage: "gearshape") }
                 .tag(SettingsTab.general)

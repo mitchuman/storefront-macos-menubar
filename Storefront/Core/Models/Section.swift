@@ -77,6 +77,16 @@ struct LinkRow: Identifiable {
     /// Overrides `path`'s admin.shopify.com templating with a fully-formed external URL
     /// (e.g. the public Shopify App Store, which isn't a per-store admin path).
     var absoluteURL: String? = nil
+    /// Whether this row offers an inline search box that appends a query param to its own
+    /// `path` — unlike `createAction`, search never needs a different path than the row's,
+    /// except for `absoluteSearchURL` rows (e.g. the public App Store) which aren't a
+    /// per-store admin path at all.
+    var supportsSearch: Bool = false
+    /// Overrides the admin.shopify.com/store/<handle> templating for search specifically —
+    /// for a row whose search lives at a different, non-per-store URL (the App Store).
+    var absoluteSearchURL: String? = nil
+    /// Shopify admin pages use `?query=`; the App Store's own search uses `?q=`.
+    var searchQueryParamName: String = "query"
 
     func url(for domain: String) -> URL? {
         if let absoluteURL { return URL(string: absoluteURL) }
@@ -87,6 +97,16 @@ struct LinkRow: Identifiable {
         guard let createAction else { return nil }
         return URL(string: "https://admin.shopify.com/store/\(Store.handle(fromDomain: domain))\(createAction.path)")
     }
+
+    func searchURL(for domain: String, query: String) -> URL? {
+        guard supportsSearch else { return nil }
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        let base = absoluteSearchURL ?? "https://admin.shopify.com/store/\(Store.handle(fromDomain: domain))\(path)"
+        var components = URLComponents(string: base)
+        components?.queryItems = [URLQueryItem(name: searchQueryParamName, value: trimmed)]
+        return components?.url
+    }
 }
 
 /// The fixed catalog of admin deep links shown per section.
@@ -95,12 +115,12 @@ enum StaticLinkCatalog {
         switch section {
         case .products:
             return [
-                LinkRow(id: "products.all", title: "All products", path: "/products", iconName: "ProductListIcon", createAction: .init(path: "/products/new")),
-                LinkRow(id: "products.inventory", title: "Inventory", path: "/products/inventory", iconName: "InventoryIcon"),
+                LinkRow(id: "products.all", title: "Products", path: "/products", iconName: "ProductListIcon", createAction: .init(path: "/products/new"), supportsSearch: true),
+                LinkRow(id: "products.inventory", title: "Inventory", path: "/products/inventory", iconName: "InventoryIcon", supportsSearch: true),
             ]
         case .collections:
             return [
-                LinkRow(id: "collections.all", title: "All collections", path: "/collections", iconName: "CollectionListIcon", createAction: .init(path: "/collections/new")),
+                LinkRow(id: "collections.all", title: "Collections", path: "/collections", iconName: "CollectionListIcon", createAction: .init(path: "/collections/new"), supportsSearch: true),
             ]
         case .themes:
             return [
@@ -110,18 +130,18 @@ enum StaticLinkCatalog {
         case .navigationAndRedirects:
             return [
                 LinkRow(id: "navigation.all", title: "Menus", path: "/menus", iconName: "ListBulletedIcon", createAction: .init(path: "/menus/new")),
-                LinkRow(id: "redirects.all", title: "Redirects", path: "/content/redirects", iconName: "DomainRedirectIcon", createAction: .init(path: "/content/redirects/new")),
+                LinkRow(id: "redirects.all", title: "Redirects", path: "/content/redirects", iconName: "DomainRedirectIcon", createAction: .init(path: "/content/redirects/new"), supportsSearch: true),
             ]
         case .orders:
             return [
-                LinkRow(id: "orders.all", title: "All orders", path: "/orders", iconName: "OrderIcon"),
+                LinkRow(id: "orders.all", title: "Orders", path: "/orders", iconName: "OrderIcon"),
                 LinkRow(id: "orders.unfulfilled", title: "Unfulfilled", path: "/orders?query=fulfillment_status%3Aunfulfilled", iconName: "OrderUnfulfilledIcon"),
                 LinkRow(id: "orders.drafts", title: "Drafts", path: "/draft_orders", iconName: "OrderDraftIcon"),
                 LinkRow(id: "orders.abandoned", title: "Abandoned checkouts", path: "/checkouts", iconName: "CartAbandonedIcon"),
             ]
         case .discounts:
             return [
-                LinkRow(id: "discounts.all", title: "All discounts", path: "/discounts", iconName: "DiscountIcon", createAction: .init(path: "/discounts/new")),
+                LinkRow(id: "discounts.all", title: "Discounts", path: "/discounts", iconName: "DiscountIcon", createAction: .init(path: "/discounts/new"), supportsSearch: true),
             ]
         case .settings:
             return [
@@ -136,7 +156,7 @@ enum StaticLinkCatalog {
         case .apps:
             return [
                 LinkRow(id: "apps.installed", title: "Installed apps", path: "/settings/apps", iconName: "AppsIcon"),
-                LinkRow(id: "apps.store", title: "App store", path: "", iconName: "StoreIcon", absoluteURL: "https://apps.shopify.com/"),
+                LinkRow(id: "apps.store", title: "App store", path: "", iconName: "StoreIcon", absoluteURL: "https://apps.shopify.com/", supportsSearch: true, absoluteSearchURL: "https://apps.shopify.com/search", searchQueryParamName: "q"),
             ]
         case .analytics:
             return [
@@ -146,15 +166,15 @@ enum StaticLinkCatalog {
             ]
         case .content:
             return [
-                LinkRow(id: "content.pages", title: "Pages", path: "/pages", iconName: "PageIcon", createAction: .init(path: "/pages/new")),
-                LinkRow(id: "content.blogs", title: "Blogs", path: "/content/blogs", iconName: "BlogIcon", createAction: .init(path: "/content/blogs/new")),
-                LinkRow(id: "content.blog", title: "Blog posts", path: "/content/articles", iconName: "BlogIcon", createAction: .init(path: "/content/articles/new")),
-                LinkRow(id: "content.files", title: "Files", path: "/content/files", iconName: "FileIcon"),
-                LinkRow(id: "content.metafields", title: "Metafield definitions", path: "/settings/custom_data", iconName: "MetaobjectListIcon"),
+                LinkRow(id: "content.pages", title: "Pages", path: "/pages", iconName: "PageIcon", createAction: .init(path: "/pages/new"), supportsSearch: true),
+                LinkRow(id: "content.blogs", title: "Blogs", path: "/content/blogs", iconName: "BlogIcon", createAction: .init(path: "/content/blogs/new"), supportsSearch: true),
+                LinkRow(id: "content.blog", title: "Blog posts", path: "/content/articles", iconName: "BlogIcon", createAction: .init(path: "/content/articles/new"), supportsSearch: true),
+                LinkRow(id: "content.files", title: "Files", path: "/content/files", iconName: "FileIcon", supportsSearch: true),
+                LinkRow(id: "content.metafields", title: "Metafields", path: "/settings/custom_data", iconName: "MetaobjectListIcon"),
             ]
         case .customers:
             return [
-                LinkRow(id: "customers.all", title: "All customers", path: "/customers", iconName: "PersonIcon"),
+                LinkRow(id: "customers.all", title: "Customers", path: "/customers", iconName: "PersonIcon"),
                 LinkRow(id: "customers.segments", title: "Segments", path: "/customers/segments", iconName: "PersonSegmentIcon"),
             ]
         }

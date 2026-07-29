@@ -99,6 +99,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(tabItem("Settings…", tab: .general, keyEquivalent: ","))
         menu.addItem(tabItem("Stores", tab: .stores))
         menu.addItem(tabItem("Sections", tab: .sections))
+        menu.addItem(tabItem("Shortcuts", tab: .shortcuts))
 
         menu.addItem(.separator())
 

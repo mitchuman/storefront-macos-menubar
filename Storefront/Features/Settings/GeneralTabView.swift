@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 struct GeneralTabView: View {
     // A compile-time-constant literal — the force unwrap can't practically fail, but
@@ -9,13 +10,13 @@ struct GeneralTabView: View {
     @State private var hotkeyErrorMessage: String?
 
     var body: some View {
-        Form {
-            Toggle("Launch at login", isOn: Binding(
-                get: { appState.settings.launchAtLogin },
-                set: { appState.setLaunchAtLogin($0) }
-            ))
-            LabeledContent("Global hotkey") {
-                VStack(alignment: .trailing, spacing: 4) {
+        VStack(spacing: 0) {
+            Form {
+                Toggle("Launch at login", isOn: Binding(
+                    get: { appState.settings.launchAtLogin },
+                    set: { appState.setLaunchAtLogin($0) }
+                ))
+                LabeledContent("Global hotkey") {
                     HotKeyRecorderView(combo: Binding(
                         get: { appState.settings.globalHotkey },
                         set: { newCombo in
@@ -32,34 +33,55 @@ struct GeneralTabView: View {
                             }
                         }
                     ))
-                    if let hotkeyErrorMessage {
-                        Text(hotkeyErrorMessage)
-                            .font(.system(size: 10.5))
-                            .foregroundStyle(Theme.errorDot)
-                    }
                 }
-            }
-            Picker("Menubar icon", selection: Binding(
-                get: { appState.settings.menubarIconStyle },
-                set: { appState.settings.menubarIconStyle = $0; appState.save() }
-            )) {
-                Text("Monochrome").tag(MenubarIconStyle.monochrome)
-                Text("Store color").tag(MenubarIconStyle.colorTag)
-            }
+                if let hotkeyErrorMessage {
+                    // A plain `Form` child (not nested in the `LabeledContent` above) so it
+                    // spans and left-aligns like "ABOUT" below, instead of being sized/aligned
+                    // relative to the (much narrower) hotkey badge next to its own label.
+                    Text(hotkeyErrorMessage)
+                        .font(.system(size: 10.5))
+                        .foregroundStyle(Theme.errorDot)
+                }
 
-            Text("ABOUT")
-                .font(.system(size: 10, weight: .semibold))
-                .tracking(1.0)
-                .foregroundStyle(Theme.textMeta40)
-                .padding(.top, 14)
-
-            LabeledContent("Version") {
-                Text(Self.appVersionString)
-                    .foregroundStyle(Theme.textSecondary)
+                Text("ABOUT")
+                    .font(.system(size: 10, weight: .semibold))
+                    .tracking(1.0)
+                    .foregroundStyle(Theme.textMeta40)
+                    .padding(.top, 14)
+                    .padding(.bottom, 4)
             }
 
-            LabeledContent("Developed by") {
-                Link("nuotsu", destination: Self.nuotsuURL)
+            // Kept outside both `Form`s — an unlabeled row inside one throws off the
+            // automatic label-column width `Form` computes across all its other rows
+            // (that's what previously pushed "Launch at login"/"Global hotkey" out of
+            // alignment when this lived at the top of the first `Form`).
+            HStack {
+                Spacer()
+                // Reads the actual configured `AppIcon` asset directly, rather than a
+                // duplicated image, so this preview can't drift out of sync with it.
+                Image(nsImage: NSApplication.shared.applicationIconImage)
+                    .resizable()
+                    .frame(width: 64, height: 64)
+                Spacer()
+            }
+            .padding(.bottom, 10)
+
+            Form {
+                LabeledContent("App name") {
+                    Text("Storefront")
+                        .foregroundStyle(Theme.textSecondary)
+                }
+                LabeledContent("Description") {
+                    Text("Jump into any Shopify store's admin panel in seconds.")
+                        .foregroundStyle(Theme.textSecondary)
+                }
+                LabeledContent("Version") {
+                    Text(Self.appVersionString)
+                        .foregroundStyle(Theme.textSecondary)
+                }
+                LabeledContent("Developed by") {
+                    Link("nuotsu", destination: Self.nuotsuURL)
+                }
             }
         }
         .padding(18)

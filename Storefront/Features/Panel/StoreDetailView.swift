@@ -14,6 +14,7 @@ func openStoreLink(_ url: URL) {
 struct StoreDetailView: View {
     @EnvironmentObject var appState: AppState
     let store: Store
+    var focusedRowSearchID: FocusState<String?>.Binding
     @Environment(\.colorScheme) private var colorScheme
 
     var enabledSections: [SectionID] { appState.enabledSections }
@@ -34,7 +35,7 @@ struct StoreDetailView: View {
 
             ScrollViewReader { scrollProxy in
                 ScrollView {
-                    Grid(horizontalSpacing: 10, verticalSpacing: 10) {
+                    Grid(horizontalSpacing: 8, verticalSpacing: 8) {
                         ForEach(sectionRows, id: \.self) { row in
                             GridRow {
                                 ForEach(row, id: \.self) { section in
@@ -42,7 +43,8 @@ struct StoreDetailView: View {
                                         section: section,
                                         store: store,
                                         isFocused: appState.focusArea == .cards && appState.focusedSectionIndex == (enabledSections.firstIndex(of: section) ?? -1),
-                                        focusedRowIndex: appState.focusedRowIndex
+                                        focusedRowIndex: appState.focusedRowIndex,
+                                        focusedRowSearchID: focusedRowSearchID
                                     )
                                     .id(section)
                                 }
@@ -180,6 +182,7 @@ struct SectionCardView: View {
     let store: Store
     var isFocused: Bool = false
     var focusedRowIndex: Int = 0
+    var focusedRowSearchID: FocusState<String?>.Binding
 
     private var rows: [LinkRow] { StaticLinkCatalog.rows(for: section) }
 
@@ -194,9 +197,15 @@ struct SectionCardView: View {
 
             VStack(alignment: .leading, spacing: 0) {
                 ForEach(Array(rows.enumerated()), id: \.element.id) { index, row in
-                    CardLinkRow(row: row, store: store, isKeyboardFocused: isFocused && index == focusedRowIndex)
+                    CardLinkRow(row: row, store: store, isKeyboardFocused: isFocused && index == focusedRowIndex, focusedRowSearchID: focusedRowSearchID)
                 }
             }
+            // Grid equalizes card height across a GridRow's two columns (see the comment
+            // on `sectionRows`) — a short card (e.g. one row) gets offered extra vertical
+            // space to match its taller neighbor. Without `fixedSize`, that extra space
+            // was stretching the last row itself rather than landing as blank card padding
+            // below it (the intended, already-accepted tradeoff of using `Grid` here).
+            .fixedSize(horizontal: false, vertical: true)
         }
         .padding(.horizontal, 5)
         .padding(.vertical, 10)
@@ -214,37 +223,118 @@ private struct CardLinkRow: View {
     let row: LinkRow
     let store: Store
     var isKeyboardFocused: Bool = false
+    var focusedRowSearchID: FocusState<String?>.Binding
+    @EnvironmentObject var appState: AppState
     @State private var isHovering = false
 
+    /// Lives in `AppState` (not local `@State`) so the ⌃S keyboard shortcut can toggle a
+    /// row's search regardless of which `CardLinkRow` instance it belongs to, and so
+    /// switching stores and back doesn't lose it (`StoreDetailView` is fully recreated
+    /// per store via `.id(store.id)`, which would otherwise reset local `@State` to blank).
+    private var isSearchExpanded: Bool { appState.expandedSearchRowIDs[store.id]?.contains(row.id) ?? false }
+
+    private var searchQuery: Binding<String> {
+        Binding(
+            get: { appState.searchQueries[store.id]?[row.id] ?? "" },
+            set: { appState.searchQueries[store.id, default: [:]][row.id] = $0 }
+        )
+    }
+
     private var isHighlighted: Bool { isHovering || isKeyboardFocused }
+    private var hasTrailingActions: Bool { row.createAction != nil || row.supportsSearch }
 
     var body: some View {
-        HStack(alignment: .center, spacing: 6) {
-            Image(row.iconName)
-                .renderingMode(.template)
-                .resizable()
-                .scaledToFit()
-                .frame(width: 14, height: 14)
-                .foregroundStyle(isHighlighted ? Theme.textBody : Theme.textMeta40)
-            Text(row.title)
-                .font(.system(size: 12, weight: row.emphasis == .emphasized ? .medium : .regular))
-                .foregroundStyle(labelColor)
-            Spacer(minLength: 4)
-            if row.createAction != nil {
-                CreateActionButton(accentColor: store.color) {
-                    guard let url = row.createURL(for: store.myshopifyDomain) else { return }
-                    openStoreLink(url)
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(alignment: .center, spacing: 6) {
+                HStack(alignment: .center, spacing: 6) {
+                    Image(row.iconName)
+                        .renderingMode(.template)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 14, height: 14)
+                        .foregroundStyle(isHighlighted ? Theme.textBody : Theme.textMeta40)
+                    Text(row.title)
+                        .font(.system(size: 12, weight: row.emphasis == .emphasized ? .medium : .regular))
+                        .foregroundStyle(labelColor)
+                    Spacer(minLength: 4)
+                }
+                .padding(.vertical, 3)
+                // Scoped to just the link's own zone — the "+"/search buttons sit outside
+                // this contentShape entirely (as separate HStack siblings below), so clicking
+                // between/around them can never fall through and register as opening the link.
+                // Padding lives here (not on the outer HStack) so the buttons' own
+                // `maxHeight: .infinity` stretches to match this row's *full* height,
+                // including the padding, instead of leaving a dead strip top/bottom.
+                .contentShape(Rectangle())
+                .onTapGesture { openLink() }
+
+                // Its own tight-spacing group — the outer HStack's spacing (6) only applies
+                // between the link zone and this whole cluster, not within it.
+                HStack(alignment: .center, spacing: 2) {
+                    if row.supportsSearch {
+                        PillSegment(isActive: isSearchExpanded) {
+                            if isSearchExpanded {
+                                appState.expandedSearchRowIDs[store.id]?.remove(row.id)
+                                if focusedRowSearchID.wrappedValue == row.id {
+                                    // Only clear the shared focus if it was actually this row's —
+                                    // collapsing a row that's expanded-but-unfocused (another row
+                                    // currently has focus) must not steal focus away from it.
+                                    focusedRowSearchID.wrappedValue = nil
+                                }
+                            } else {
+                                appState.expandedSearchRowIDs[store.id, default: []].insert(row.id)
+                                focusedRowSearchID.wrappedValue = row.id
+                            }
+                        } label: {
+                            Image(systemName: "magnifyingglass")
+                                .font(.system(size: 10, weight: .medium))
+                        }
+                    }
+                    if row.createAction != nil && row.supportsSearch {
+                        Rectangle()
+                            .fill(Theme.divider)
+                            .frame(width: 1, height: 12)
+                    }
+                    if row.createAction != nil {
+                        PillSegment {
+                            guard let url = row.createURL(for: store.myshopifyDomain) else { return }
+                            openStoreLink(url)
+                        } label: {
+                            Text("+")
+                                .font(.system(size: 11, weight: .medium))
+                        }
+                    }
                 }
             }
+            .padding(.leading, 6)
+            .padding(.trailing, hasTrailingActions ? 3 : 6)
+            .contentShape(Rectangle())
+            .onHover { isHovering = $0 }
+
+            if isSearchExpanded {
+                Rectangle()
+                    .fill(Theme.divider)
+                    .frame(height: 1)
+
+                TextField("Search", text: searchQuery)
+                    .textFieldStyle(.plain)
+                    .font(.system(size: 11.5))
+                    .lineLimit(1)
+                    .focused(focusedRowSearchID, equals: row.id)
+                    .onSubmit { submitSearch() }
+                    .onExitCommand {
+                        appState.expandedSearchRowIDs[store.id]?.remove(row.id)
+                        if focusedRowSearchID.wrappedValue == row.id {
+                            focusedRowSearchID.wrappedValue = nil
+                        }
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 5)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
         }
-        .padding(.leading, 6)
-        .padding(.trailing, row.createAction != nil ? 3 : 6)
-        .padding(.vertical, 3)
-        .background(isHighlighted ? Theme.hoverFill : .clear)
+        .background(isHighlighted || isSearchExpanded ? Theme.hoverFill : .clear)
         .clipShape(RoundedRectangle(cornerRadius: 5))
-        .contentShape(Rectangle())
-        .onHover { isHovering = $0 }
-        .onTapGesture { openLink() }
     }
 
     private var labelColor: Color {
@@ -258,26 +348,37 @@ private struct CardLinkRow: View {
         guard let url = row.url(for: store.myshopifyDomain) else { return }
         openStoreLink(url)
     }
+
+    private func submitSearch() {
+        guard let url = row.searchURL(for: store.myshopifyDomain, query: searchQuery.wrappedValue) else { return }
+        openStoreLink(url)
+        // `openStoreLink` hands focus to the browser, which can leave this row's
+        // `@FocusState` binding stuck non-nil (the window resigning key status doesn't
+        // reliably clear it) — that would otherwise permanently block the global
+        // keyboard-nav guard in `PanelView`. Release it explicitly rather than relying
+        // on SwiftUI to notice the field lost real focus.
+        if focusedRowSearchID.wrappedValue == row.id {
+            focusedRowSearchID.wrappedValue = nil
+        }
+    }
 }
 
-/// The trailing "New +" action on a row. A separate tap target from the row itself —
-/// SwiftUI resolves the tap to whichever view's `contentShape` is directly hit, so
-/// tapping this pill opens the create URL instead of the row's own link.
-private struct CreateActionButton: View {
-    let accentColor: Color
+/// One "+" or search tap target — a bare glyph, neutral-colored like the row's own
+/// leading icon, with no pill background of its own. Stretches to the row's full height
+/// (via `frame` before `contentShape`, so the hit area actually grows with it, not just
+/// the glyph) so there's no dead space above/below it that would otherwise fall through
+/// to the row's own link tap gesture.
+private struct PillSegment<Label: View>: View {
+    var isActive: Bool = false
     let action: () -> Void
+    @ViewBuilder let label: () -> Label
     @State private var isHovering = false
-    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
-        Text("+")
-            .font(.system(size: 11, weight: .medium))
-            .foregroundStyle(accentColor.pillTextColor(colorScheme: colorScheme))
-            .opacity(isHovering ? 0.75 : 1)
-            .padding(.horizontal, 6)
-            .padding(.vertical, 2)
-            .background(accentColor.pillBackground(colorScheme: colorScheme))
-            .clipShape(RoundedRectangle(cornerRadius: 4))
+        label()
+            .foregroundStyle(isHovering || isActive ? Theme.textBody : Theme.textMeta40)
+            .padding(.horizontal, 3)
+            .frame(maxHeight: .infinity)
             .contentShape(Rectangle())
             .onHover { isHovering = $0 }
             .onTapGesture(perform: action)

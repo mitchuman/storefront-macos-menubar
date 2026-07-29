@@ -5,6 +5,7 @@ struct PanelView: View {
     @EnvironmentObject var appState: AppState
     @StateObject private var safeTriangle = SafeTriangleController()
     @FocusState private var searchFocused: Bool
+    @FocusState private var focusedRowSearchID: String?
     @Environment(\.openSettings) private var openSettings
 
     /// The right panel's frame is fully determined by fixed layout constants (not
@@ -24,7 +25,7 @@ struct PanelView: View {
             Divider().overlay(Theme.divider)
 
             if let store = appState.selectedStore {
-                StoreDetailView(store: store)
+                StoreDetailView(store: store, focusedRowSearchID: $focusedRowSearchID)
                     .id(store.id)
             } else {
                 emptyState
@@ -62,6 +63,16 @@ struct PanelView: View {
         .onChange(of: appState.selectedStoreID) { _, newValue in
             safeTriangle.updateSelectedRowID(newValue)
         }
+        .onChange(of: focusedRowSearchID) { oldValue, newValue in
+            // A row's search field just lost real keyboard focus (Escape, toggle-off,
+            // submit, or ⌃S collapsing it) — restore focus to the rail's search field so
+            // *something* always holds it. Without this, `.onKeyPress` below has no
+            // focused responder to fire from at all, silently breaking every keyboard
+            // shortcut (arrows included) until the panel is closed and reopened.
+            if oldValue != nil && newValue == nil {
+                searchFocused = true
+            }
+        }
         .onReceive(NotificationCenter.default.publisher(for: .openSettingsRequested)) { _ in
             openSettings()
             NSApp.activate(ignoringOtherApps: true)
@@ -79,6 +90,31 @@ struct PanelView: View {
             }
             if let digit = Int(String(keyPress.key.character)), (1...9).contains(digit) {
                 appState.selectStore(atShortcutIndex: digit)
+                return .handled
+            }
+            return .ignored
+        }
+
+        // While a row's inline search field has real keyboard focus, let it handle
+        // arrows/Return/Escape natively (cursor movement, onSubmit, onExitCommand)
+        // instead of this grid nav — otherwise Up/Down can silently swap the selected
+        // store mid-type (proven reachable via the rail's own search field, which has
+        // the same bubbling behavior), and Return/Escape could double-fire alongside it.
+        guard focusedRowSearchID == nil else { return .ignored }
+
+        if keyPress.modifiers.contains(.control) {
+            if keyPress.key == "s" {
+                if let result = appState.toggleSearchForFocusedLink() {
+                    if result.isNowExpanded {
+                        focusedRowSearchID = result.rowID
+                    } else if focusedRowSearchID == result.rowID {
+                        focusedRowSearchID = nil
+                    }
+                }
+                return .handled
+            }
+            if keyPress.key == "a" {
+                appState.openFocusedCreateLink()
                 return .handled
             }
             return .ignored

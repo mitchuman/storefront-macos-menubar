@@ -14,6 +14,7 @@ struct StoresTabView: View {
     @State private var newDisplayName = ""
     @State private var newColorHex = "1f6f4a"
     @State private var csvErrorMessage: String?
+    @State private var isConfirmingDeleteAll = false
 
     var orderedStores: [Store] {
         appState.stores.sorted { $0.sortOrder < $1.sortOrder }
@@ -60,6 +61,10 @@ struct StoresTabView: View {
                 SettingsPillButton(title: "＋ Add store…") { beginAdding() }
                 SettingsPillButton(title: "Import CSV…", action: importCSV)
                 SettingsPillButton(title: "Export CSV…", action: exportCSV)
+                Spacer()
+                SettingsPillButton(title: "Delete All…", isEnabled: !appState.stores.isEmpty, isDestructive: true) {
+                    isConfirmingDeleteAll = true
+                }
             }
 
             Spacer()
@@ -80,6 +85,16 @@ struct StoresTabView: View {
             }
         }
         .deleteConfirmation(pendingStore: $storePendingDeletion, appState: appState, editingStore: $editingStore)
+        .confirmationDialog(
+            "Delete all \(appState.stores.count) stores?",
+            isPresented: $isConfirmingDeleteAll,
+            titleVisibility: .visible
+        ) {
+            Button("Delete All", role: .destructive) { deleteAllStores() }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This can't be undone. Export a CSV first if you want to restore this list later.")
+        }
         .alert("Couldn't complete that", isPresented: Binding(
             get: { csvErrorMessage != nil },
             set: { if !$0 { csvErrorMessage = nil } }
@@ -196,6 +211,11 @@ struct StoresTabView: View {
             .clipShape(Circle())
             .overlay(Circle().strokeBorder(Theme.borderColor, lineWidth: 1))
             .contentShape(Circle())
+    }
+
+    private func deleteAllStores() {
+        appState.stores.removeAll()
+        appState.save()
     }
 
     private func toggleVisibility(_ store: Store) {
@@ -391,12 +411,18 @@ private extension View {
 private struct SettingsPillButton: View {
     let title: String
     var isEnabled: Bool = true
+    var isDestructive: Bool = false
     let action: () -> Void
+
+    private var textColor: Color {
+        guard isEnabled else { return Theme.textMeta40 }
+        return isDestructive ? Theme.errorDot : Theme.textBody
+    }
 
     var body: some View {
         Text(title)
             .font(.system(size: 11.5, weight: .medium))
-            .foregroundStyle(isEnabled ? Theme.textBody : Theme.textMeta40)
+            .foregroundStyle(textColor)
             .padding(.horizontal, 11)
             .padding(.vertical, 6)
             .background(Theme.settingsCardFill)

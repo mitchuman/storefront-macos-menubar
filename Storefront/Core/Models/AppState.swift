@@ -15,6 +15,7 @@ enum SettingsTab: Hashable {
     case general
     case stores
     case sections
+    case shortcuts
 }
 
 @MainActor
@@ -27,6 +28,15 @@ final class AppState: ObservableObject {
     @Published var focusedSectionIndex: Int = 0
     @Published var focusedRowIndex: Int = 0
     @Published var selectedSettingsTab: SettingsTab = .general
+    /// Row IDs whose inline search field is currently expanded, per store — shared here
+    /// (rather than local view state) so a keyboard shortcut can toggle a row's search
+    /// regardless of which `CardLinkRow` instance it belongs to, and keyed per store so
+    /// switching stores doesn't show/hide an unrelated store's search boxes.
+    @Published var expandedSearchRowIDs: [Store.ID: Set<String>] = [:]
+    /// Typed-but-not-yet-cleared search text per store/row, so switching stores and back
+    /// (which tears down and recreates `CardLinkRow`, discarding any local `@State`)
+    /// doesn't lose what the user typed.
+    @Published var searchQueries: [Store.ID: [String: String]] = [:]
 
     private let persistence: PersistenceStore
 
@@ -149,16 +159,45 @@ final class AppState: ObservableObject {
         focusedRowIndex = ((focusedRowIndex + offset) % rowCount + rowCount) % rowCount
     }
 
+    /// The `LinkRow` the keyboard is currently focused on within the card grid, shared by
+    /// `openFocusedLink()`/`openFocusedCreateLink()`/`toggleSearchForFocusedLink()` so they
+    /// don't each repeat the same section/row lookup.
+    private var focusedRow: LinkRow? {
+        guard focusArea == .cards, focusedSectionIndex < enabledSections.count else { return nil }
+        let rows = StaticLinkCatalog.rows(for: enabledSections[focusedSectionIndex])
+        guard focusedRowIndex < rows.count else { return nil }
+        return rows[focusedRowIndex]
+    }
+
     /// Return — opens the currently keyboard-focused link, same as clicking it.
     /// Holding ⌥ still keeps the popover open, since `openStoreLink` reads live
     /// modifier flags rather than taking a parameter.
     func openFocusedLink() {
-        guard focusArea == .cards, let store = selectedStore,
-              focusedSectionIndex < enabledSections.count else { return }
-        let rows = StaticLinkCatalog.rows(for: enabledSections[focusedSectionIndex])
-        guard focusedRowIndex < rows.count,
-              let url = rows[focusedRowIndex].url(for: store.myshopifyDomain) else { return }
+        guard let store = selectedStore, let row = focusedRow,
+              let url = row.url(for: store.myshopifyDomain) else { return }
         openStoreLink(url)
+    }
+
+    /// ⌃A — opens the focused row's "New +" create link, if it has one.
+    func openFocusedCreateLink() {
+        guard let store = selectedStore, let row = focusedRow,
+              let url = row.createURL(for: store.myshopifyDomain) else { return }
+        openStoreLink(url)
+    }
+
+    /// ⌃S — toggles the focused row's inline search field, if it supports search. Returns
+    /// the row's id and its new expanded state so the caller (which owns the `@FocusState`
+    /// needed to actually focus the field) can react — `nil` if the focused row can't search.
+    @discardableResult
+    func toggleSearchForFocusedLink() -> (rowID: String, isNowExpanded: Bool)? {
+        guard let store = selectedStore, let row = focusedRow, row.supportsSearch else { return nil }
+        if expandedSearchRowIDs[store.id, default: []].contains(row.id) {
+            expandedSearchRowIDs[store.id]?.remove(row.id)
+            return (row.id, false)
+        } else {
+            expandedSearchRowIDs[store.id, default: []].insert(row.id)
+            return (row.id, true)
+        }
     }
 
     func save() {
