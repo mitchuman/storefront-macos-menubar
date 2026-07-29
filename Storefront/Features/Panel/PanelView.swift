@@ -1,9 +1,11 @@
 import SwiftUI
+import AppKit
 
 struct PanelView: View {
     @EnvironmentObject var appState: AppState
     @StateObject private var safeTriangle = SafeTriangleController()
     @FocusState private var searchFocused: Bool
+    @Environment(\.openSettings) private var openSettings
 
     /// The right panel's frame is fully determined by fixed layout constants (not
     /// measured dynamically) — a `GeometryReader` here proved unreliable, since its
@@ -48,6 +50,7 @@ struct PanelView: View {
         )
         .onAppear {
             searchFocused = true
+            appState.exitToRail()
             safeTriangle.updateRightPanelFrame(rightPanelFrame)
             safeTriangle.configure { rowID in
                 if let store = appState.stores.first(where: { $0.id == rowID }) {
@@ -58,6 +61,69 @@ struct PanelView: View {
         }
         .onChange(of: appState.selectedStoreID) { _, newValue in
             safeTriangle.updateSelectedRowID(newValue)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .openSettingsRequested)) { _ in
+            openSettings()
+            NSApp.activate(ignoringOtherApps: true)
+        }
+        .onKeyPress { keyPress in
+            handleKeyPress(keyPress)
+        }
+    }
+
+    private func handleKeyPress(_ keyPress: KeyPress) -> KeyPress.Result {
+        if keyPress.modifiers.contains(.command) {
+            if keyPress.key == "q" {
+                NSApp.terminate(nil)
+                return .handled
+            }
+            if let digit = Int(String(keyPress.key.character)), (1...9).contains(digit) {
+                appState.selectStore(atShortcutIndex: digit)
+                return .handled
+            }
+            return .ignored
+        }
+
+        switch keyPress.key {
+        case .upArrow:
+            if appState.focusArea == .rail {
+                appState.selectAdjacentStore(offset: -1)
+            } else {
+                appState.moveRowFocus(offset: -1)
+            }
+            return .handled
+        case .downArrow:
+            if appState.focusArea == .rail {
+                appState.selectAdjacentStore(offset: 1)
+            } else {
+                appState.moveRowFocus(offset: 1)
+            }
+            return .handled
+        case .leftArrow:
+            guard appState.focusArea == .cards else { return .ignored }
+            appState.moveCardFocus(offset: -1)
+            return .handled
+        case .rightArrow:
+            if appState.focusArea == .rail {
+                appState.enterCards()
+            } else {
+                appState.moveCardFocus(offset: 1)
+            }
+            return .handled
+        case .return:
+            guard appState.focusArea == .cards else { return .ignored }
+            appState.openFocusedLink()
+            return .handled
+        case .escape:
+            if appState.focusArea == .cards {
+                appState.exitToRail()
+                searchFocused = true
+            } else {
+                AppDelegate.shared?.closePanel()
+            }
+            return .handled
+        default:
+            return .ignored
         }
     }
 

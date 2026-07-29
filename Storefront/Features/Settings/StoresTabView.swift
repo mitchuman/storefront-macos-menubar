@@ -1,6 +1,9 @@
 import SwiftUI
 import AppKit
 import UniformTypeIdentifiers
+import OSLog
+
+private let logger = Logger(subsystem: "com.humanmarketing.storefront", category: "csv")
 
 struct StoresTabView: View {
     @EnvironmentObject var appState: AppState
@@ -10,27 +13,45 @@ struct StoresTabView: View {
     @State private var newDomain = ""
     @State private var newDisplayName = ""
     @State private var newColorHex = "1f6f4a"
+    @State private var csvErrorMessage: String?
 
     var orderedStores: [Store] {
         appState.stores.sorted { $0.sortOrder < $1.sortOrder }
     }
 
+    private enum Column {
+        static let order: CGFloat = 30
+        static let enable: CGFloat = 40
+        static let accent: CGFloat = 40
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("SHOW IN PANEL")
-                .font(.mono(10, weight: .semibold))
-                .tracking(1.2)
-                .foregroundStyle(Theme.textMeta40)
-
-            List {
-                ForEach(orderedStores) { store in
-                    storeRow(store: store)
-                        .listRowBackground(Theme.settingsCardFill)
-                }
-                .onMove(perform: moveStores)
+            HStack {
+                Text("SHOW IN PANEL")
+                    .font(.mono(10, weight: .semibold))
+                    .tracking(1.2)
+                    .foregroundStyle(Theme.textMeta40)
+                Spacer()
+                Button(allVisible ? "Hide All" : "Show All", action: toggleAllVisibility)
+                    .buttonStyle(.plain)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(Theme.accent)
             }
-            .listStyle(.plain)
-            .scrollContentBackground(.hidden)
+
+            VStack(spacing: 0) {
+                tableHeader
+                Divider().overlay(Theme.hairline)
+                List {
+                    ForEach(orderedStores) { store in
+                        storeRow(store: store)
+                            .listRowBackground(Theme.settingsCardFill)
+                    }
+                    .onMove(perform: moveStores)
+                }
+                .listStyle(.plain)
+                .scrollContentBackground(.hidden)
+            }
             .background(Theme.settingsCardFill)
             .clipShape(RoundedRectangle(cornerRadius: 9))
             .overlay(RoundedRectangle(cornerRadius: 9).strokeBorder(Theme.borderColor, lineWidth: 1))
@@ -59,12 +80,54 @@ struct StoresTabView: View {
             }
         }
         .deleteConfirmation(pendingStore: $storePendingDeletion, appState: appState, editingStore: $editingStore)
+        .alert("Couldn't complete that", isPresented: Binding(
+            get: { csvErrorMessage != nil },
+            set: { if !$0 { csvErrorMessage = nil } }
+        )) {
+            Button("OK", role: .cancel) { csvErrorMessage = nil }
+        } message: {
+            Text(csvErrorMessage ?? "")
+        }
+    }
+
+    private var allVisible: Bool {
+        appState.stores.allSatisfy(\.isVisible)
+    }
+
+    private func toggleAllVisibility() {
+        let newValue = !allVisible
+        for index in appState.stores.indices {
+            appState.stores[index].isVisible = newValue
+        }
+        appState.save()
+    }
+
+    /// Column labels for the store list below — kept as a separate row above the
+    /// (still-native, still-reorderable-by-drag) `List` rather than a `List` section
+    /// header, so it stays fixed in place while the list scrolls beneath it.
+    private var tableHeader: some View {
+        HStack(spacing: 10) {
+            Text("Order")
+                .frame(width: Column.order, alignment: .leading)
+            Text("Enable")
+                .frame(width: Column.enable, alignment: .leading)
+            Text("Accent")
+                .frame(width: Column.accent, alignment: .leading)
+            Text("Display name")
+            Spacer(minLength: 12)
+        }
+        .font(.system(size: 9.5, weight: .semibold))
+        .tracking(0.4)
+        .foregroundStyle(Theme.textMeta40)
+        .padding(.horizontal, 11)
+        .padding(.vertical, 7)
     }
 
     private func storeRow(store: Store) -> some View {
         HStack(spacing: 10) {
             Image(systemName: "line.3.horizontal")
                 .foregroundStyle(Theme.textMeta25)
+                .frame(width: Column.order, alignment: .leading)
 
             Button {
                 toggleVisibility(store)
@@ -85,8 +148,10 @@ struct StoresTabView: View {
                     }
             }
             .buttonStyle(.plain)
+            .frame(width: Column.enable, alignment: .leading)
 
             colorSwatch(color: colorBinding(for: store))
+                .frame(width: Column.accent, alignment: .leading)
 
             Text(store.displayName)
                 .font(.system(size: 12.5, weight: .medium))
@@ -101,7 +166,7 @@ struct StoresTabView: View {
                     .renderingMode(.template)
                     .resizable()
                     .scaledToFit()
-                    .frame(width: 13, height: 13)
+                    .frame(width: 15, height: 15)
             }
             .buttonStyle(.plain)
             .foregroundStyle(Theme.textMeta40)
@@ -110,6 +175,7 @@ struct StoresTabView: View {
                 storePendingDeletion = store
             } label: {
                 Image(systemName: "trash")
+                    .font(.system(size: 13))
             }
             .buttonStyle(.plain)
             .foregroundStyle(Theme.textMeta40)
@@ -269,7 +335,12 @@ struct StoresTabView: View {
         panel.nameFieldStringValue = "storefront-stores.csv"
         panel.allowedContentTypes = [.commaSeparatedText]
         guard panel.runModal() == .OK, let url = panel.url else { return }
-        try? appState.storesCSV().write(to: url, atomically: true, encoding: .utf8)
+        do {
+            try appState.storesCSV().write(to: url, atomically: true, encoding: .utf8)
+        } catch {
+            logger.error("CSV export failed: \(error.localizedDescription, privacy: .public)")
+            csvErrorMessage = "Couldn't save the CSV file: \(error.localizedDescription)"
+        }
     }
 
     private func importCSV() {
@@ -277,8 +348,13 @@ struct StoresTabView: View {
         panel.allowedContentTypes = [.commaSeparatedText]
         panel.allowsMultipleSelection = false
         guard panel.runModal() == .OK, let url = panel.url else { return }
-        guard let contents = try? String(contentsOf: url, encoding: .utf8) else { return }
-        appState.importStoresCSV(contents)
+        do {
+            let contents = try String(contentsOf: url, encoding: .utf8)
+            appState.importStoresCSV(contents)
+        } catch {
+            logger.error("CSV import failed: \(error.localizedDescription, privacy: .public)")
+            csvErrorMessage = "Couldn't read that file — make sure it's a valid UTF-8 CSV."
+        }
     }
 }
 

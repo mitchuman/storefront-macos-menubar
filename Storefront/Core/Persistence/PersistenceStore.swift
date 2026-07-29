@@ -6,14 +6,12 @@ final class PersistenceStore {
     private let directoryURL: URL
     private let storesURL: URL
     private let settingsURL: URL
-    private let cachesURL: URL
 
     init(fileManager: FileManager = .default) {
         let appSupport = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         directoryURL = appSupport.appendingPathComponent("Storefront", isDirectory: true)
         storesURL = directoryURL.appendingPathComponent("stores.json")
         settingsURL = directoryURL.appendingPathComponent("settings.json")
-        cachesURL = directoryURL.appendingPathComponent("caches.json")
         try? fileManager.createDirectory(at: directoryURL, withIntermediateDirectories: true)
     }
 
@@ -39,15 +37,5 @@ final class PersistenceStore {
     func save(settings: AppSettings) {
         guard let data = try? JSONEncoder().encode(settings) else { return }
         try? data.write(to: settingsURL, options: .atomic)
-    }
-
-    func loadCaches() -> [UUID: StoreCache] {
-        guard let data = try? Data(contentsOf: cachesURL) else { return [:] }
-        return (try? JSONDecoder().decode([UUID: StoreCache].self, from: data)) ?? [:]
-    }
-
-    func save(caches: [UUID: StoreCache]) {
-        guard let data = try? JSONEncoder().encode(caches) else { return }
-        try? data.write(to: cachesURL, options: .atomic)
     }
 }

@@ -6,27 +6,51 @@ import SwiftUI
 struct SectionsTabView: View {
     @EnvironmentObject var appState: AppState
 
+    private var allEnabled: Bool {
+        appState.settings.enabledSections.count == SectionID.allCases.count
+    }
+
+    private func toggleAllEnabled() {
+        appState.settings.enabledSections = allEnabled ? [] : Set(SectionID.allCases)
+        appState.save()
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("SECTIONS")
-                .font(.mono(10, weight: .semibold))
-                .tracking(1.2)
-                .foregroundStyle(Theme.textMeta40)
+            HStack {
+                Text("SECTIONS")
+                    .font(.mono(10, weight: .semibold))
+                    .tracking(1.2)
+                    .foregroundStyle(Theme.textMeta40)
+                Spacer()
+                Button(allEnabled ? "Disable All" : "Enable All", action: toggleAllEnabled)
+                    .buttonStyle(.plain)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(Theme.accent)
+            }
 
             List {
                 ForEach(appState.settings.sectionOrder, id: \.self) { section in
                     HStack(spacing: 11) {
                         Image(systemName: "line.3.horizontal")
                             .foregroundStyle(Theme.textMeta25)
+                        Image(section.iconName)
+                            .renderingMode(.template)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 16, height: 16)
+                            .foregroundStyle(Theme.textMeta40)
                         Text(section.title)
-                            .font(.system(size: 12))
+                            .font(.system(size: 12.5, weight: .medium))
                             .foregroundStyle(Theme.textPrimary)
                         Spacer()
                         Toggle("", isOn: bindingFor(section: section))
                             .labelsHidden()
                             .toggleStyle(.switch)
+                            .controlSize(.small)
                     }
-                    .padding(.vertical, 2)
+                    .padding(.horizontal, 11)
+                    .padding(.vertical, 9)
                     .listRowBackground(Theme.settingsCardFill)
                 }
                 .onMove(perform: move)
@@ -37,11 +61,24 @@ struct SectionsTabView: View {
             .clipShape(RoundedRectangle(cornerRadius: 9))
             .overlay(RoundedRectangle(cornerRadius: 9).strokeBorder(Theme.borderColor, lineWidth: 1))
 
-            Text("Applies to every store. Drag rows to reorder.")
-                .font(.system(size: 11))
-                .foregroundStyle(Theme.textSecondary)
+            HStack {
+                Text("Applies to every store. Drag rows to reorder.")
+                    .font(.system(size: 11))
+                    .foregroundStyle(Theme.textSecondary)
+                Spacer()
+                Button("Reset to Default", action: resetToDefault)
+                    .buttonStyle(.plain)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(Theme.accent)
+            }
         }
         .padding(18)
+    }
+
+    private func resetToDefault() {
+        appState.settings.sectionOrder = SectionID.defaultOrder
+        appState.settings.enabledSections = Set(SectionID.allCases)
+        appState.save()
     }
 
     private func bindingFor(section: SectionID) -> Binding<Bool> {

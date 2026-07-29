@@ -1,10 +1,20 @@
 import SwiftUI
 import Combine
+import ServiceManagement
 
-enum SyncState: Equatable {
-    case idle(Date?)
-    case loading
-    case failed(String)
+/// Which part of the panel keyboard navigation currently targets — the store rail
+/// (search + list) or the right-hand section-card grid.
+enum PanelFocusArea: Equatable {
+    case rail
+    case cards
+}
+
+/// Identifies a `SettingsRootView` tab — lets the status-item menu's quick links jump
+/// straight to a specific tab instead of always landing on whichever one is first.
+enum SettingsTab: Hashable {
+    case general
+    case stores
+    case sections
 }
 
 @MainActor
@@ -12,13 +22,13 @@ final class AppState: ObservableObject {
     @Published var stores: [Store]
     @Published var selectedStoreID: Store.ID?
     @Published var query: String = ""
-    @Published var syncState: [Store.ID: SyncState] = [:]
     @Published var settings: AppSettings
-    @Published var caches: [Store.ID: StoreCache]
+    @Published var focusArea: PanelFocusArea = .rail
+    @Published var focusedSectionIndex: Int = 0
+    @Published var focusedRowIndex: Int = 0
+    @Published var selectedSettingsTab: SettingsTab = .general
 
     private let persistence: PersistenceStore
-    private let adminClient = ShopifyAdminClient()
-    private static let staleAfter: TimeInterval = 10 * 60
 
     init(persistence: PersistenceStore = .shared) {
         self.persistence = persistence
@@ -26,7 +36,34 @@ final class AppState: ObservableObject {
         self.stores = loaded
         self.selectedStoreID = loaded.first(where: { $0.isVisible })?.id ?? loaded.first?.id
         self.settings = persistence.loadSettings()
-        self.caches = persistence.loadCaches()
+        reconcileLaunchAtLogin()
+    }
+
+    /// `SMAppService`'s registration can drift from our stored setting (e.g. the user
+    /// removes the login item directly via System Settings) — correct our copy to match
+    /// reality on launch rather than trusting a possibly-stale stored value.
+    private func reconcileLaunchAtLogin() {
+        let actuallyEnabled = SMAppService.mainApp.status == .enabled
+        if settings.launchAtLogin != actuallyEnabled {
+            settings.launchAtLogin = actuallyEnabled
+        }
+    }
+
+    /// Registers/unregisters the app as a login item to match the toggle. Reverts to
+    /// whatever `SMAppService` actually reports if the call fails, so the UI never
+    /// claims a state that isn't real.
+    func setLaunchAtLogin(_ enabled: Bool) {
+        do {
+            if enabled {
+                try SMAppService.mainApp.register()
+            } else {
+                try SMAppService.mainApp.unregister()
+            }
+            settings.launchAtLogin = enabled
+        } catch {
+            settings.launchAtLogin = SMAppService.mainApp.status == .enabled
+        }
+        save()
     }
 
     /// Favorited stores first (starring moves a store to the top), each group
@@ -42,18 +79,91 @@ final class AppState: ObservableObject {
         stores.first { $0.id == selectedStoreID }
     }
 
+    /// `visibleStores`, further narrowed by the rail's search query — the exact list
+    /// the rail renders, shared here so keyboard navigation and `⌘1`-`⌘9` index into
+    /// the same set of rows the user actually sees.
+    var filteredStores: [Store] {
+        let stores = visibleStores
+        guard !query.isEmpty else { return stores }
+        return stores.filter { $0.displayName.localizedCaseInsensitiveContains(query) }
+    }
+
+    /// All enabled sections, in display order — the exact list `StoreDetailView` renders,
+    /// shared here so keyboard navigation can resolve a focused card/row without needing
+    /// its own view-layer state.
+    var enabledSections: [SectionID] {
+        settings.sectionOrder.filter { settings.enabledSections.contains($0) }
+    }
+
     func select(_ store: Store) {
         selectedStoreID = store.id
-        refreshIfStale(store)
+    }
+
+    // MARK: - Keyboard navigation
+
+    func selectAdjacentStore(offset: Int) {
+        let stores = filteredStores
+        guard !stores.isEmpty else { return }
+        let currentIndex = stores.firstIndex(where: { $0.id == selectedStoreID }) ?? 0
+        let count = stores.count
+        let newIndex = ((currentIndex + offset) % count + count) % count
+        select(stores[newIndex])
+    }
+
+    /// `⌘1`-`⌘9` jump straight to the Nth visible store, from either the rail or the
+    /// card grid — 1-based to match the digit the user actually presses.
+    func selectStore(atShortcutIndex index: Int) {
+        let stores = filteredStores
+        guard index >= 1, index <= stores.count else { return }
+        select(stores[index - 1])
+        focusArea = .rail
+    }
+
+    func enterCards() {
+        guard !enabledSections.isEmpty else { return }
+        focusArea = .cards
+        focusedSectionIndex = 0
+        focusedRowIndex = 0
+    }
+
+    func exitToRail() {
+        focusArea = .rail
+    }
+
+    /// Left/Right — moves between cards in the same flat reading order the grid already
+    /// lays out in (a flat index into `enabledSections` reads left-to-right, row-to-row,
+    /// so no 2D math is needed). Wraps at either end — Esc is the way back to the rail.
+    func moveCardFocus(offset: Int) {
+        let sectionCount = enabledSections.count
+        guard sectionCount > 0 else { return }
+        focusedSectionIndex = ((focusedSectionIndex + offset) % sectionCount + sectionCount) % sectionCount
+        focusedRowIndex = 0
+    }
+
+    /// Up/Down while focused on a card — wraps within that card's own rows, does not
+    /// spill into the next/previous card.
+    func moveRowFocus(offset: Int) {
+        guard focusedSectionIndex < enabledSections.count else { return }
+        let rowCount = StaticLinkCatalog.rows(for: enabledSections[focusedSectionIndex]).count
+        guard rowCount > 0 else { return }
+        focusedRowIndex = ((focusedRowIndex + offset) % rowCount + rowCount) % rowCount
+    }
+
+    /// Return — opens the currently keyboard-focused link, same as clicking it.
+    /// Holding ⌥ still keeps the popover open, since `openStoreLink` reads live
+    /// modifier flags rather than taking a parameter.
+    func openFocusedLink() {
+        guard focusArea == .cards, let store = selectedStore,
+              focusedSectionIndex < enabledSections.count else { return }
+        let rows = StaticLinkCatalog.rows(for: enabledSections[focusedSectionIndex])
+        guard focusedRowIndex < rows.count,
+              let url = rows[focusedRowIndex].url(for: store.myshopifyDomain) else { return }
+        openStoreLink(url)
     }
 
     func save() {
         persistence.save(stores: stores)
         persistence.save(settings: settings)
-    }
-
-    func saveCaches() {
-        persistence.save(caches: caches)
     }
 
     func addStore(domain: String, displayName: String, colorHex: String) {
@@ -106,10 +216,7 @@ final class AppState: ObservableObject {
 
     func removeStore(_ store: Store) {
         stores.removeAll { $0.id == store.id }
-        caches.removeValue(forKey: store.id)
-        KeychainStore.deleteAdminToken(forStoreDomain: store.myshopifyDomain)
         save()
-        saveCaches()
     }
 
     func moveStore(fromOffsets: IndexSet, toOffset: Int) {
@@ -124,100 +231,4 @@ final class AppState: ObservableObject {
         save()
     }
 
-    // MARK: - Store connection (manual token)
-
-    enum ConnectError: LocalizedError {
-        case invalidToken
-
-        var errorDescription: String? {
-            switch self {
-            case .invalidToken: return "That token didn't work. Double-check it was copied in full and has the right scopes."
-            }
-        }
-    }
-
-    /// Validates the pasted token against the store before saving anything.
-    func connectStore(_ store: Store, token: String) async throws {
-        try await adminClient.validateToken(domain: store.myshopifyDomain, token: token)
-        KeychainStore.saveAdminToken(token, forStoreDomain: store.myshopifyDomain)
-        guard let index = stores.firstIndex(where: { $0.id == store.id }) else { return }
-        stores[index].hasToken = true
-        stores[index].connectionStatus = .connected
-        save()
-        await refresh(stores[index])
-    }
-
-    func disconnectStore(_ store: Store) {
-        KeychainStore.deleteAdminToken(forStoreDomain: store.myshopifyDomain)
-        guard let index = stores.firstIndex(where: { $0.id == store.id }) else { return }
-        stores[index].hasToken = false
-        stores[index].connectionStatus = .staticOnly
-        caches.removeValue(forKey: store.id)
-        syncState.removeValue(forKey: store.id)
-        save()
-        saveCaches()
-    }
-
-    // MARK: - Enrichment refresh
-
-    func refreshIfStale(_ store: Store) {
-        guard store.hasToken else { return }
-        let cache = caches[store.id]
-        let isStale = (cache?.fetchedAt).map { Date().timeIntervalSince($0) > Self.staleAfter } ?? true
-        guard isStale else { return }
-        Task { await refresh(store) }
-    }
-
-    func refreshAllConnectedStores() {
-        for store in stores where store.hasToken {
-            Task { await refresh(store) }
-        }
-    }
-
-    /// Called when the panel opens — refreshes every visible connected store whose
-    /// cache has gone stale, concurrently, without blocking the panel from painting.
-    func refreshVisibleStoresIfStale() {
-        for store in visibleStores {
-            refreshIfStale(store)
-        }
-    }
-
-    func refresh(_ store: Store) async {
-        guard let token = KeychainStore.adminToken(forStoreDomain: store.myshopifyDomain) else { return }
-        syncState[store.id] = .loading
-
-        do {
-            async let products = adminClient.fetchRecentlyEditedProducts(domain: store.myshopifyDomain, token: token)
-            async let collections = adminClient.fetchTopCollections(domain: store.myshopifyDomain, token: token)
-            async let themes = adminClient.fetchThemes(domain: store.myshopifyDomain, token: token)
-            async let orders = adminClient.fetchOrderStats(domain: store.myshopifyDomain, token: token)
-
-            let (productsResult, collectionsResult, themesResult, ordersResult) = try await (products, collections, themes, orders)
-
-            var cache = StoreCache()
-            cache.recentlyEditedProducts = productsResult
-            cache.topCollections = collectionsResult
-            cache.liveTheme = themesResult.live
-            cache.unpublishedThemes = themesResult.unpublished
-            cache.orderStats = ordersResult
-            cache.fetchedAt = Date()
-            caches[store.id] = cache
-            saveCaches()
-
-            if let index = stores.firstIndex(where: { $0.id == store.id }) {
-                stores[index].lastRefreshedAt = cache.fetchedAt
-                stores[index].connectionStatus = .connected
-                save()
-            }
-            syncState[store.id] = .idle(cache.fetchedAt)
-        } catch AdminAPIError.unauthorized {
-            if let index = stores.firstIndex(where: { $0.id == store.id }) {
-                stores[index].connectionStatus = .tokenInvalid
-                save()
-            }
-            syncState[store.id] = .failed("Token was revoked")
-        } catch {
-            syncState[store.id] = .failed(error.localizedDescription)
-        }
-    }
 }

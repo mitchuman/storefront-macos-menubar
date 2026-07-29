@@ -1,13 +1,6 @@
 import SwiftUI
 import AppKit
 
-enum ConnectionStatus: String, Codable {
-    case staticOnly
-    case connecting
-    case connected
-    case tokenInvalid
-}
-
 struct Store: Identifiable, Codable, Equatable {
     let id: UUID
     var accountID: UUID
@@ -17,9 +10,6 @@ struct Store: Identifiable, Codable, Equatable {
     var isVisible: Bool
     var sortOrder: Int
     var isFavorite: Bool
-    var hasToken: Bool
-    var connectionStatus: ConnectionStatus
-    var lastRefreshedAt: Date?
 
     init(
         id: UUID = UUID(),
@@ -29,10 +19,7 @@ struct Store: Identifiable, Codable, Equatable {
         colorHex: String,
         isVisible: Bool = true,
         sortOrder: Int = 0,
-        isFavorite: Bool = false,
-        hasToken: Bool = false,
-        connectionStatus: ConnectionStatus = .staticOnly,
-        lastRefreshedAt: Date? = nil
+        isFavorite: Bool = false
     ) {
         self.id = id
         self.accountID = accountID
@@ -42,9 +29,6 @@ struct Store: Identifiable, Codable, Equatable {
         self.isVisible = isVisible
         self.sortOrder = sortOrder
         self.isFavorite = isFavorite
-        self.hasToken = hasToken
-        self.connectionStatus = connectionStatus
-        self.lastRefreshedAt = lastRefreshedAt
     }
 
     var color: Color {
@@ -106,6 +90,53 @@ extension Color {
         let g = Int((nsColor.greenComponent * 255).rounded())
         let b = Int((nsColor.blueComponent * 255).rounded())
         return String(format: "%02x%02x%02x", r, g, b)
+    }
+
+    /// This color's opaque RGB, as if drawn at `alpha` over `background`.
+    func composited(over background: Color, alpha: Double) -> Color {
+        let fg = NSColor(self).usingColorSpace(.deviceRGB) ?? NSColor(self)
+        let bg = NSColor(background).usingColorSpace(.deviceRGB) ?? NSColor(background)
+        return Color(
+            red: alpha * fg.redComponent + (1 - alpha) * bg.redComponent,
+            green: alpha * fg.greenComponent + (1 - alpha) * bg.greenComponent,
+            blue: alpha * fg.blueComponent + (1 - alpha) * bg.blueComponent
+        )
+    }
+
+    /// WCAG relative luminance (0...1), used for a11y contrast checks.
+    private var relativeLuminance: Double {
+        let nsColor = NSColor(self).usingColorSpace(.deviceRGB) ?? NSColor(self)
+        func channel(_ c: Double) -> Double {
+            c <= 0.03928 ? c / 12.92 : pow((c + 0.055) / 1.055, 2.4)
+        }
+        return 0.2126 * channel(Double(nsColor.redComponent))
+            + 0.7152 * channel(Double(nsColor.greenComponent))
+            + 0.0722 * channel(Double(nsColor.blueComponent))
+    }
+
+    /// WCAG contrast ratio (1...21) between this color and another, both treated as opaque.
+    func contrastRatio(with other: Color) -> Double {
+        let l1 = relativeLuminance
+        let l2 = other.relativeLuminance
+        let (lighter, darker) = l1 > l2 ? (l1, l2) : (l2, l1)
+        return (lighter + 0.05) / (darker + 0.05)
+    }
+
+    /// This color's own tinted-pill background (this color at `alpha` over the panel's
+    /// light/dark backdrop) — used for accent "chip" style buttons like the "+" create
+    /// actions and, per this color, the text color to draw on top of it.
+    func pillBackground(colorScheme: ColorScheme, alpha: Double = 0.12) -> Color {
+        let backdrop: Color = colorScheme == .dark ? Color(white: 0.16) : Color(white: 0.97)
+        return composited(over: backdrop, alpha: alpha)
+    }
+
+    /// Text color for this color's own tinted pill background — falls back to black
+    /// (light mode) or white (dark mode) when this color itself doesn't contrast enough
+    /// against its own tint (e.g. a pale color washing out on a near-white light-mode pill).
+    func pillTextColor(colorScheme: ColorScheme, alpha: Double = 0.12) -> Color {
+        let fallback: Color = colorScheme == .dark ? .white : .black
+        let background = pillBackground(colorScheme: colorScheme, alpha: alpha)
+        return contrastRatio(with: background) >= 3 ? self : fallback
     }
 }
 

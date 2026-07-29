@@ -1,5 +1,8 @@
 import Carbon.HIToolbox
 import AppKit
+import OSLog
+
+private let logger = Logger(subsystem: "com.humanmarketing.storefront", category: "hotkey")
 
 /// Registers a single system-wide keyboard shortcut via Carbon's `RegisterEventHotKey` —
 /// deliberately not `NSEvent.addGlobalMonitorForEvents`, which requires the user to grant
@@ -20,7 +23,10 @@ final class GlobalHotKeyManager {
 
     private init() {}
 
-    func register(_ combo: KeyCombo, action: @escaping () -> Void) {
+    /// Returns `false` (and leaves nothing registered) if `RegisterEventHotKey` rejects
+    /// the combo — e.g. it's already claimed system-wide by another app or by macOS itself.
+    @discardableResult
+    func register(_ combo: KeyCombo, action: @escaping () -> Void) -> Bool {
         unregister()
         self.action = action
 
@@ -47,7 +53,7 @@ final class GlobalHotKeyManager {
             )
         }
 
-        RegisterEventHotKey(
+        let status = RegisterEventHotKey(
             combo.keyCode,
             combo.modifierFlags,
             hotKeyID,
@@ -55,13 +61,20 @@ final class GlobalHotKeyManager {
             0,
             &hotKeyRef
         )
+        guard status == noErr else {
+            logger.error("RegisterEventHotKey failed for \(combo.displayString, privacy: .public) — OSStatus \(status)")
+            hotKeyRef = nil
+            return false
+        }
+        return true
     }
 
     /// Re-registers with a new combo, reusing whatever action was already set — for
     /// the Settings recorder, which shouldn't need to know the open-panel logic itself.
-    func updateCombo(_ combo: KeyCombo) {
-        guard let action else { return }
-        register(combo, action: action)
+    @discardableResult
+    func updateCombo(_ combo: KeyCombo) -> Bool {
+        guard let action else { return false }
+        return register(combo, action: action)
     }
 
     func unregister() {

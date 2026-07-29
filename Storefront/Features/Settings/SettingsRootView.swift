@@ -1,16 +1,19 @@
 import SwiftUI
 
 struct SettingsRootView: View {
+    @EnvironmentObject var appState: AppState
+
     var body: some View {
-        TabView {
+        TabView(selection: $appState.selectedSettingsTab) {
             StoresTabView()
                 .tabItem { Label("Stores", systemImage: "bag") }
+                .tag(SettingsTab.stores)
             SectionsTabView()
                 .tabItem { Label("Sections", systemImage: "square.grid.2x2") }
-            AccountsTabView()
-                .tabItem { Label("Accounts", systemImage: "key") }
+                .tag(SettingsTab.sections)
             GeneralTabView()
                 .tabItem { Label("General", systemImage: "gearshape") }
+                .tag(SettingsTab.general)
         }
         .frame(width: 660, height: 420)
     }

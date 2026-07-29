@@ -2,7 +2,7 @@ import SwiftUI
 import AppKit
 
 struct VisualEffectView: NSViewRepresentable {
-    var material: NSVisualEffectView.Material = .popover
+    var material: NSVisualEffectView.Material = .menu
     // `.withinWindow` keeps the blur based on the popover's own content instead of
     // sampling whatever's on screen behind it (desktop wallpaper, other windows) —
     // `.behindWindow` was picking up a color cast from behind the panel and tinting

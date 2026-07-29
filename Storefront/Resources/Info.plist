@@ -17,12 +17,20 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>0.1.0</string>
+	<string>0.0.0</string>
 	<key>CFBundleVersion</key>
 	<string>1</string>
 	<key>LSUIElement</key>
 	<true/>
 	<key>NSHumanReadableCopyright</key>
 	<string>Copyright © 2026 Human Marketing.</string>
+	<key>SUEnableAutomaticChecks</key>
+	<true/>
+	<key>SUFeedURL</key>
+	<string>https://TODO-your-domain.com/appcast.xml</string>
+	<key>SUPublicEDKey</key>
+	<string>v/SVpv1UO0YocJuBwLCj9eF9DV5SooDM3VxnarGWJf0=</string>
+	<key>SUScheduledCheckInterval</key>
+	<integer>86400</integer>
 </dict>
 </plist>

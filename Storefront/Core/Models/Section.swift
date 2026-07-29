@@ -1,10 +1,5 @@
 import Foundation
 
-enum SectionKind {
-    case enriched
-    case links
-}
-
 enum SectionID: String, Codable, CaseIterable, Hashable {
     case products
     case collections
@@ -23,7 +18,7 @@ enum SectionID: String, Codable, CaseIterable, Hashable {
         case .products: return "Products"
         case .collections: return "Collections"
         case .themes: return "Themes"
-        case .navigationAndRedirects: return "Navigation & redirects"
+        case .navigationAndRedirects: return "Navigation"
         case .orders: return "Orders"
         case .discounts: return "Discounts"
         case .settings: return "Store settings"
@@ -31,15 +26,6 @@ enum SectionID: String, Codable, CaseIterable, Hashable {
         case .analytics: return "Analytics"
         case .content: return "Content"
         case .customers: return "Customers"
-        }
-    }
-
-    var kind: SectionKind {
-        switch self {
-        case .products, .collections, .themes, .orders:
-            return .enriched
-        default:
-            return .links
         }
     }
 
@@ -61,9 +47,11 @@ enum SectionID: String, Codable, CaseIterable, Hashable {
         }
     }
 
-    /// Default display order, matching the design's default section ordering.
+    /// Default display order, matching Shopify's own admin sidebar ordering. Navigation
+    /// has no literal top-level equivalent there (it lives under Online Store), so it's
+    /// placed next to Themes/Content, the closest real grouping.
     static var defaultOrder: [SectionID] {
-        [.products, .themes, .navigationAndRedirects, .collections, .orders, .discounts, .settings, .apps, .analytics, .content, .customers]
+        [.orders, .products, .collections, .customers, .discounts, .content, .analytics, .themes, .navigationAndRedirects, .apps, .settings]
     }
 }
 
@@ -101,8 +89,7 @@ struct LinkRow: Identifiable {
     }
 }
 
-/// Static (non-enriched) link catalog per section. Enriched sections still show
-/// these base links even without a token; dynamic rows are layered on top when connected.
+/// The fixed catalog of admin deep links shown per section.
 enum StaticLinkCatalog {
     static func rows(for section: SectionID) -> [LinkRow] {
         switch section {
@@ -117,13 +104,13 @@ enum StaticLinkCatalog {
             ]
         case .themes:
             return [
-                LinkRow(id: "themes.library", title: "Theme library", path: "/themes", iconName: "ThemeStoreIcon"),
+                LinkRow(id: "themes.library", title: "Theme library", path: "/themes", iconName: "ThemeIcon"),
+                LinkRow(id: "themes.rollouts", title: "Rollouts", path: "/rollouts", iconName: "RocketIcon"),
             ]
         case .navigationAndRedirects:
             return [
-                LinkRow(id: "navigation.all", title: "Menus", path: "/menus", iconName: "ListBulletedIcon"),
-                LinkRow(id: "navigation.main", title: "Main menu", path: "/menus", iconName: "MenuIcon"),
-                LinkRow(id: "redirects.all", title: "URL redirects", path: "/content/redirects", iconName: "DomainRedirectIcon", createAction: .init(path: "/content/redirects/new")),
+                LinkRow(id: "navigation.all", title: "Menus", path: "/menus", iconName: "ListBulletedIcon", createAction: .init(path: "/menus/new")),
+                LinkRow(id: "redirects.all", title: "Redirects", path: "/content/redirects", iconName: "DomainRedirectIcon", createAction: .init(path: "/content/redirects/new")),
             ]
         case .orders:
             return [
@@ -159,11 +146,11 @@ enum StaticLinkCatalog {
             ]
         case .content:
             return [
+                LinkRow(id: "content.pages", title: "Pages", path: "/pages", iconName: "PageIcon", createAction: .init(path: "/pages/new")),
+                LinkRow(id: "content.blogs", title: "Blogs", path: "/content/blogs", iconName: "BlogIcon", createAction: .init(path: "/content/blogs/new")),
+                LinkRow(id: "content.blog", title: "Blog posts", path: "/content/articles", iconName: "BlogIcon", createAction: .init(path: "/content/articles/new")),
                 LinkRow(id: "content.files", title: "Files", path: "/content/files", iconName: "FileIcon"),
                 LinkRow(id: "content.metafields", title: "Metafield definitions", path: "/settings/custom_data", iconName: "MetaobjectListIcon"),
-                LinkRow(id: "content.pages", title: "Pages", path: "/pages", iconName: "PageIcon"),
-                LinkRow(id: "content.blogs", title: "Blogs", path: "/content/blogs", iconName: "BlogIcon"),
-                LinkRow(id: "content.blog", title: "Blog posts", path: "/content/articles", iconName: "BlogIcon"),
             ]
         case .customers:
             return [
