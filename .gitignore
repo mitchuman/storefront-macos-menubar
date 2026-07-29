@@ -11,5 +11,8 @@ xcuserdata/
 .swiftpm/
 .build/
 
+# Packaging
+dist/
+
 # macOS
 .DS_Store

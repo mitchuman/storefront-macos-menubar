@@ -46,6 +46,17 @@ open Storefront.xcodeproj
 
 Re-run `xcodegen generate` any time `project.yml` changes (adding/removing files, entitlements, etc.).
 
+### Packaging a DMG
+
+Build a Release (or Archive) of `Storefront.app` in Xcode, then:
+
+```sh
+brew install create-dmg
+./scripts/create-dmg.sh /path/to/Storefront.app
+```
+
+This writes `dist/Storefront.dmg` with a Finder background that guides users to drag the app into Applications.
+
 ## Usage
 
 - Click the bag icon in the menu bar, or press the configured global hotkey (default `⌃⌥⌘S`)
