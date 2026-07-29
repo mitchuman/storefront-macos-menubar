@@ -1,6 +1,6 @@
 import { defineField, defineType } from 'sanity'
 import { LinkIcon } from '@sanity/icons/Link'
-import { MACOS_DMG_URL } from '@/lib/macos-download'
+import { MACOS_DMG_URL } from '@/lib/download-macos'
 import resolveSlug from '@/sanity/lib/resolve-slug'
 
 export default defineType({
