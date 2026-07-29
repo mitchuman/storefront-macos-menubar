@@ -1,13 +1,13 @@
 @import 'tailwindcss';
 
 @theme {
-	--font-sans: 'Geist', sans-serif;
+	/* --font-sans: 'Geist', sans-serif; */
 
-	--color-background: var(--color-neutral-100);
+	--color-background: #dfe1e3;
 	--color-foreground: var(--color-neutral-900);
-	--color-stroke: var(--color-neutral-200);
+	--color-stroke: #cdcfd0;
 
-	--color-primary: LinkText;
+	--color-primary: #277cb3;
 
 	--spacing-lh: 1lh;
 	--spacing-ch: 1ch;
@@ -92,11 +92,11 @@
 }
 
 @utility h0 {
-	@apply h-base text-5xl leading-[1.1];
+	@apply h-base text-7xl leading-[1.1];
 }
 
 @utility h1 {
-	@apply h-base text-3xl;
+	@apply h-base text-5xl;
 }
 
 @utility h2 {
@@ -132,8 +132,8 @@
 	justify-content: center;
 	text-align: center;
 	gap: 0.5em;
-	padding: 0.25em 0.5em;
-	@apply active:scale-98 transition-all;
+	padding: .5lh 2ch;
+	@apply active:scale-98 transition-all rounded-full leading-tight font-medium;
 }
 
 @utility action {

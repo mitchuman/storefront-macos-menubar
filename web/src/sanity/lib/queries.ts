@@ -8,24 +8,12 @@ import { PROSE_QUERY } from '@/modules/prose/query'
 import { QUOTE_LIST_QUERY } from '@/modules/quote-list/query'
 import { TABBED_CONTENT_QUERY } from '@/modules/tabbed-content/query'
 import type { SITE_QUERY_RESULT } from '@/sanity/types'
+import { LINK_QUERY } from './fragments'
 import { sanityFetchLive } from './live'
 
-/* fragments */
+export { LINK_QUERY } from './fragments'
 
-// @sanity-typegen-ignore
-export const LINK_QUERY = groq`
-	...,
-	type == 'internal' => {
-		internal->{
-			_type,
-			title,
-			'slug': select(
-				metadata.slug.current == 'index' => '/',
-				'/' + metadata.slug.current
-			)
-		}
-	}
-`
+/* fragments */
 
 // @sanity-typegen-ignore
 const NAVIGATION_QUERY = groq`
@@ -120,13 +108,13 @@ export const MODULES_QUERY = groq`
 	},
 	sidebar{ ${SIDEBAR_QUERY} },
 	${FORM_MODULE_QUERY},
-	${BREADCRUMBS_QUERY(LINK_QUERY)},
-	${CARD_LIST_QUERY(LINK_QUERY)},
+	${BREADCRUMBS_QUERY},
+	${CARD_LIST_QUERY},
 	${LOGO_LIST_QUERY},
 	${PERSON_LIST_QUERY},
 	${PROSE_QUERY},
 	${QUOTE_LIST_QUERY},
-	${TABBED_CONTENT_QUERY(LINK_QUERY)},
+	${TABBED_CONTENT_QUERY},
 `
 
 /* queries */

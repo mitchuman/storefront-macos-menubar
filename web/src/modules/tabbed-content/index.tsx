@@ -22,7 +22,7 @@ export default function ({
 			{...props}
 		>
 			{(eyebrow || intro) && (
-				<header className="prose col-span-full text-center">
+				<header className="prose col-span-full max-w-xl">
 					<Eyebrow value={eyebrow} />
 					<PortableText value={intro} />
 				</header>
@@ -34,7 +34,7 @@ export default function ({
 						<Label
 							index={i}
 							htmlFor={`tabbed-content-${props._key}-${tab._key}`}
-							className="data-active:border-stroke inline-flex shrink-0 snap-center items-center gap-[.5em] border border-transparent p-[.5em] leading-tight not-hover:not-data-active:opacity-50 data-active:font-bold"
+							className="data-active:border-stroke rounded-full inline-flex shrink-0 snap-center items-center gap-[.5ch] border border-transparent p-[.5lh_2ch] leading-tight not-hover:not-data-active:opacity-50 data-active:font-bold"
 							key={`${tab._key}-${i}`}
 						>
 							<Img
@@ -69,8 +69,9 @@ export default function ({
 												<figure>
 													<Img
 														image={value}
-														width={1000}
+														width={1200}
 														alt={value.alt ?? ''}
+														draggable={false}
 													/>
 												</figure>
 											),

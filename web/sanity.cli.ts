@@ -14,7 +14,7 @@ export default defineCliConfig({
 		path: [
 			'./src/{app,ui,modules}/**/*.{ts,tsx,js,jsx}',
 			'./src/sanity/schemaTypes/**/*.{ts,tsx,js,jsx}',
-			'./src/sanity/lib/queries.ts',
+			'./src/sanity/lib/**/*.{ts,tsx,js,jsx}',
 		],
 		schema: './src/sanity/schema.json',
 		generates: './src/sanity/types.ts',
