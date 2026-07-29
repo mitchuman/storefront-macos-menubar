@@ -107,19 +107,19 @@
 }
 
 @utility h2 {
-	@apply h-base text-2xl;
+	@apply h-base text-3xl;
 }
 
 @utility h3 {
-	@apply h-base text-xl;
+	@apply h-base text-2xl;
 }
 
 @utility h4 {
-	@apply h-base text-lg;
+	@apply h-base text-xl;
 }
 
 @utility h5 {
-	@apply h-base text-base;
+	@apply h-base text-lg;
 }
 
 @utility h6 {
@@ -221,7 +221,7 @@
 	& :not(pre)>code {
 		padding-inline: 0.25em;
 		font-size: 0.875em;
-		@apply bg-foreground/5 rounded-sm;
+		@apply bg-foreground/5 rounded-sm font-sans;
 	}
 
 	& pre {

@@ -22,7 +22,7 @@ export default function ({
 			{...props}
 		>
 			{(eyebrow || intro) && (
-				<header className="prose col-span-full max-w-xl">
+				<header className="prose col-span-full max-w-xl headings:text-balance">
 					<Eyebrow value={eyebrow} />
 					<PortableText value={intro} />
 				</header>

@@ -6,7 +6,7 @@ import Dropdown from './dropdown'
 import Megamenu from './megamenu'
 
 const topLevelClassName = cn(
-	'grid md:place-content-center md:text-center md:text-balance leading-tight py-[.5ch] md:py-ch',
+	'grid md:place-content-center md:text-center md:text-balance leading-tight py-[.5ch] md:py-ch font-medium max-md:text-center',
 )
 
 export default async function () {

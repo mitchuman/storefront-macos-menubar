@@ -40,7 +40,7 @@ export default async function () {
 
 					<CTAList
 						ctas={site?.ctas as Cta[]}
-						className="max-sm:w-full max-sm:*:w-full"
+						className="max-sm:w-full max-sm:*:w-full text-sm"
 					/>
 				</div>
 			</div>

@@ -1,4 +1,4 @@
-import { Geist } from 'next/font/google'
+// import { Geist } from 'next/font/google'
 import { NuqsAdapter } from 'nuqs/adapters/next/app'
 import { preconnect } from 'react-dom'
 import Footer from '@/ui/footer'
@@ -6,9 +6,9 @@ import Header from '@/ui/header'
 import VisualEditing from '@/ui/visual-editing'
 import '@/app.css'
 
-const fontSans = Geist({
-	subsets: ['latin'],
-})
+// const fontSans = Geist({
+// 	subsets: ['latin'],
+// })
 
 export default async function RootLayout({
 	children,
