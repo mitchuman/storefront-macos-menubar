@@ -14,5 +14,8 @@ xcuserdata/
 # Packaging
 dist/
 
+# Local signing (Team ID) — copy from Config/Signing.local.xcconfig.example
+Config/Signing.local.xcconfig
+
 # macOS
 .DS_Store

@@ -160,9 +160,10 @@ enum StaticLinkCatalog {
             ]
         case .analytics:
             return [
-                LinkRow(id: "analytics.live", title: "Live view", path: "/live_view", iconName: "LiveIcon"),
-                LinkRow(id: "analytics.reports", title: "Reports", path: "/reports", iconName: "ChartLineIcon"),
-                LinkRow(id: "analytics.dashboard", title: "Dashboard", path: "/analytics", iconName: "ChartVerticalIcon"),
+                LinkRow(id: "analytics.dashboard", title: "Dashboards", path: "/analytics", iconName: "ChartVerticalIcon"),
+                LinkRow(id: "analytics.reports", title: "Reports", path: "/analytics/reports", iconName: "ChartLineIcon", supportsSearch: true),
+                LinkRow(id: "analytics.live", title: "Live view", path: "/analytics/live", iconName: "LiveIcon"),
+                LinkRow(id: "analytics.agentic", title: "Agentic", path: "/apps/agentic", iconName: "AgenticIcon"),
             ]
         case .content:
             return [
