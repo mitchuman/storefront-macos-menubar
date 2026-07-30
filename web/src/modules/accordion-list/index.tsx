@@ -44,7 +44,10 @@ export default function ({
 				>
 					<Eyebrow value={eyebrow} />
 					<PortableText value={intro} />
-					<CTAList ctas={ctas} className="max-sm:*:w-full" />
+					<CTAList
+						ctas={ctas}
+						className="justify-center max-sm:*:w-full"
+					/>
 				</header>
 			)}
 
