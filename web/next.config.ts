@@ -6,6 +6,9 @@ import { client } from './src/sanity/lib/client'
 const nextConfig: NextConfig = {
 	reactCompiler: true,
 
+	// Required for PostHog API endpoints that use trailing slashes (e.g. /e/)
+	skipTrailingSlashRedirect: true,
+
 	images: {
 		localPatterns: [{ pathname: '/api/og' }],
 		remotePatterns: [{ protocol: 'https', hostname: 'cdn.sanity.io' }],
@@ -13,6 +16,18 @@ const nextConfig: NextConfig = {
 
 	async rewrites() {
 		return [
+			{
+				source: '/sfph/static/:path*',
+				destination: 'https://us-assets.i.posthog.com/static/:path*',
+			},
+			{
+				source: '/sfph/array/:path*',
+				destination: 'https://us-assets.i.posthog.com/array/:path*',
+			},
+			{
+				source: '/sfph/:path*',
+				destination: 'https://us.i.posthog.com/:path*',
+			},
 			{ source: '/:slug.md', destination: '/api/md/:slug' },
 			{ source: '/:path*/:slug.md', destination: '/api/md/:path*/:slug' },
 		]
