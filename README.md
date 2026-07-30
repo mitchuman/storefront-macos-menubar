@@ -32,7 +32,9 @@ Brightleaf,brightleaf-studio.myshopify.com,3a6ea8
 
 **[Download the latest release](https://github.com/nuotsu/storefront-macos-menubar/releases/latest/download/Storefront.dmg)** (macOS 14+)
 
-Drag `Storefront.app` into Applications and open it.
+Releases are Developer ID–signed and notarized. Drag `Storefront.app` into Applications and open it.
+
+If an older build is blocked: **System Settings → Privacy & Security → Open Anyway**.
 
 ## Requirements
 
@@ -53,16 +55,23 @@ Re-run `xcodegen generate` any time `project.yml` changes.
 
 ### Signing & release
 
-Copy `Config/Signing.local.xcconfig.example` to `Config/Signing.local.xcconfig` and set your team ID, then re-run `xcodegen generate`.
+1. Xcode → Settings → Accounts → **Manage Certificates** → add **Developer ID Application**.
+2. Copy `Config/Signing.local.xcconfig.example` → `Config/Signing.local.xcconfig`, set `DEVELOPMENT_TEAM`, then `xcodegen generate`.
+3. One-time notarization login (needs an [app-specific password](https://appleid.apple.com)):
 
-To package a DMG from a signed `Storefront.app`:
+```sh
+xcrun notarytool store-credentials storefront-notary
+# Apple ID, app-specific password, Team ID
+```
+
+4. Build Release, then:
 
 ```sh
 brew install create-dmg
 ./scripts/release-dmg.sh /path/to/Storefront.app
 ```
 
-See `./scripts/release-dmg.sh --help` for notarization options. Skip notarization with `SKIP_NOTARIZE=1`.
+Upload `dist/Storefront.dmg` to GitHub Releases. Skip notarization with `SKIP_NOTARIZE=1`.
 
 ## License
 
