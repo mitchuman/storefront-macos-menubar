@@ -1,7 +1,9 @@
 import { groq } from 'next-sanity'
 import { ImageResponse } from 'next/og'
+import { NextResponse } from 'next/server'
 import { ROUTES } from '@/lib/env'
 import { cn } from '@/lib/utils'
+import { urlFor } from '@/sanity/lib/image'
 import { sanityFetchLive } from '@/sanity/lib/live'
 import { getSite } from '@/sanity/lib/queries'
 import type { OG_QUERY_RESULT } from '@/sanity/types'
@@ -30,6 +32,11 @@ export async function GET(request: Request) {
 		}),
 		getSite(),
 	])
+
+	// Prefer the Studio global OG image so stale meta tags pointing here still resolve correctly
+	if (site?.ogimage?.asset) {
+		return NextResponse.redirect(urlFor(site.ogimage).width(1200).url(), 307)
+	}
 
 	const [h1 = '', h2 = ''] =
 		(page?.title || site?.title)?.split(/(?:\s*[|-—]\s*)/) ?? []
