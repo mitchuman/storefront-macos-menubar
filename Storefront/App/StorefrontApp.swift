@@ -9,5 +9,6 @@ struct StorefrontApp: App {
             SettingsRootView()
                 .environmentObject(appDelegate.appState)
         }
+        .windowResizability(.contentSize)
     }
 }

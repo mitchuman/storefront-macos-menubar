@@ -14,6 +14,31 @@ struct KeyCombo: Codable, Equatable {
         modifierFlags: UInt32(cmdKey | optionKey | controlKey)
     )
 
+    static let openAdminDefault = KeyCombo(
+        keyCode: UInt32(kVK_ANSI_A),
+        modifierFlags: 0
+    )
+
+    static let openOnlineStoreDefault = KeyCombo(
+        keyCode: UInt32(kVK_ANSI_O),
+        modifierFlags: 0
+    )
+
+    static let focusSearchDefault = KeyCombo(
+        keyCode: UInt32(kVK_ANSI_Slash),
+        modifierFlags: 0
+    )
+
+    static let toggleLinkSearchDefault = KeyCombo(
+        keyCode: UInt32(kVK_ANSI_S),
+        modifierFlags: UInt32(controlKey)
+    )
+
+    static let openCreateLinkDefault = KeyCombo(
+        keyCode: UInt32(kVK_ANSI_A),
+        modifierFlags: UInt32(controlKey)
+    )
+
     var displayString: String {
         var result = ""
         if modifierFlags & UInt32(controlKey) != 0 { result += "⌃" }
@@ -46,6 +71,7 @@ struct KeyCombo: Codable, Equatable {
     private static let namedKeyDisplayStrings: [Int: String] = [
         kVK_Space: "Space", kVK_Return: "⏎", kVK_Tab: "⇥", kVK_Delete: "⌫", kVK_Escape: "⎋",
         kVK_LeftArrow: "←", kVK_RightArrow: "→", kVK_UpArrow: "↑", kVK_DownArrow: "↓",
+        kVK_ANSI_Slash: "/",
         kVK_F1: "F1", kVK_F2: "F2", kVK_F3: "F3", kVK_F4: "F4", kVK_F5: "F5", kVK_F6: "F6",
         kVK_F7: "F7", kVK_F8: "F8", kVK_F9: "F9", kVK_F10: "F10", kVK_F11: "F11", kVK_F12: "F12",
     ]
@@ -113,6 +139,40 @@ struct KeyCombo: Codable, Equatable {
         if controlDown { mods |= UInt32(controlKey) }
         if shiftDown { mods |= UInt32(shiftKey) }
         return KeyCombo(keyCode: keyCode, modifierFlags: mods)
+    }
+
+    /// Whether a SwiftUI key press matches this combo (panel-local shortcut handling).
+    func matches(_ keyPress: KeyPress) -> Bool {
+        guard let code = Self.keyCode(for: keyPress.key), UInt32(code) == keyCode else { return false }
+        let press: UInt32 = {
+            var mods: UInt32 = 0
+            if keyPress.modifiers.contains(.command) { mods |= UInt32(cmdKey) }
+            if keyPress.modifiers.contains(.option) { mods |= UInt32(optionKey) }
+            if keyPress.modifiers.contains(.control) { mods |= UInt32(controlKey) }
+            if keyPress.modifiers.contains(.shift) { mods |= UInt32(shiftKey) }
+            return mods
+        }()
+        return press == modifierFlags
+    }
+
+    /// Carbon key code for a SwiftUI `KeyEquivalent` — shared by the recorder and `matches(_:)`.
+    static func keyCode(for key: KeyEquivalent) -> Int? {
+        switch key {
+        case .space: return kVK_Space
+        case .return: return kVK_Return
+        case .tab: return kVK_Tab
+        case .delete: return kVK_Delete
+        case .escape: return kVK_Escape
+        case .upArrow: return kVK_UpArrow
+        case .downArrow: return kVK_DownArrow
+        case .leftArrow: return kVK_LeftArrow
+        case .rightArrow: return kVK_RightArrow
+        default:
+            let character = key.character
+            if character == "/" { return kVK_ANSI_Slash }
+            guard let lowerChar = String(character).lowercased().first else { return nil }
+            return alphanumericKeyCodes[lowerChar]
+        }
     }
 }
 

@@ -7,6 +7,8 @@ enum Theme {
     static let accentTintRow = Color.adaptive(light: Color(hex: "1f6f4a").opacity(0.09), dark: Color(hex: "4fbf8b").opacity(0.09))
     static let accentTintBadge = Color.adaptive(light: Color(hex: "1f6f4a").opacity(0.12), dark: Color(hex: "4fbf8b").opacity(0.12))
     static let errorDot = Color(hex: "c0562c")
+    /// Hotkey recorder “listening” label.
+    static let recordingText = Color.adaptive(light: Color(hex: "d4785a"), dark: Color(hex: "e8a090"))
 
     static let railBackground = Color.adaptive(light: .black.opacity(0.025), dark: .white.opacity(0.03))
     static let footerBackground = Color.adaptive(light: .black.opacity(0.02), dark: .white.opacity(0.02))

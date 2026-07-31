@@ -29,15 +29,11 @@ struct StoresTabView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("SHOW IN PANEL")
-                    .font(.mono(10, weight: .semibold))
-                    .tracking(1.2)
-                    .foregroundStyle(Theme.textMeta40)
-                Spacer()
+                Spacer(minLength: 0)
                 Button(allVisible ? "Hide All" : "Show All", action: toggleAllVisibility)
                     .buttonStyle(.plain)
                     .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(Theme.accent)
+                    .foregroundStyle(Color.accentColor)
             }
 
             VStack(spacing: 0) {
@@ -132,7 +128,6 @@ struct StoresTabView: View {
             Spacer(minLength: 12)
         }
         .font(.system(size: 9.5, weight: .semibold))
-        .tracking(0.4)
         .foregroundStyle(Theme.textMeta40)
         .padding(.horizontal, 11)
         .padding(.vertical, 7)
@@ -201,15 +196,14 @@ struct StoresTabView: View {
     }
 
     private func colorSwatch(color: Binding<Color>) -> some View {
-        // ColorPicker itself always renders as a rounded-rect swatch (no "circle"
-        // style option), so we clip its own rendering to a circle directly rather
-        // than layering a separate near-invisible ColorPicker over a Circle — that
-        // opacity-hack's hit-testing didn't survive being hosted inside a `.sheet`.
+        // ColorPicker always draws a rounded-rect well with its own chrome. Clipping that
+        // rect to a circle leaves the well's top/bottom edges as flat grey chords —
+        // scale the control up so those edges fall outside the mask.
         ColorPicker("", selection: color, supportsOpacity: false)
             .labelsHidden()
+            .scaleEffect(1.8)
             .frame(width: 20, height: 20)
             .clipShape(Circle())
-            .overlay(Circle().strokeBorder(Theme.borderColor, lineWidth: 1))
             .contentShape(Circle())
     }
 

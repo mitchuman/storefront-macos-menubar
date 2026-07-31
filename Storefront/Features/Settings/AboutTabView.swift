@@ -18,35 +18,45 @@ struct AboutTabView: View {
             }
             .padding(.bottom, 14)
 
+            VStack(spacing: 6) {
+                Text("Storefront")
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundStyle(Theme.textPrimary)
+                Text("Jump into any Shopify store's admin panel in seconds.")
+                    .font(.system(size: 12.5))
+                    .foregroundStyle(Theme.textSecondary)
+                    .multilineTextAlignment(.center)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.bottom, 16)
+
             Form {
-                LabeledContent("App name") {
-                    Text("Storefront")
-                        .foregroundStyle(Theme.textSecondary)
-                }
-                .padding(.vertical, 4)
-
-                LabeledContent("Description") {
-                    Text("Jump into any Shopify store's admin panel in seconds.")
-                        .foregroundStyle(Theme.textSecondary)
-                }
-                .padding(.vertical, 4)
-
                 LabeledContent("Version") {
                     Text(Self.appVersionString)
                         .foregroundStyle(Theme.textSecondary)
                 }
-                .padding(.vertical, 4)
+                .padding(.vertical, 0)
 
                 LabeledContent("Repository") {
                     Link("GitHub", destination: Self.repoURL)
                 }
-                .padding(.vertical, 4)
+                .padding(.vertical, 0)
 
                 LabeledContent("Developed by") {
                     Link("nuotsu", destination: Self.nuotsuURL)
                 }
-                .padding(.vertical, 4)
+                .padding(.vertical, 0)
             }
+
+            HStack {
+                Spacer(minLength: 0)
+                Button("Check for Updates…") {
+                    AppDelegate.shared?.checkForUpdates(nil)
+                }
+                Spacer(minLength: 0)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.top, 12)
         }
         .padding(18)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)

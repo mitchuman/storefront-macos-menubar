@@ -6,6 +6,9 @@ struct PanelView: View {
     @StateObject private var safeTriangle = SafeTriangleController()
     @FocusState private var searchFocused: Bool
     @FocusState private var focusedRowSearchID: String?
+    /// Non-text focus target so shortcuts keep working after the search field is blurred
+    /// (e.g. after ⌘1–9), without the text field swallowing ⌘A / ⌘O.
+    @FocusState private var panelFocused: Bool
     @Environment(\.openSettings) private var openSettings
 
     /// The right panel's frame is fully determined by fixed layout constants (not
@@ -43,12 +46,9 @@ struct PanelView: View {
             safeTriangle.updateRowFrames(frames)
         }
         .frame(width: Theme.panelSize.width, height: Theme.panelSize.height)
-        .background(VisualEffectView())
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-        .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .strokeBorder(Theme.borderColor, lineWidth: 1)
-        )
+        // Root stays clear so NSPopover chrome fills body and beak with one material.
+        .focusable()
+        .focused($panelFocused)
         .onAppear {
             searchFocused = true
             appState.exitToRail()
@@ -82,7 +82,51 @@ struct PanelView: View {
         }
     }
 
+    /// Blur text fields and park focus on the panel so shortcut chords aren't eaten by
+    /// `TextField` (⌘A select-all, typing, etc.).
+    private func moveKeyboardFocusToPanel() {
+        focusedRowSearchID = nil
+        searchFocused = false
+        panelFocused = true
+        // If clearing a row-search focus synchronously re-focuses the rail search via
+        // `onChange`, win on the next turn.
+        DispatchQueue.main.async {
+            searchFocused = false
+            panelFocused = true
+        }
+    }
+
+    private func focusStoreSearch() {
+        appState.exitToRail()
+        focusedRowSearchID = nil
+        panelFocused = false
+        searchFocused = true
+        DispatchQueue.main.async {
+            searchFocused = true
+        }
+    }
+
     private func handleKeyPress(_ keyPress: KeyPress) -> KeyPress.Result {
+        let typingInSearch = searchFocused || focusedRowSearchID != nil
+
+        // Store-search focus only when not already typing in a field.
+        if !typingInSearch, appState.settings.focusSearchHotkey.matches(keyPress) {
+            focusStoreSearch()
+            return .handled
+        }
+        // Link-search toggle stays available while a row search is focused (so ⌃S
+        // can collapse it), but not while the rail store search is focused.
+        if !searchFocused, appState.settings.toggleLinkSearchHotkey.matches(keyPress) {
+            if let result = appState.toggleSearchForFocusedLink() {
+                if result.isNowExpanded {
+                    focusedRowSearchID = result.rowID
+                } else if focusedRowSearchID == result.rowID {
+                    focusedRowSearchID = nil
+                }
+            }
+            return .handled
+        }
+
         if keyPress.modifiers.contains(.command) {
             if keyPress.key == "q" {
                 NSApp.terminate(nil)
@@ -90,34 +134,27 @@ struct PanelView: View {
             }
             if let digit = Int(String(keyPress.key.character)), (1...9).contains(digit) {
                 appState.selectStore(atShortcutIndex: digit)
+                moveKeyboardFocusToPanel()
                 return .handled
             }
             return .ignored
         }
 
-        // While a row's inline search field has real keyboard focus, let it handle
-        // arrows/Return/Escape natively (cursor movement, onSubmit, onExitCommand)
-        // instead of this grid nav — otherwise Up/Down can silently swap the selected
-        // store mid-type (proven reachable via the rail's own search field, which has
-        // the same bubbling behavior), and Return/Escape could double-fire alongside it.
-        guard focusedRowSearchID == nil else { return .ignored }
+        // While typing in the rail or row search field, let the TextField handle
+        // keys (including A/O/arrows) instead of panel shortcuts / grid nav.
+        guard !typingInSearch else { return .ignored }
 
-        if keyPress.modifiers.contains(.control) {
-            if keyPress.key == "s" {
-                if let result = appState.toggleSearchForFocusedLink() {
-                    if result.isNowExpanded {
-                        focusedRowSearchID = result.rowID
-                    } else if focusedRowSearchID == result.rowID {
-                        focusedRowSearchID = nil
-                    }
-                }
-                return .handled
-            }
-            if keyPress.key == "a" {
-                appState.openFocusedCreateLink()
-                return .handled
-            }
-            return .ignored
+        if appState.settings.openAdminHotkey.matches(keyPress) {
+            appState.openSelectedAdmin()
+            return .handled
+        }
+        if appState.settings.openOnlineStoreHotkey.matches(keyPress) {
+            appState.openSelectedOnlineStore()
+            return .handled
+        }
+        if appState.settings.openCreateLinkHotkey.matches(keyPress) {
+            appState.openFocusedCreateLink()
+            return .handled
         }
 
         switch keyPress.key {

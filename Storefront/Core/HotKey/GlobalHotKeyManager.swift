@@ -30,6 +30,11 @@ final class GlobalHotKeyManager {
         unregister()
         self.action = action
 
+        // Prefer the dispatcher target over the application target — with SwiftUI's
+        // `@NSApplicationDelegateAdaptor` lifecycle, hotkeys registered only on the
+        // application target often never fire.
+        let eventTarget = GetEventDispatcherTarget()
+
         if eventHandlerRef == nil {
             var eventType = EventTypeSpec(
                 eventClass: OSType(kEventClassKeyboard),
@@ -37,7 +42,7 @@ final class GlobalHotKeyManager {
             )
             let selfPointer = Unmanaged.passUnretained(self).toOpaque()
             InstallEventHandler(
-                GetApplicationEventTarget(),
+                eventTarget,
                 { _, _, userData -> OSStatus in
                     guard let userData else { return OSStatus(eventNotHandledErr) }
                     let manager = Unmanaged<GlobalHotKeyManager>.fromOpaque(userData).takeUnretainedValue()
@@ -57,7 +62,7 @@ final class GlobalHotKeyManager {
             combo.keyCode,
             combo.modifierFlags,
             hotKeyID,
-            GetApplicationEventTarget(),
+            eventTarget,
             0,
             &hotKeyRef
         )
@@ -66,6 +71,7 @@ final class GlobalHotKeyManager {
             hotKeyRef = nil
             return false
         }
+        logger.info("Registered hotkey \(combo.displayString, privacy: .public)")
         return true
     }
 

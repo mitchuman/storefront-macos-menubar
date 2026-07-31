@@ -1,14 +1,20 @@
 import SwiftUI
 import AppKit
 
-/// Opens a link and, if ⌥ is held at the moment of the click, keeps the panel open
-/// instead of letting it auto-dismiss when the browser steals focus.
+/// Opens a link. A normal click closes the panel; ⌘-click keeps it open while the
+/// browser activates (transient popovers don't always dismiss on URL open alone).
+/// Pass `keepOpen` explicitly for keyboard shortcuts that include ⌘ so they don't
+/// accidentally inherit the click keep-open path.
 @MainActor
-func openStoreLink(_ url: URL) {
-    if NSEvent.modifierFlags.contains(.option) {
+func openStoreLink(_ url: URL, keepOpen: Bool? = nil) {
+    let shouldKeepOpen = keepOpen ?? NSEvent.modifierFlags.contains(.command)
+    if shouldKeepOpen {
         AppDelegate.shared?.keepPopoverOpenTemporarily()
     }
     NSWorkspace.shared.open(url)
+    if !shouldKeepOpen {
+        AppDelegate.shared?.closePanel()
+    }
 }
 
 struct StoreDetailView: View {

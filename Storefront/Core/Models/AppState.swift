@@ -171,22 +171,32 @@ final class AppState: ObservableObject {
     }
 
     /// Return — opens the currently keyboard-focused link, same as clicking it.
-    /// Holding ⌥ still keeps the popover open, since `openStoreLink` reads live
-    /// modifier flags rather than taking a parameter.
     func openFocusedLink() {
         guard let store = selectedStore, let row = focusedRow,
               let url = row.url(for: store.myshopifyDomain) else { return }
-        openStoreLink(url)
+        openStoreLink(url, keepOpen: false)
     }
 
-    /// ⌃A — opens the focused row's "New +" create link, if it has one.
+    /// Opens the focused row's "New +" create link, if it has one.
     func openFocusedCreateLink() {
         guard let store = selectedStore, let row = focusedRow,
               let url = row.createURL(for: store.myshopifyDomain) else { return }
-        openStoreLink(url)
+        openStoreLink(url, keepOpen: false)
     }
 
-    /// ⌃S — toggles the focused row's inline search field, if it supports search. Returns
+    /// Opens the selected store's admin (panel shortcut; closes the panel).
+    func openSelectedAdmin() {
+        guard let url = selectedStore?.adminURL else { return }
+        openStoreLink(url, keepOpen: false)
+    }
+
+    /// Opens the selected store's online storefront (panel shortcut; closes the panel).
+    func openSelectedOnlineStore() {
+        guard let url = selectedStore?.shopURL else { return }
+        openStoreLink(url, keepOpen: false)
+    }
+
+    /// Toggles the focused row's inline search field, if it supports search. Returns
     /// the row's id and its new expanded state so the caller (which owns the `@FocusState`
     /// needed to actually focus the field) can react — `nil` if the focused row can't search.
     @discardableResult

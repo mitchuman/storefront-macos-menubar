@@ -18,15 +18,11 @@ struct SectionsTabView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("SECTIONS")
-                    .font(.mono(10, weight: .semibold))
-                    .tracking(1.2)
-                    .foregroundStyle(Theme.textMeta40)
-                Spacer()
+                Spacer(minLength: 0)
                 Button(allEnabled ? "Disable All" : "Enable All", action: toggleAllEnabled)
                     .buttonStyle(.plain)
                     .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(Theme.accent)
+                    .foregroundStyle(Color.accentColor)
             }
 
             List {
