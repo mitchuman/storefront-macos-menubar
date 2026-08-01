@@ -49,20 +49,23 @@ struct SettingsGroupedCard<Content: View>: View {
 struct SettingsGroupedRow<Trailing: View>: View {
     let title: String
     let subtitle: String?
+    var alignment: VerticalAlignment
     @ViewBuilder let trailing: Trailing
 
     init(
         _ title: String,
         subtitle: String? = nil,
+        alignment: VerticalAlignment = .center,
         @ViewBuilder trailing: () -> Trailing
     ) {
         self.title = title
         self.subtitle = subtitle
+        self.alignment = alignment
         self.trailing = trailing()
     }
 
     var body: some View {
-        HStack(alignment: .center, spacing: 12) {
+        HStack(alignment: alignment, spacing: 12) {
             VStack(alignment: .leading, spacing: subtitle == nil ? 0 : 3) {
                 Text(title)
                     .font(.system(size: 12.5))

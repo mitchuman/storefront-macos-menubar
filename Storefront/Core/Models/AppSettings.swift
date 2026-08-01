@@ -29,9 +29,12 @@ enum AppearancePreference: String, Codable, CaseIterable, Identifiable, Hashable
         switch self {
         case .light: "Light"
         case .dark: "Dark"
-        case .system: "System"
+        case .system: "Auto"
         }
     }
+
+    /// System Settings order: Auto → Light → Dark.
+    static let displayOrder: [AppearancePreference] = [.system, .light, .dark]
 
     /// Always a concrete aqua / darkAqua. `.system` resolves against the real macOS
     /// appearance (`NSApp.appearance` must be `nil` first) — assigning `nil` to a
