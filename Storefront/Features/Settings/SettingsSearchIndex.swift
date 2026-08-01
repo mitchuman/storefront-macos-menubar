@@ -28,7 +28,7 @@ enum SettingsSearchIndex {
         hit("pane.about", "About", "About", .about, ["version", "credits", "update"]),
 
         // Stores
-        hit("stores.add", "Add store", "Stores", .stores, ["new store", "create"]),
+        hit("stores.add", "Add Store", "Stores", .stores, ["new store", "create", "add store", "+"]),
         hit("stores.import", "Import CSV", "Stores", .stores, ["csv", "import"]),
         hit("stores.export", "Export CSV", "Stores", .stores, ["csv", "export"]),
         hit("stores.deleteAll", "Delete All", "Stores", .stores, ["remove", "clear"]),
@@ -38,8 +38,19 @@ enum SettingsSearchIndex {
         hit("stores.domain", "Store domain", "Stores", .stores, ["myshopify.com", "url"]),
 
         // Sections
+        hit("sections.presets", "Preset", "Sections", .sections, ["layout", "preset", "role", "presets", "save preset"]),
+        hit("sections.preset.default", "Default", "Sections", .sections, ["preset", "default order"]),
+        hit("sections.preset.storeManager", "Store manager", "Sections", .sections, ["preset", "orders", "customers"]),
+        hit("sections.preset.marketer", "Marketer", "Sections", .sections, ["preset", "analytics", "discounts"]),
+        hit("sections.preset.developer", "Developer", "Sections", .sections, ["preset", "themes", "content"]),
+        hit("sections.preset.custom", "Custom", "Sections", .sections, ["preset", "save layout"]),
+        hit("sections.preset.save", "Save current", "Sections", .sections, ["save", "named preset", "custom preset", "save preset"]),
+        hit("sections.preset.rename", "Rename Preset", "Sections", .sections, ["rename", "saved preset"]),
+        hit("sections.preset.delete", "Delete Preset", "Sections", .sections, ["remove", "saved preset"]),
+        hit("sections.library", "Library", "Sections", .sections, ["csv", "preset library", "import", "export", "transfer"]),
+        hit("sections.importPresets", "Import", "Sections", .sections, ["csv", "preset library", "import presets"]),
+        hit("sections.exportPresets", "Export", "Sections", .sections, ["csv", "preset library", "export presets"]),
         hit("sections.enableAll", "Enable All / Disable All", "Sections", .sections, ["toggle"]),
-        hit("sections.reset", "Reset to Default", "Sections", .sections, ["default order"]),
         hit("sections.reorder", "Reorder sections", "Sections", .sections, ["drag", "order"]),
 
         // Keybindings

@@ -291,6 +291,177 @@ final class AppState: ObservableObject {
         return added
     }
 
+    /// "Section,Title,Enabled" — one row per section, in panel order.
+    func sectionsCSV() -> String {
+        var lines = ["Section,Title,Enabled"]
+        for section in settings.sectionOrder {
+            let enabled = settings.enabledSections.contains(section) ? "true" : "false"
+            lines.append("\(section.rawValue),\(CSV.escape(section.title)),\(enabled)")
+        }
+        return lines.joined(separator: "\n")
+    }
+
+    /// Replaces section order and enabled state from a CSV. Unknown IDs are skipped;
+    /// any sections missing from the file are appended (still enabled) at the end.
+    /// Returns the number of recognized section rows applied.
+    @discardableResult
+    func importSectionsCSV(_ contents: String) -> Int {
+        let rows = CSV.parse(contents)
+        guard !rows.isEmpty else { return 0 }
+
+        let dataRows: [[String]]
+        let first = rows[0].map { $0.trimmingCharacters(in: .whitespaces).lowercased() }
+        if first.first == "section" || first.first == "id" {
+            dataRows = Array(rows.dropFirst())
+        } else {
+            dataRows = rows
+        }
+
+        guard let layout = Self.parseSectionLayoutRows(dataRows) else { return 0 }
+        settings.sectionOrder = layout.order
+        settings.enabledSections = layout.enabled
+        settings.prefersCustomSectionPreset = false
+        settings.preferredSavedSectionPresetID = nil
+        save()
+        return layout.applied
+    }
+
+    /// "Preset,Section,Title,Enabled" — one row per section per saved preset (built-ins omitted).
+    func sectionPresetsCSV() -> String {
+        var lines = ["Preset,Section,Title,Enabled"]
+        for preset in settings.savedSectionPresets {
+            for section in preset.sectionOrder {
+                let enabled = preset.enabledSections.contains(section) ? "true" : "false"
+                lines.append(
+                    "\(CSV.escape(preset.name)),\(section.rawValue),\(CSV.escape(section.title)),\(enabled)"
+                )
+            }
+        }
+        return lines.joined(separator: "\n")
+    }
+
+    /// Merges saved presets from a CSV by name (case-insensitive). Same name overwrites that
+    /// preset's layout (keeps `id`); new names are appended. Does not delete missing names or
+    /// change the currently applied section layout. Returns how many presets were upserted.
+    @discardableResult
+    func importSectionPresetsCSV(_ contents: String) -> Int {
+        let rows = CSV.parse(contents)
+        guard !rows.isEmpty else { return 0 }
+
+        var dataRows = rows
+        var presetIndex = 0
+        var sectionIndex = 1
+        var enabledIndex = 3
+
+        let header = rows[0].map { $0.trimmingCharacters(in: .whitespaces).lowercased() }
+        if header.contains("preset") || header.first == "name" {
+            dataRows = Array(rows.dropFirst())
+            if let i = header.firstIndex(of: "preset") ?? header.firstIndex(of: "name") {
+                presetIndex = i
+            }
+            if let i = header.firstIndex(of: "section") ?? header.firstIndex(of: "id") {
+                sectionIndex = i
+            }
+            if let i = header.firstIndex(of: "enabled") {
+                enabledIndex = i
+            } else if header.count >= 4 {
+                enabledIndex = 3
+            } else if header.count >= 3 {
+                enabledIndex = 2
+            }
+        }
+
+        var grouped: [(name: String, rows: [[String]])] = []
+        var indexByLoweredName: [String: Int] = [:]
+
+        for row in dataRows where row.count > max(presetIndex, sectionIndex) {
+            let name = row[presetIndex].trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !name.isEmpty else { continue }
+            let key = name.lowercased()
+            if let existing = indexByLoweredName[key] {
+                grouped[existing].rows.append(row)
+            } else {
+                indexByLoweredName[key] = grouped.count
+                grouped.append((name: name, rows: [row]))
+            }
+        }
+
+        var upserted = 0
+        for group in grouped {
+            let layoutRows = group.rows.map { row -> [String] in
+                let section = row.indices.contains(sectionIndex) ? row[sectionIndex] : ""
+                let enabled = row.indices.contains(enabledIndex) ? row[enabledIndex] : "true"
+                return [section, "", enabled]
+            }
+            guard let layout = Self.parseSectionLayoutRows(layoutRows) else { continue }
+            let lowered = group.name.lowercased()
+            if let index = settings.savedSectionPresets.firstIndex(where: { $0.name.lowercased() == lowered }) {
+                settings.savedSectionPresets[index].sectionOrder = layout.order
+                settings.savedSectionPresets[index].enabledSections = layout.enabled
+            } else {
+                settings.savedSectionPresets.append(
+                    SavedSectionPreset(
+                        name: group.name,
+                        sectionOrder: layout.order,
+                        enabledSections: layout.enabled
+                    )
+                )
+            }
+            upserted += 1
+        }
+
+        guard upserted > 0 else { return 0 }
+        save()
+        return upserted
+    }
+
+    /// Parses section layout rows shaped like `[sectionKey, title?, enabledFlag]`.
+    private static func parseSectionLayoutRows(
+        _ dataRows: [[String]]
+    ) -> (order: [SectionID], enabled: Set<SectionID>, applied: Int)? {
+        var order: [SectionID] = []
+        var enabled = Set<SectionID>()
+        var seen = Set<SectionID>()
+        var applied = 0
+
+        for row in dataRows where !row.isEmpty {
+            let key = row[0].trimmingCharacters(in: .whitespaces)
+            guard let section = resolveSectionID(key) else { continue }
+            guard seen.insert(section).inserted else { continue }
+            order.append(section)
+            let flag = row.count >= 3
+                ? row[2]
+                : (row.count >= 2 ? row[1] : "true")
+            if isTruthyCSVFlag(flag) {
+                enabled.insert(section)
+            }
+            applied += 1
+        }
+
+        for section in SectionID.defaultOrder where !seen.contains(section) {
+            order.append(section)
+            enabled.insert(section)
+        }
+
+        guard applied > 0 else { return nil }
+        return (order, enabled, applied)
+    }
+
+    private static func resolveSectionID(_ key: String) -> SectionID? {
+        let trimmed = key.trimmingCharacters(in: .whitespaces)
+        if let byRaw = SectionID(rawValue: trimmed) { return byRaw }
+        let lowered = trimmed.lowercased()
+        if let byRaw = SectionID(rawValue: lowered) { return byRaw }
+        return SectionID.allCases.first { $0.title.lowercased() == lowered }
+    }
+
+    private static func isTruthyCSVFlag(_ value: String) -> Bool {
+        switch value.trimmingCharacters(in: .whitespaces).lowercased() {
+        case "true", "yes", "1", "enabled", "on": return true
+        default: return false
+        }
+    }
+
     func toggleFavorite(_ store: Store) {
         guard let index = stores.firstIndex(where: { $0.id == store.id }) else { return }
         stores[index].isFavorite.toggle()

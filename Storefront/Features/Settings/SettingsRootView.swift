@@ -14,6 +14,9 @@ struct SettingsRootView: View {
     @EnvironmentObject var appState: AppState
     @State private var columnVisibility = NavigationSplitViewVisibility.all
     @State private var searchText = ""
+    /// Bumped when the sidebar opens/closes so toolbar polish can run a short
+    /// overflow-suppress burst without a permanent per-frame timer.
+    @State private var overflowBurstToken: UInt = 0
 
     private var isSearching: Bool {
         !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -32,12 +35,15 @@ struct SettingsRootView: View {
             sidebar
                 .navigationSplitViewColumnWidth(min: 220, ideal: 220, max: 280)
         } detail: {
-            // No outer ScrollView — Stores/Sections use List, which collapses to
-            // zero height when nested in an unbounded scroll container.
+            // No outer ScrollView — Stores uses List, which collapses to zero height
+            // when nested in an unbounded scroll container. Sections is ScrollView-based.
             detailPane(for: appState.selectedSettingsTab)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                 .navigationTitle(appState.selectedSettingsTab.title)
-                .settingsTopScrollEdgeBlur()
+                // List-based Stores must not inherit the titleband scroll-edge — it
+                // pulls the entire NavigationSplitView under the titlebar. ScrollView
+                // panes (including Sections) opt in themselves.
+                .applySettingsDetailScrollEdgeBlur(for: appState.selectedSettingsTab)
         }
         .frame(
             minWidth: SettingsWindowMetrics.minWidth,
@@ -47,7 +53,16 @@ struct SettingsRootView: View {
         )
         .preferredColorScheme(appState.settings.appearancePreference.colorScheme)
         .id(appState.appearanceRevision)
-        .background(SettingsToolbarConfigurator(paneTitle: appState.selectedSettingsTab.title))
+        .background(
+            SettingsToolbarConfigurator(
+                paneTitle: appState.selectedSettingsTab.title,
+                overflowBurstToken: overflowBurstToken
+            )
+        )
+        .onChange(of: columnVisibility) { _, _ in
+            // Brief high-frequency overflow suppress only while the sidebar animates.
+            overflowBurstToken &+= 1
+        }
         .onAppear {
             AppDelegate.shared?.applyAppearancePreference(appState.settings.appearancePreference)
         }
@@ -91,7 +106,9 @@ struct SettingsRootView: View {
             }
         }
         .listStyle(.sidebar)
-        .safeAreaInset(edge: .top, spacing: 0) {
+        // Pins search above the list (safeAreaBar on Tahoe) so rows scroll under it
+        // with progressive blur instead of painting on top.
+        .detailHeaderSafeAreaBar {
             sidebarSearchField
         }
     }
@@ -124,6 +141,10 @@ struct SettingsRootView: View {
         .padding(.horizontal, 10)
         .padding(.top, 4)
         .padding(.bottom, 8)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        // Full-width material so scrolling sidebar rows blur underneath.
+        .background(.ultraThinMaterial)
+        .zIndex(1)
     }
 
     @ViewBuilder
@@ -143,60 +164,111 @@ struct SettingsRootView: View {
     }
 }
 
+private extension View {
+    /// Titleband progressive blur for ScrollView-driven Settings panes.
+    /// Stores (List) and Sections (owns blur on its ScrollView) stay opted out here.
+    @ViewBuilder
+    func applySettingsDetailScrollEdgeBlur(for tab: SettingsTab) -> some View {
+        switch tab {
+        case .stores, .sections:
+            self
+        case .general, .keybindings, .about:
+            self.settingsTopScrollEdgeBlur()
+        }
+    }
+}
+
 // MARK: - Light toolbar polish (do not replace SwiftUI's toolbar)
 
 /// Locks icon-only mode, syncs the window title to the active pane, and suppresses
-/// the titlebar hairline. Never assigns `window.toolbar` — replacing SwiftUI's
-/// toolbar causes KVO crashes and can strip traffic lights / the sidebar toggle.
+/// the titlebar hairline + toolbar overflow bubble. Never assigns `window.toolbar` —
+/// replacing SwiftUI's toolbar causes KVO crashes and can strip traffic lights /
+/// the sidebar toggle.
 private struct SettingsToolbarConfigurator: NSViewRepresentable {
     var paneTitle: String
+    /// Incremented on sidebar open/close to start a short overflow-suppress burst.
+    var overflowBurstToken: UInt
 
     final class Coordinator {
-        var windowObservation: NSObjectProtocol?
+        private var burstTimer: Timer?
+        private var burstDeadline: CFAbsoluteTime = 0
+        private var lastBurstToken: UInt = 0
+        private var didApplyChrome = false
         weak var trackedWindow: NSWindow?
+        /// Strong cache of the titlebar/toolbar subtree; cleared when the window changes.
+        var cachedTitlebarRoot: NSView?
         var paneTitle: String = ""
 
-        func track(_ window: NSWindow?, paneTitle: String) {
+        func track(_ window: NSWindow?, paneTitle: String, overflowBurstToken: UInt) {
             self.paneTitle = paneTitle
-            if window !== trackedWindow {
-                if let windowObservation {
-                    NotificationCenter.default.removeObserver(windowObservation)
-                    self.windowObservation = nil
-                }
+            let windowChanged = window !== trackedWindow
+            if windowChanged {
+                stopBurst()
                 trackedWindow = window
-                guard let window else { return }
-                windowObservation = NotificationCenter.default.addObserver(
-                    forName: NSWindow.didUpdateNotification,
-                    object: window,
-                    queue: .main
-                ) { [weak self] _ in
-                    guard let self else { return }
-                    Self.polish(self.trackedWindow, paneTitle: self.paneTitle)
-                }
+                cachedTitlebarRoot = nil
+                didApplyChrome = false
             }
-            Self.polish(window, paneTitle: paneTitle)
+
+            if windowChanged || !didApplyChrome {
+                applyChrome(window, paneTitle: paneTitle)
+                didApplyChrome = window != nil
+            } else if !paneTitle.isEmpty, window?.title != paneTitle {
+                window?.title = paneTitle
+            }
+
+            if overflowBurstToken != lastBurstToken {
+                lastBurstToken = overflowBurstToken
+                startOverflowBurst()
+            }
         }
 
         deinit {
-            if let windowObservation {
-                NotificationCenter.default.removeObserver(windowObservation)
-            }
+            stopBurst()
         }
 
-        static func polish(_ window: NSWindow?, paneTitle: String) {
+        private func startOverflowBurst() {
+            burstDeadline = CFAbsoluteTimeGetCurrent() + 0.45
+            guard burstTimer == nil else { return }
+
+            // ~60Hz, toolbar subtree only — avoids the lag from a permanent
+            // full-window walk on every frame.
+            let timer = Timer(timeInterval: 1.0 / 60.0, repeats: true) { [weak self] timer in
+                guard let self else {
+                    timer.invalidate()
+                    return
+                }
+                if CFAbsoluteTimeGetCurrent() >= self.burstDeadline {
+                    self.stopBurst()
+                    return
+                }
+                self.suppressOverflowInTitlebar()
+            }
+            RunLoop.main.add(timer, forMode: .common)
+            burstTimer = timer
+
+            // Immediate first pass so the opening frame is covered.
+            suppressOverflowInTitlebar()
+        }
+
+        private func stopBurst() {
+            burstTimer?.invalidate()
+            burstTimer = nil
+        }
+
+        /// One-time / infrequent chrome setup (title, separators, toolbar mode).
+        private func applyChrome(_ window: NSWindow?, paneTitle: String) {
             guard let window else { return }
 
-            // Pane name in the titlebar (not the scene's static "Settings").
             if !paneTitle.isEmpty, window.title != paneTitle {
                 window.title = paneTitle
             }
 
             window.titlebarSeparatorStyle = .none
-            suppressSplitViewTitleSeparators(in: window)
+            Self.suppressSplitViewTitleSeparators(in: window)
 
             if let toolbar = window.toolbar {
                 toolbar.displayMode = .iconOnly
-                // Deprecated but harmless; titlebarSeparatorStyle is the modern control.
+                toolbar.allowsUserCustomization = false
                 toolbar.showsBaselineSeparator = false
                 if #available(macOS 15.0, *) {
                     toolbar.allowsDisplayModeCustomization = false
@@ -206,49 +278,198 @@ private struct SettingsToolbarConfigurator: NSViewRepresentable {
                 }
             }
 
-            guard let root = window.contentView?.superview else { return }
+            let titlebar = titlebarRoot(in: window)
+            Self.suppressOverflow(in: titlebar)
+            Self.suppressHairlines(in: titlebar, window: window)
+        }
+
+        private func suppressOverflowInTitlebar() {
+            guard let window = trackedWindow else { return }
+            Self.suppressOverflow(in: titlebarRoot(in: window))
+            if let toolbar = window.toolbar {
+                for item in toolbar.items {
+                    item.visibilityPriority = .user
+                }
+            }
+        }
+
+        private func titlebarRoot(in window: NSWindow) -> NSView {
+            if let cached = cachedTitlebarRoot, cached.window === window {
+                return cached
+            }
+            let root = window.contentView?.superview ?? window.contentView ?? NSView()
             var stack: [NSView] = [root]
             while let view = stack.popLast() {
                 let name = NSStringFromClass(type(of: view))
+                if name.contains("NSTitlebarContainerView") || name.contains("NSToolbarView") {
+                    cachedTitlebarRoot = view
+                    return view
+                }
+                stack.append(contentsOf: view.subviews)
+            }
+            cachedTitlebarRoot = root
+            return root
+        }
 
+        private static func suppressHairlines(in root: NSView, window: NSWindow) {
+            var stack: [NSView] = [root]
+            while let view = stack.popLast() {
+                let name = NSStringFromClass(type(of: view))
                 if isTitlebarHairline(view, className: name, window: window) {
                     view.isHidden = true
                     view.alphaValue = 0
                     view.layer?.opacity = 0
                     view.setFrameSize(NSSize(width: view.frame.width, height: 0))
                 }
-
-                let overflowClass =
-                    name.localizedCaseInsensitiveContains("ClippedItems")
-                    || name.localizedCaseInsensitiveContains("ToolbarOverflow")
-                    || name.localizedCaseInsensitiveContains("OverflowButton")
-                    || name.localizedCaseInsensitiveContains("OverflowIndicator")
-
-                var overflowButton = false
-                if let button = view as? NSButton {
-                    let imageDesc = button.image?.description ?? ""
-                    overflowButton =
-                        imageDesc.localizedCaseInsensitiveContains("chevron.forward.2")
-                        || imageDesc.localizedCaseInsensitiveContains("chevron.right.2")
-                        || imageDesc.localizedCaseInsensitiveContains("overflow")
-                        || (button.accessibilityLabel() ?? "")
-                            .localizedCaseInsensitiveContains("overflow")
-                }
-
-                if overflowClass || overflowButton {
-                    hideViewerChain(from: view)
-                }
-
-                if name.contains("NSToolbarItemViewer"),
-                   view.frame.minX > window.frame.width * 0.55,
-                   view.frame.width > 0,
-                   view.frame.width <= 60
-                {
-                    hideViewerChain(from: view)
-                }
-
                 stack.append(contentsOf: view.subviews)
             }
+        }
+
+        /// Walk a subtree and force-hide any overflow / clipped-items chrome.
+        static func suppressOverflow(in root: NSView) {
+            var stack: [NSView] = [root]
+            while let view = stack.popLast() {
+                let name = NSStringFromClass(type(of: view))
+                if isToolbarOverflowChrome(view, className: name) {
+                    hideOverflowChrome(view)
+                }
+                stack.append(contentsOf: view.subviews)
+            }
+        }
+
+        /// Detects the Sonoma+/Tahoe toolbar overflow indicator (`>>` / clipped-items
+        /// chevron / glass bubble). Must not match the sidebar toggle.
+        private static func isToolbarOverflowChrome(_ view: NSView, className: String) -> Bool {
+            if className.localizedCaseInsensitiveContains("ClippedItems")
+                || className.localizedCaseInsensitiveContains("ToolbarOverflow")
+                || className.localizedCaseInsensitiveContains("OverflowButton")
+                || className.localizedCaseInsensitiveContains("OverflowIndicator")
+                || className.localizedCaseInsensitiveContains("ClippedItem")
+                || (className.localizedCaseInsensitiveContains("Overflow")
+                    && (className.localizedCaseInsensitiveContains("Toolbar")
+                        || className.localizedCaseInsensitiveContains("Indicator")))
+            {
+                return true
+            }
+
+            let label = (
+                (view as? NSButton)?.accessibilityLabel()
+                    ?? view.accessibilityLabel()
+                    ?? ""
+            ).lowercased()
+            let identifier = (view.identifier?.rawValue ?? "").lowercased()
+
+            // Sidebar toggle — never hide.
+            if label.contains("sidebar") || identifier.contains("sidebar") {
+                return false
+            }
+
+            if label.contains("overflow")
+                || label.contains("more toolbar")
+                || label.contains("more items")
+                || label.contains("clipped")
+                || identifier.contains("overflow")
+                || identifier.contains("clipped")
+            {
+                return true
+            }
+
+            if imageDescription(of: view).contains(where: { desc in
+                desc.contains("chevron.forward.2")
+                    || desc.contains("chevron.right.2")
+                    || desc.contains("chevron.forward.to.line")
+                    || desc.contains("overflow")
+            }) {
+                return true
+            }
+
+            // Glass bubble hosting the double-caret (Tahoe Liquid Glass toolbar).
+            if (className.contains("GlassEffect") || className.contains("NSGlass"))
+                && view.frame.width > 0
+                && view.frame.width <= 64
+                && subtreeContainsOverflowGlyph(view)
+                && !viewerIsProtectedToolbarControl(view)
+            {
+                return true
+            }
+
+            // Settings' toolbar only needs the sidebar toggle. Small item viewers that
+            // aren't the toggle / tracking separator are overflow chrome (`>>` / empty
+            // glass bubble), often near the sidebar edge during column animation.
+            if className.contains("NSToolbarItemViewer"),
+               view.frame.width > 0,
+               view.frame.width <= 56,
+               !viewerIsProtectedToolbarControl(view)
+            {
+                return true
+            }
+
+            return false
+        }
+
+        private static func imageDescription(of view: NSView) -> [String] {
+            var descs: [String] = []
+            if let button = view as? NSButton, let image = button.image {
+                descs.append(image.description.lowercased())
+            }
+            if let imageView = view as? NSImageView, let image = imageView.image {
+                descs.append(image.description.lowercased())
+            }
+            return descs
+        }
+
+        private static func subtreeContainsOverflowGlyph(_ view: NSView) -> Bool {
+            var stack: [NSView] = [view]
+            while let current = stack.popLast() {
+                for desc in imageDescription(of: current) {
+                    if desc.contains("chevron.forward.2")
+                        || desc.contains("chevron.right.2")
+                        || desc.contains("overflow")
+                    {
+                        return true
+                    }
+                }
+                stack.append(contentsOf: current.subviews)
+            }
+            return false
+        }
+
+        private static func viewerIsProtectedToolbarControl(_ view: NSView) -> Bool {
+            if view.responds(to: NSSelectorFromString("item")),
+               let item = view.value(forKey: "item") as? NSToolbarItem
+            {
+                let id = item.itemIdentifier.rawValue.lowercased()
+                if id.contains("sidebar")
+                    || id.contains("tracking")
+                    || id.contains("flexiblespace")
+                    || id.contains("spaces")
+                {
+                    return true
+                }
+                if id.contains("overflow") || id.contains("clipped") {
+                    return false
+                }
+            }
+
+            var stack: [NSView] = [view]
+            while let current = stack.popLast() {
+                let label = (
+                    (current as? NSButton)?.accessibilityLabel()
+                        ?? current.accessibilityLabel()
+                        ?? ""
+                ).lowercased()
+                let identifier = (current.identifier?.rawValue ?? "").lowercased()
+                let imageDesc = ((current as? NSButton)?.image?.description ?? "").lowercased()
+                if label.contains("sidebar")
+                    || identifier.contains("sidebar")
+                    || imageDesc.contains("sidebar")
+                    || identifier.contains("tracking")
+                {
+                    return true
+                }
+                stack.append(contentsOf: current.subviews)
+            }
+            return false
         }
 
         private static func isTitlebarHairline(_ view: NSView, className: String, window: NSWindow) -> Bool {
@@ -304,10 +525,10 @@ private struct SettingsToolbarConfigurator: NSViewRepresentable {
             }
         }
 
-        private static func hideViewerChain(from view: NSView) {
+        private static func hideOverflowChrome(_ view: NSView) {
             var node: NSView? = view
             var depth = 0
-            while let current = node, depth < 8 {
+            while let current = node, depth < 10 {
                 let name = NSStringFromClass(type(of: current))
                 if name.contains("NSToolbarView")
                     || name.contains("NSTitlebarView")
@@ -315,11 +536,20 @@ private struct SettingsToolbarConfigurator: NSViewRepresentable {
                 {
                     break
                 }
+                // Hide before AppKit can paint this frame.
                 current.isHidden = true
                 current.alphaValue = 0
+                current.wantsLayer = true
                 current.layer?.opacity = 0
+                current.layer?.isHidden = true
                 current.setFrameSize(.zero)
-                if name.contains("NSToolbarItemViewer") { break }
+                if name.contains("NSToolbarItemViewer")
+                    || name.contains("ClippedItems")
+                    || name.contains("Overflow")
+                    || name.contains("GlassEffect")
+                {
+                    break
+                }
                 node = current.superview
                 depth += 1
             }
@@ -331,14 +561,22 @@ private struct SettingsToolbarConfigurator: NSViewRepresentable {
     func makeNSView(context: Context) -> NSView {
         let view = NSView()
         DispatchQueue.main.async {
-            context.coordinator.track(view.window, paneTitle: paneTitle)
+            context.coordinator.track(
+                view.window,
+                paneTitle: paneTitle,
+                overflowBurstToken: overflowBurstToken
+            )
         }
         return view
     }
 
     func updateNSView(_ nsView: NSView, context: Context) {
         DispatchQueue.main.async {
-            context.coordinator.track(nsView.window, paneTitle: paneTitle)
+            context.coordinator.track(
+                nsView.window,
+                paneTitle: paneTitle,
+                overflowBurstToken: overflowBurstToken
+            )
         }
     }
 }

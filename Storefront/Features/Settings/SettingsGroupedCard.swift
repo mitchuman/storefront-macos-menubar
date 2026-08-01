@@ -1,5 +1,23 @@
 import SwiftUI
 
+/// Shared metrics for Settings list/card rows (aligned with Keybindings).
+enum SettingsRowMetrics {
+    static let horizontalPadding: CGFloat = 11
+    static let reorderWidth: CGFloat = 22
+    static let rowSpacing: CGFloat = 6
+    /// Subtle left cutoff for inter-row hairlines (Keybindings style).
+    static let separatorLeading: CGFloat = 11
+}
+
+/// Hairline between grouped rows — inset on the leading edge like Keybindings.
+struct SettingsGroupedDivider: View {
+    var body: some View {
+        Divider()
+            .overlay(Theme.hairline)
+            .padding(.leading, SettingsRowMetrics.separatorLeading)
+    }
+}
+
 /// Full-width bordered group for settings rows (cmux-style card chrome).
 struct SettingsGroupedCard<Content: View>: View {
     @ViewBuilder let content: Content
@@ -38,10 +56,10 @@ struct SettingsGroupedRow<Trailing: View>: View {
     }
 
     var body: some View {
-        HStack(alignment: .center, spacing: 12) {
+        HStack(alignment: subtitle == nil ? .center : .top, spacing: 12) {
             VStack(alignment: .leading, spacing: subtitle == nil ? 0 : 3) {
                 Text(title)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.system(size: 12.5))
                     .foregroundStyle(Theme.textPrimary)
                 if let subtitle {
                     Text(subtitle)
@@ -54,7 +72,7 @@ struct SettingsGroupedRow<Trailing: View>: View {
 
             trailing
         }
-        .padding(.horizontal, 14)
+        .padding(.horizontal, SettingsRowMetrics.horizontalPadding)
         .padding(.vertical, 9)
     }
 }
@@ -108,6 +126,18 @@ extension View {
     @ViewBuilder
     func settingsTopScrollEdgeBlur() -> some View {
         topScrollEdgeBlur()
+    }
+
+    /// Prevents a nested `List`/`ScrollView` from owning the window titleband scroll-edge
+    /// (Tahoe+). Needed when chrome sits above the scroller — otherwise the split view
+    /// collapses under the titlebar and the whole Settings window jumps up.
+    @ViewBuilder
+    func settingsDisableScrollEdgeEffect() -> some View {
+        if #available(macOS 26.0, *) {
+            self.scrollEdgeEffectHidden(true, for: .all)
+        } else {
+            self
+        }
     }
 
     /// Pins a top bar that participates in the system scroll-edge progressive blur

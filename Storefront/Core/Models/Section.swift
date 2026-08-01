@@ -55,6 +55,83 @@ enum SectionID: String, Codable, CaseIterable, Hashable {
     }
 }
 
+/// Built-in section layouts for Settings → Sections.
+enum SectionPreset: String, CaseIterable, Identifiable, Hashable {
+    case `default`
+    case storeManager
+    case marketer
+    case developer
+
+    var id: Self { self }
+
+    var title: String {
+        switch self {
+        case .default: "Default"
+        case .storeManager: "Store manager"
+        case .marketer: "Marketer"
+        case .developer: "Developer"
+        }
+    }
+
+    /// Enabled sections in display order for this preset.
+    private var enabledHead: [SectionID] {
+        switch self {
+        case .default:
+            return SectionID.defaultOrder
+        case .storeManager:
+            return [.orders, .customers, .products, .collections, .themes, .apps, .settings]
+        case .marketer:
+            return [.analytics, .discounts, .products, .collections, .apps, .settings]
+        case .developer:
+            return [.themes, .content, .products, .collections, .navigationAndRedirects, .apps, .settings]
+        }
+    }
+
+    /// Full `sectionOrder` (enabled head + disabled tail in `defaultOrder`) and enabled set.
+    func layout() -> (order: [SectionID], enabled: Set<SectionID>) {
+        let head = enabledHead
+        let enabled = Set(head)
+        let tail = SectionID.defaultOrder.filter { !enabled.contains($0) }
+        return (head + tail, enabled)
+    }
+}
+
+/// Derived picker selection: built-in, saved user preset, or unsaved Custom.
+enum ActiveSectionPreset: Hashable, Identifiable {
+    case builtin(SectionPreset)
+    case saved(UUID)
+    case custom
+
+    var id: String {
+        switch self {
+        case .builtin(let preset): "builtin-\(preset.rawValue)"
+        case .saved(let id): "saved-\(id.uuidString)"
+        case .custom: "custom"
+        }
+    }
+
+    /// Match built-ins first, then the first saved preset with an identical layout, else `.custom`.
+    ///
+    /// Callers that need a sticky saved selection when a saved layout also matches a
+    /// built-in should check `preferredSavedSectionPresetID` before calling this.
+    static func match(
+        order: [SectionID],
+        enabled: Set<SectionID>,
+        saved: [SavedSectionPreset]
+    ) -> ActiveSectionPreset {
+        for preset in SectionPreset.allCases {
+            let layout = preset.layout()
+            if layout.order == order, layout.enabled == enabled {
+                return .builtin(preset)
+            }
+        }
+        if let saved = saved.first(where: { $0.sectionOrder == order && $0.enabledSections == enabled }) {
+            return .saved(saved.id)
+        }
+        return .custom
+    }
+}
+
 struct LinkRow: Identifiable {
     enum Emphasis {
         case normal

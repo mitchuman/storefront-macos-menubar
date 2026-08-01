@@ -21,14 +21,21 @@ struct StoresTabView: View {
     }
 
     private enum Column {
-        static let order: CGFloat = 30
-        static let enable: CGFloat = 40
-        static let accent: CGFloat = 40
+        static let order: CGFloat = SettingsRowMetrics.reorderWidth
+        static let accent: CGFloat = 28
+        static let spacing: CGFloat = SettingsRowMetrics.rowSpacing
+        /// Inset so row separators begin at the accent color control.
+        static var separatorLeading: CGFloat {
+            SettingsRowMetrics.horizontalPadding + order + spacing
+        }
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
+                Text("Drag rows to reorder. Hidden stores stay out of the panel.")
+                    .font(.system(size: 11))
+                    .foregroundStyle(Theme.textSecondary)
                 Spacer(minLength: 0)
                 Button(allVisible ? "Hide All" : "Show All", action: toggleAllVisibility)
                     .buttonStyle(.plain)
@@ -36,26 +43,42 @@ struct StoresTabView: View {
                     .foregroundStyle(Color.accentColor)
             }
 
-            VStack(spacing: 0) {
-                tableHeader
-                Divider().overlay(Theme.hairline)
-                List {
-                    ForEach(orderedStores) { store in
-                        storeRow(store: store)
-                            .listRowBackground(Theme.settingsCardFill)
-                    }
-                    .onMove(perform: moveStores)
+            List {
+                ForEach(orderedStores) { store in
+                    storeRow(store: store)
+                        .listRowBackground(Theme.settingsCardFill)
+                        .listRowSeparator(.hidden)
+                        .listRowInsets(EdgeInsets())
                 }
-                .listStyle(.plain)
-                .scrollContentBackground(.hidden)
-                .settingsTopScrollEdgeBlur()
+                .onMove(perform: moveStores)
+
+                Button(action: beginAdding) {
+                    HStack(spacing: Column.spacing) {
+                        Image(systemName: "plus")
+                            .font(.system(size: 12, weight: .semibold))
+                            .frame(width: Column.order, alignment: .leading)
+                        Text("Add Store")
+                            .font(.system(size: 12.5))
+                        Spacer(minLength: 0)
+                    }
+                    .foregroundStyle(Color.accentColor)
+                    .padding(.horizontal, SettingsRowMetrics.horizontalPadding)
+                    .padding(.vertical, 9)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .listRowBackground(Theme.settingsCardFill)
+                .listRowSeparator(.hidden)
+                .listRowInsets(EdgeInsets())
             }
+            .listStyle(.plain)
+            .scrollContentBackground(.hidden)
+            .settingsTopScrollEdgeBlur()
             .background(Theme.settingsCardFill)
             .clipShape(RoundedRectangle(cornerRadius: 9))
             .overlay(RoundedRectangle(cornerRadius: 9).strokeBorder(Theme.borderColor, lineWidth: 1))
 
             HStack(spacing: 14) {
-                SettingsTextLink("＋ Add store", action: beginAdding)
                 SettingsTextLink("Import CSV", action: importCSV)
                 SettingsTextLink("Export CSV", action: exportCSV)
                 Spacer()
@@ -118,86 +141,76 @@ struct StoresTabView: View {
         appState.save()
     }
 
-    /// Column labels for the store list below — kept as a separate row above the
-    /// (still-native, still-reorderable-by-drag) `List` rather than a `List` section
-    /// header, so it stays fixed in place while the list scrolls beneath it.
-    private var tableHeader: some View {
-        HStack(spacing: 10) {
-            Text("Order")
-                .frame(width: Column.order, alignment: .leading)
-            Text("Enable")
-                .frame(width: Column.enable, alignment: .leading)
-            Text("Accent")
-                .frame(width: Column.accent, alignment: .leading)
-            Text("Display name")
-            Spacer(minLength: 12)
+    private func storeRow(store: Store) -> some View {
+        VStack(spacing: 0) {
+            HStack(spacing: Column.spacing) {
+                Image(systemName: "line.3.horizontal")
+                    .foregroundStyle(Theme.textMeta25)
+                    .frame(width: Column.order, alignment: .leading)
+
+                colorSwatch(color: colorBinding(for: store))
+                    .frame(width: Column.accent, alignment: .leading)
+
+                Text(store.displayName)
+                    .font(.system(size: 12.5))
+                    .foregroundStyle(Theme.textPrimary)
+
+                Spacer(minLength: 12)
+
+                Button {
+                    appState.toggleFavorite(store)
+                } label: {
+                    Image(systemName: store.isFavorite ? "star.fill" : "star")
+                        .font(.system(size: 12))
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(store.isFavorite ? Theme.textPrimary : Theme.textMeta40)
+
+                Button {
+                    beginEditing(store)
+                } label: {
+                    Image("EditIcon")
+                        .renderingMode(.template)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 15, height: 15)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(Theme.textMeta40)
+
+                Button {
+                    storePendingDeletion = store
+                } label: {
+                    Image(systemName: "trash")
+                        .font(.system(size: 13))
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(Theme.textMeta40)
+
+                Toggle("", isOn: visibilityBinding(for: store))
+                    .labelsHidden()
+                    .toggleStyle(.switch)
+                    .controlSize(.small)
+            }
+            .padding(.horizontal, SettingsRowMetrics.horizontalPadding)
+            .padding(.vertical, 9)
+            .opacity(store.isVisible ? 1 : 0.5)
+
+            Divider()
+                .overlay(Theme.hairline)
+                .padding(.leading, Column.separatorLeading)
         }
-        .font(.system(size: 9.5, weight: .semibold))
-        .foregroundStyle(Theme.textMeta40)
-        .padding(.horizontal, 11)
-        .padding(.vertical, 7)
     }
 
-    private func storeRow(store: Store) -> some View {
-        HStack(spacing: 10) {
-            Image(systemName: "line.3.horizontal")
-                .foregroundStyle(Theme.textMeta25)
-                .frame(width: Column.order, alignment: .leading)
-
-            Button {
-                toggleVisibility(store)
-            } label: {
-                RoundedRectangle(cornerRadius: 4)
-                    .fill(store.isVisible ? Theme.accent : Theme.settingsCardFill)
-                    .frame(width: 16, height: 16)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 4)
-                            .strokeBorder(store.isVisible ? .clear : Theme.borderColor, lineWidth: 1)
-                    )
-                    .overlay {
-                        if store.isVisible {
-                            Image(systemName: "checkmark")
-                                .font(.system(size: 9, weight: .bold))
-                                .foregroundStyle(.white)
-                        }
-                    }
+    private func visibilityBinding(for store: Store) -> Binding<Bool> {
+        Binding(
+            get: { store.isVisible },
+            set: { newValue in
+                guard let index = appState.stores.firstIndex(where: { $0.id == store.id }) else { return }
+                appState.stores[index].isVisible = newValue
+                appState.save()
             }
-            .buttonStyle(.plain)
-            .frame(width: Column.enable, alignment: .leading)
-
-            colorSwatch(color: colorBinding(for: store))
-                .frame(width: Column.accent, alignment: .leading)
-
-            Text(store.displayName)
-                .font(.system(size: 12.5, weight: .medium))
-                .foregroundStyle(Theme.textPrimary)
-
-            Spacer(minLength: 12)
-
-            Button {
-                beginEditing(store)
-            } label: {
-                Image("EditIcon")
-                    .renderingMode(.template)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 15, height: 15)
-            }
-            .buttonStyle(.plain)
-            .foregroundStyle(Theme.textMeta40)
-
-            Button {
-                storePendingDeletion = store
-            } label: {
-                Image(systemName: "trash")
-                    .font(.system(size: 13))
-            }
-            .buttonStyle(.plain)
-            .foregroundStyle(Theme.textMeta40)
-        }
-        .padding(.horizontal, 11)
-        .padding(.vertical, 9)
-        .opacity(store.isVisible ? 1 : 0.5)
+        )
     }
 
     private func colorSwatch(color: Binding<Color>) -> some View {
@@ -215,12 +228,6 @@ struct StoresTabView: View {
 
     private func deleteAllStores() {
         appState.stores.removeAll()
-        appState.save()
-    }
-
-    private func toggleVisibility(_ store: Store) {
-        guard let index = appState.stores.firstIndex(where: { $0.id == store.id }) else { return }
-        appState.stores[index].isVisible.toggle()
         appState.save()
     }
 
@@ -403,38 +410,5 @@ private extension View {
         } message: {
             Text("This removes it from Storefront only. Your Shopify store itself isn't affected.")
         }
-    }
-}
-
-/// Plain text action link for Settings footers — no pill chrome.
-private struct SettingsTextLink: View {
-    let title: String
-    var isEnabled: Bool = true
-    var isDestructive: Bool = false
-    let action: () -> Void
-
-    init(
-        _ title: String,
-        isEnabled: Bool = true,
-        isDestructive: Bool = false,
-        action: @escaping () -> Void
-    ) {
-        self.title = title
-        self.isEnabled = isEnabled
-        self.isDestructive = isDestructive
-        self.action = action
-    }
-
-    private var textColor: Color {
-        guard isEnabled else { return Theme.textMeta40 }
-        return isDestructive ? .red : Color.accentColor
-    }
-
-    var body: some View {
-        Button(title, action: action)
-            .buttonStyle(.plain)
-            .font(.system(size: 11.5, weight: .medium))
-            .foregroundStyle(textColor)
-            .disabled(!isEnabled)
     }
 }

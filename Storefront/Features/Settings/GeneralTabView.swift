@@ -31,7 +31,7 @@ struct GeneralTabView: View {
                         .controlSize(.small)
                     }
 
-                    Divider().overlay(Theme.hairline)
+                    SettingsGroupedDivider()
 
                     SettingsGroupedRow("Show in menu bar") {
                         Toggle(
@@ -46,7 +46,7 @@ struct GeneralTabView: View {
                         .controlSize(.small)
                     }
 
-                    Divider().overlay(Theme.hairline)
+                    SettingsGroupedDivider()
 
                     SettingsGroupedRow("Show in Dock") {
                         Toggle(

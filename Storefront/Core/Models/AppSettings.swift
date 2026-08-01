@@ -9,6 +9,14 @@ struct LinkTemplate: Identifiable, Codable, Equatable {
     var pathTemplate: String
 }
 
+/// User-saved section layout (order + enabled set) for Settings → Sections presets.
+struct SavedSectionPreset: Identifiable, Codable, Equatable {
+    var id: UUID = UUID()
+    var name: String
+    var sectionOrder: [SectionID]
+    var enabledSections: Set<SectionID>
+}
+
 /// App-wide light/dark preference for the menu bar panel and Settings window.
 enum AppearancePreference: String, Codable, CaseIterable, Identifiable, Hashable {
     case light
@@ -85,6 +93,14 @@ struct AppSettings: Codable, Equatable {
     /// Panel-local: open the focused link's "New +" create URL.
     var openCreateLinkHotkey: KeyCombo = .openCreateLinkDefault
     var customLinks: [LinkTemplate] = []
+    /// Named user layouts available in the Sections presets picker (built-ins are not stored here).
+    var savedSectionPresets: [SavedSectionPreset] = []
+    /// When true, the Presets picker shows Custom even if the current layout still
+    /// exact-matches a named/saved preset (selecting Custom is otherwise a no-op).
+    var prefersCustomSectionPreset: Bool = false
+    /// Sticky saved-preset selection when that preset’s layout also matches a built-in
+    /// (layout matching alone would otherwise resolve to the built-in and hide Rename/Delete).
+    var preferredSavedSectionPresetID: UUID? = nil
 
     init(
         sectionOrder: [SectionID] = SectionID.defaultOrder,
@@ -99,7 +115,10 @@ struct AppSettings: Codable, Equatable {
         focusSearchHotkey: KeyCombo = .focusSearchDefault,
         toggleLinkSearchHotkey: KeyCombo = .toggleLinkSearchDefault,
         openCreateLinkHotkey: KeyCombo = .openCreateLinkDefault,
-        customLinks: [LinkTemplate] = []
+        customLinks: [LinkTemplate] = [],
+        savedSectionPresets: [SavedSectionPreset] = [],
+        prefersCustomSectionPreset: Bool = false,
+        preferredSavedSectionPresetID: UUID? = nil
     ) {
         self.sectionOrder = sectionOrder
         self.enabledSections = enabledSections
@@ -114,6 +133,9 @@ struct AppSettings: Codable, Equatable {
         self.toggleLinkSearchHotkey = toggleLinkSearchHotkey
         self.openCreateLinkHotkey = openCreateLinkHotkey
         self.customLinks = customLinks
+        self.savedSectionPresets = savedSectionPresets
+        self.prefersCustomSectionPreset = prefersCustomSectionPreset
+        self.preferredSavedSectionPresetID = preferredSavedSectionPresetID
     }
 
     init(from decoder: Decoder) throws {
@@ -131,5 +153,8 @@ struct AppSettings: Codable, Equatable {
         toggleLinkSearchHotkey = try c.decodeIfPresent(KeyCombo.self, forKey: .toggleLinkSearchHotkey) ?? .toggleLinkSearchDefault
         openCreateLinkHotkey = try c.decodeIfPresent(KeyCombo.self, forKey: .openCreateLinkHotkey) ?? .openCreateLinkDefault
         customLinks = try c.decodeIfPresent([LinkTemplate].self, forKey: .customLinks) ?? []
+        savedSectionPresets = try c.decodeIfPresent([SavedSectionPreset].self, forKey: .savedSectionPresets) ?? []
+        prefersCustomSectionPreset = try c.decodeIfPresent(Bool.self, forKey: .prefersCustomSectionPreset) ?? false
+        preferredSavedSectionPresetID = try c.decodeIfPresent(UUID.self, forKey: .preferredSavedSectionPresetID)
     }
 }
