@@ -51,6 +51,9 @@ final class AppState: ObservableObject {
     @Published var focusedSectionIndex: Int = 0
     @Published var focusedRowIndex: Int = 0
     @Published var selectedSettingsTab: SettingsTab = .general
+    /// Bumped when appearance changes so Settings can remount and pick up fresh
+    /// dynamic colors (Dark → System was leaving cards/sidebar stuck dark).
+    @Published private(set) var appearanceRevision: UInt = 0
     /// Row IDs whose inline search field is currently expanded, per store — shared here
     /// (rather than local view state) so a keyboard shortcut can toggle a row's search
     /// regardless of which `CardLinkRow` instance it belongs to, and keyed per store so
@@ -70,6 +73,7 @@ final class AppState: ObservableObject {
         self.selectedStoreID = loaded.first(where: { $0.isVisible })?.id ?? loaded.first?.id
         self.settings = persistence.loadSettings()
         reconcileLaunchAtLogin()
+        AppearancePreference.apply(settings.appearancePreference)
     }
 
     /// `SMAppService`'s registration can drift from our stored setting (e.g. the user
@@ -96,6 +100,13 @@ final class AppState: ObservableObject {
         } catch {
             settings.launchAtLogin = SMAppService.mainApp.status == .enabled
         }
+        save()
+    }
+
+    func setAppearancePreference(_ preference: AppearancePreference) {
+        settings.appearancePreference = preference
+        AppearancePreference.apply(preference)
+        appearanceRevision &+= 1
         save()
     }
 

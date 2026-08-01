@@ -60,6 +60,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         popover = pop
 
         applyActivationPolicy()
+        applyAppearancePreference(appState.settings.appearancePreference)
+        observeSystemAppearanceChanges()
 
         GlobalHotKeyManager.shared.register(appState.settings.globalHotkey) { [weak self] in
             self?.togglePanel()
@@ -346,6 +348,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // when the panel hosting controller hasn't mounted yet.
         DispatchQueue.main.async {
             if let window = Self.findSettingsWindow() {
+                window.appearance = self.appState.settings.appearancePreference.nsAppearance
                 window.makeKeyAndOrderFront(nil)
             } else if let item = Self.settingsMenuItem(), let action = item.action {
                 NSApp.sendAction(action, to: item.target, from: item)
@@ -354,10 +357,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private static func findSettingsWindow() -> NSWindow? {
-        NSApp.windows.first { window in
-            let id = window.identifier?.rawValue ?? ""
-            return id == "settings" || id.contains("settings") || window.title == "Settings"
-        }
+        NSApp.windows.first(where: isSettingsWindow)
+    }
+
+    private static func isSettingsWindow(_ window: NSWindow) -> Bool {
+        let id = window.identifier?.rawValue ?? ""
+        if id == "settings" || id.contains("settings") { return true }
+        return window.title == "Settings"
     }
 
     private static func settingsMenuItem() -> NSMenuItem? {
@@ -397,6 +403,38 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func applyActivationPolicy() {
         let policy: NSApplication.ActivationPolicy = appState.settings.showInDock ? .regular : .accessory
         NSApp.setActivationPolicy(policy)
+    }
+
+    /// Keeps the menu bar panel popover and Settings windows on the chosen appearance
+    /// without overriding `NSApp.appearance` (which would recolor the bag status icon).
+    func applyAppearancePreference(_ preference: AppearancePreference) {
+        NSApp.appearance = nil
+        let appearance = preference.nsAppearance
+
+        popover?.appearance = appearance
+        popover?.contentViewController?.view.appearance = appearance
+
+        for window in NSApp.windows where Self.isSettingsWindow(window) {
+            window.appearance = appearance
+            window.contentView?.appearance = appearance
+        }
+
+        statusItem?.button?.window?.appearance = nil
+    }
+
+    private func observeSystemAppearanceChanges() {
+        DistributedNotificationCenter.default.addObserver(
+            self,
+            selector: #selector(systemAppearanceDidChange),
+            name: Notification.Name("AppleInterfaceThemeChangedNotification"),
+            object: nil
+        )
+    }
+
+    @objc private func systemAppearanceDidChange() {
+        guard appState.settings.appearancePreference == .system else { return }
+        applyAppearancePreference(.system)
+        appState.objectWillChange.send()
     }
 
     // MARK: - Sparkle

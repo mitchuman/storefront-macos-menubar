@@ -58,6 +58,7 @@ enum SettingsSearchIndex {
         hit("keybindings.escape", "Step back, then close the panel", "Keybindings", .keybindings, ["escape", "esc"]),
 
         // General
+        hit("general.appearance", "Appearance", "General", .general, ["theme", "light", "dark", "system"]),
         hit("general.login", "Launch at login", "General", .general, ["startup", "login item"]),
         hit("general.menubar", "Show in menu bar", "General", .general, ["status item", "menu bar"]),
         hit("general.dock", "Show in Dock", "General", .general, ["dock icon", "activation"]),

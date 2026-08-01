@@ -45,7 +45,12 @@ struct SettingsRootView: View {
             minHeight: SettingsWindowMetrics.minHeight,
             idealHeight: SettingsWindowMetrics.idealHeight
         )
+        .preferredColorScheme(appState.settings.appearancePreference.colorScheme)
+        .id(appState.appearanceRevision)
         .background(SettingsToolbarConfigurator(paneTitle: appState.selectedSettingsTab.title))
+        .onAppear {
+            AppDelegate.shared?.applyAppearancePreference(appState.settings.appearancePreference)
+        }
     }
 
     @ViewBuilder
