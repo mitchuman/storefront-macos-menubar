@@ -317,6 +317,7 @@ private struct CardLinkRow: View {
     var isKeyboardFocused: Bool = false
     var focusedRowSearchID: FocusState<String?>.Binding
     @EnvironmentObject var appState: AppState
+    @Environment(\.colorScheme) private var colorScheme
     @State private var isHovering = false
 
     /// Lives in `AppState` (not local `@State`) so the ⌃S keyboard shortcut can toggle a
@@ -334,6 +335,11 @@ private struct CardLinkRow: View {
 
     private var isHighlighted: Bool { isHovering || isKeyboardFocused }
     private var hasTrailingActions: Bool { row.createAction != nil || row.supportsSearch }
+    /// Light + opaque cards are already `controlBackgroundColor` — an elevated white
+    /// chip would be invisible, so match the sidebar's flat selection wash instead.
+    private var usesFlatHoverChip: Bool {
+        appState.settings.opaqueMenuBarWidget && colorScheme == .light
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -427,18 +433,22 @@ private struct CardLinkRow: View {
         }
         .background {
             if isHighlighted || isSearchExpanded {
-                // Opaque base is required — translucent fills cast no visible shadow.
-                // Dark uses a lifted gray so the chip reads on both glass and opaque cards.
                 RoundedRectangle(cornerRadius: 5)
-                    .fill(Self.hoverChipFill)
-                    .shadow(color: .black.opacity(0.14), radius: 1, y: 0.5)
+                    .fill(hoverChipFill)
+                    .shadow(
+                        color: usesFlatHoverChip ? .clear : .black.opacity(0.14),
+                        radius: 1,
+                        y: 0.5
+                    )
             }
         }
     }
 
-    /// Solid elevated chip — matches dark opaque contrast on liquid glass too.
-    private static var hoverChipFill: Color {
-        Color.adaptive(
+    /// Flat gray wash on light opaque (sidebar selection); elevated chip elsewhere so
+    /// the highlight reads on glass / dark cards.
+    private var hoverChipFill: Color {
+        if usesFlatHoverChip { return Theme.controlFill }
+        return Color.adaptive(
             light: Color(nsColor: .controlBackgroundColor),
             dark: Color(white: 0.28)
         )
