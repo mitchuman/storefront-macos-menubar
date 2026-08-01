@@ -110,6 +110,12 @@ final class AppState: ObservableObject {
         save()
     }
 
+    func setOpaqueMenuBarWidget(_ opaque: Bool) {
+        settings.opaqueMenuBarWidget = opaque
+        AppDelegate.shared?.applyPanelBackgroundOpacity(opaque)
+        save()
+    }
+
     /// Favorited stores first (starring moves a store to the top), each group
     /// otherwise in the user's chosen order.
     var visibleStores: [Store] {

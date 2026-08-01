@@ -20,14 +20,22 @@ enum Theme {
     static let divider = Color.adaptive(light: .black.opacity(0.08), dark: .white.opacity(0.08))
     static let borderColor = Color.adaptive(light: .black.opacity(0.12), dark: .white.opacity(0.1))
 
+    /// Legacy flat card wash / border — prefer `SidebarGlassBackground` for panel section cards.
     static let cardFill = Color.adaptive(light: .white.opacity(0.28), dark: .white.opacity(0.035))
     static let cardBorder = Color.adaptive(light: .black.opacity(0.08), dark: .white.opacity(0.07))
 
     /// Opaque card/list background for the Settings window (not the vibrancy-backed
-    /// panel — `cardFill` above is too transparent against Settings' opaque window
+    /// panel — legacy `cardFill` above is too transparent against Settings' opaque window
     /// background). `.controlBackgroundColor` is the system-adaptive content-area color
     /// AppKit windows use, so it automatically flips with light/dark appearance.
     static let settingsCardFill = Color(nsColor: .controlBackgroundColor)
+
+    /// Opaque menu bar widget body fill (Liquid Glass off).
+    static let panelOpaqueFill = Color(nsColor: .windowBackgroundColor)
+    /// Opaque elevated surfaces for the floating rail and section cards (Liquid Glass off).
+    static let panelOpaqueElevatedFill = Color(nsColor: .controlBackgroundColor)
+    /// Soft drop shadow for opaque elevated rail/cards.
+    static let panelElevatedShadow = Color.adaptive(light: .black.opacity(0.08), dark: .black.opacity(0.28))
 
     static let textPrimary = Color.adaptive(light: Color(hex: "111111"), dark: Color(hex: "f2f2f4"))
     static let textBody = Color.adaptive(light: .black.opacity(0.82), dark: .white.opacity(0.82))

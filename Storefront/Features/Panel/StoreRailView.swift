@@ -37,9 +37,24 @@ struct StoreRailView: View {
         .padding(.horizontal, 7)
         .frame(width: Theme.railWidth)
         .background {
-            SidebarGlassBackground(cornerRadius: Theme.railCornerRadius)
+            if appState.settings.opaqueMenuBarWidget {
+                Theme.panelOpaqueElevatedFill
+            } else {
+                SidebarGlassBackground(cornerRadius: Theme.railCornerRadius)
+            }
         }
         .clipShape(RoundedRectangle(cornerRadius: Theme.railCornerRadius, style: .continuous))
+        .overlay {
+            if appState.settings.opaqueMenuBarWidget {
+                RoundedRectangle(cornerRadius: Theme.railCornerRadius, style: .continuous)
+                    .strokeBorder(Theme.cardBorder, lineWidth: 1)
+            }
+        }
+        .shadow(
+            color: appState.settings.opaqueMenuBarWidget ? Theme.panelElevatedShadow : .clear,
+            radius: 4,
+            y: 1.5
+        )
     }
 
     private var searchField: some View {

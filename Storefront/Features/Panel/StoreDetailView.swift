@@ -192,8 +192,10 @@ struct SectionCardView: View {
     var isFocused: Bool = false
     var focusedRowIndex: Int = 0
     var focusedRowSearchID: FocusState<String?>.Binding
+    @EnvironmentObject var appState: AppState
 
     private var rows: [LinkRow] { StaticLinkCatalog.rows(for: section) }
+    private var isOpaque: Bool { appState.settings.opaqueMenuBarWidget }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -219,9 +221,21 @@ struct SectionCardView: View {
         .padding(.horizontal, 5)
         .padding(.vertical, 10)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(Theme.cardFill)
-        .clipShape(RoundedRectangle(cornerRadius: 9))
-        .overlay(RoundedRectangle(cornerRadius: 9).strokeBorder(Theme.cardBorder, lineWidth: 1))
+        .background {
+            if isOpaque {
+                Theme.panelOpaqueElevatedFill
+            } else {
+                SidebarGlassBackground(cornerRadius: 9, glassStyle: .clear)
+            }
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+        .overlay {
+            if isOpaque {
+                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                    .strokeBorder(Theme.cardBorder, lineWidth: 1)
+            }
+        }
+        .shadow(color: isOpaque ? Theme.panelElevatedShadow : .clear, radius: 3, y: 1)
     }
 }
 

@@ -45,7 +45,13 @@ struct PanelView: View {
             safeTriangle.updateRowFrames(frames)
         }
         .frame(width: Theme.panelSize.width, height: Theme.panelSize.height)
-        // Root stays clear so NSPopover chrome fills body and beak with one material.
+        // Transparent: root stays clear so NSPopover vibrancy fills body + beak.
+        // Opaque: solid adaptive fill for the full panel frame.
+        .background {
+            if appState.settings.opaqueMenuBarWidget {
+                Theme.panelOpaqueFill
+            }
+        }
         .preferredColorScheme(appState.settings.appearancePreference.colorScheme)
         .focusable()
         .focused($panelFocused)

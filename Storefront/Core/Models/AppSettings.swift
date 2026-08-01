@@ -84,6 +84,8 @@ struct AppSettings: Codable, Equatable {
     var showInDock: Bool = false
     /// Light / Dark / System — drives panel + Settings appearance.
     var appearancePreference: AppearancePreference = .system
+    /// When true, the menu bar widget uses opaque chrome instead of Liquid Glass vibrancy.
+    var opaqueMenuBarWidget: Bool = false
     var globalHotkey: KeyCombo = .default
     /// Panel-local: open the selected store's Shopify admin.
     var openAdminHotkey: KeyCombo = .openAdminDefault
@@ -112,6 +114,7 @@ struct AppSettings: Codable, Equatable {
         showInMenuBar: Bool = true,
         showInDock: Bool = false,
         appearancePreference: AppearancePreference = .system,
+        opaqueMenuBarWidget: Bool = false,
         globalHotkey: KeyCombo = .default,
         openAdminHotkey: KeyCombo = .openAdminDefault,
         openOnlineStoreHotkey: KeyCombo = .openOnlineStoreDefault,
@@ -129,6 +132,7 @@ struct AppSettings: Codable, Equatable {
         self.showInMenuBar = showInMenuBar
         self.showInDock = showInDock
         self.appearancePreference = appearancePreference
+        self.opaqueMenuBarWidget = opaqueMenuBarWidget
         self.globalHotkey = globalHotkey
         self.openAdminHotkey = openAdminHotkey
         self.openOnlineStoreHotkey = openOnlineStoreHotkey
@@ -149,6 +153,7 @@ struct AppSettings: Codable, Equatable {
         showInMenuBar = try c.decodeIfPresent(Bool.self, forKey: .showInMenuBar) ?? true
         showInDock = try c.decodeIfPresent(Bool.self, forKey: .showInDock) ?? false
         appearancePreference = try c.decodeIfPresent(AppearancePreference.self, forKey: .appearancePreference) ?? .system
+        opaqueMenuBarWidget = try c.decodeIfPresent(Bool.self, forKey: .opaqueMenuBarWidget) ?? false
         globalHotkey = try c.decodeIfPresent(KeyCombo.self, forKey: .globalHotkey) ?? .default
         openAdminHotkey = try c.decodeIfPresent(KeyCombo.self, forKey: .openAdminHotkey) ?? .openAdminDefault
         openOnlineStoreHotkey = try c.decodeIfPresent(KeyCombo.self, forKey: .openOnlineStoreHotkey) ?? .openOnlineStoreDefault

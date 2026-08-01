@@ -70,6 +70,7 @@ enum SettingsSearchIndex {
 
         // General
         hit("general.appearance", "Appearance", "General", .general, ["theme", "light", "dark", "system", "auto"]),
+        hit("general.opaqueBackground", "Widget background", "General", .general, ["opaque", "transparent", "glass", "vibrancy", "liquid glass", "widget"]),
         hit("general.login", "Launch at login", "General", .general, ["startup", "login item"]),
         hit("general.menubar", "Show in menu bar", "General", .general, ["status item", "menu bar"]),
         hit("general.dock", "Show in Dock", "General", .general, ["dock icon", "activation"]),

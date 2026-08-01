@@ -52,15 +52,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let hosting = NSHostingController(
             rootView: PanelView().environmentObject(appState)
         )
-        // Keep the hosting view clear so the popover's own vibrancy (and arrow)
-        // aren't covered by an opaque SwiftUI backdrop.
         hosting.view.wantsLayer = true
-        hosting.view.layer?.backgroundColor = NSColor.clear.cgColor
         pop.contentViewController = hosting
         popover = pop
 
         applyActivationPolicy()
         applyAppearancePreference(appState.settings.appearancePreference)
+        applyPanelBackgroundOpacity(appState.settings.opaqueMenuBarWidget)
         observeSystemAppearanceChanges()
 
         GlobalHotKeyManager.shared.register(appState.settings.globalHotkey) { [weak self] in
@@ -429,6 +427,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         statusItem?.button?.window?.appearance = nil
+        applyPanelBackgroundOpacity(appState.settings.opaqueMenuBarWidget)
+    }
+
+    /// Opaque mode fills the hosting view so popover vibrancy doesn’t leak under SwiftUI;
+    /// transparent mode stays clear so Liquid Glass / vibrancy show through.
+    func applyPanelBackgroundOpacity(_ opaque: Bool) {
+        guard let view = popover?.contentViewController?.view else { return }
+        view.wantsLayer = true
+        if opaque {
+            var resolved: CGColor?
+            view.effectiveAppearance.performAsCurrentDrawingAppearance {
+                resolved = NSColor.windowBackgroundColor.cgColor
+            }
+            view.layer?.backgroundColor = resolved
+        } else {
+            view.layer?.backgroundColor = NSColor.clear.cgColor
+        }
     }
 
     private func observeSystemAppearanceChanges() {
