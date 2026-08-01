@@ -208,7 +208,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let settingsSubmenu = NSMenu()
         settingsSubmenu.addItem(settingsTabItem(title: "Stores", tab: .stores))
         settingsSubmenu.addItem(settingsTabItem(title: "Sections", tab: .sections))
-        settingsSubmenu.addItem(settingsTabItem(title: "Shortcuts", tab: .shortcuts))
+        settingsSubmenu.addItem(settingsTabItem(title: "Keybindings", tab: .keybindings))
         settingsItem.submenu = settingsSubmenu
         menu.addItem(settingsItem)
 

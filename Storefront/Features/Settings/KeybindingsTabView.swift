@@ -3,7 +3,7 @@ import Carbon.HIToolbox
 
 /// Legend of every keyboard shortcut the panel responds to. Bright chips are editable;
 /// dimmed chips are fixed.
-struct ShortcutsTabView: View {
+struct KeybindingsTabView: View {
     @EnvironmentObject var appState: AppState
     @State private var globalHotkeyError: String?
 

@@ -128,8 +128,8 @@ struct SettingsRootView: View {
             StoresTabView()
         case .sections:
             SectionsTabView()
-        case .shortcuts:
-            ShortcutsTabView()
+        case .keybindings:
+            KeybindingsTabView()
         case .general:
             GeneralTabView()
         case .about:

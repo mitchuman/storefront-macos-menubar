@@ -14,7 +14,7 @@ enum PanelFocusArea: Equatable {
 enum SettingsTab: String, Hashable, CaseIterable, Identifiable {
     case stores
     case sections
-    case shortcuts
+    case keybindings
     case general
     case about
 
@@ -24,7 +24,7 @@ enum SettingsTab: String, Hashable, CaseIterable, Identifiable {
         switch self {
         case .stores: "Stores"
         case .sections: "Sections"
-        case .shortcuts: "Shortcuts"
+        case .keybindings: "Keybindings"
         case .general: "General"
         case .about: "About"
         }
@@ -34,7 +34,7 @@ enum SettingsTab: String, Hashable, CaseIterable, Identifiable {
         switch self {
         case .stores: "bag"
         case .sections: "square.grid.2x2"
-        case .shortcuts: "keyboard"
+        case .keybindings: "keyboard"
         case .general: "gearshape"
         case .about: "info.circle"
         }

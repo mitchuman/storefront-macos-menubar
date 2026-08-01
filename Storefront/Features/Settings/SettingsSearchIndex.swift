@@ -23,7 +23,7 @@ enum SettingsSearchIndex {
         // Panes themselves
         hit("pane.stores", "Stores", "Stores", .stores, ["shopify", "myshopify", "store list"]),
         hit("pane.sections", "Sections", "Sections", .sections, ["admin sections", "cards", "panel"]),
-        hit("pane.shortcuts", "Shortcuts", "Shortcuts", .shortcuts, ["hotkey", "keyboard", "keymap"]),
+        hit("pane.keybindings", "Keybindings", "Keybindings", .keybindings, ["hotkey", "keyboard", "keymap", "shortcuts"]),
         hit("pane.general", "General", "General", .general, ["preferences", "options"]),
         hit("pane.about", "About", "About", .about, ["version", "credits", "update"]),
 
@@ -42,20 +42,20 @@ enum SettingsSearchIndex {
         hit("sections.reset", "Reset to Default", "Sections", .sections, ["default order"]),
         hit("sections.reorder", "Reorder sections", "Sections", .sections, ["drag", "order"]),
 
-        // Shortcuts
-        hit("shortcuts.global", "Open or close the panel", "Shortcuts", .shortcuts, ["global hotkey", "toggle panel"]),
-        hit("shortcuts.quit", "Quit Storefront", "Shortcuts", .shortcuts, ["quit", "exit"]),
-        hit("shortcuts.focusSearch", "Focus the store search field", "Shortcuts", .shortcuts, ["search", "find store"]),
-        hit("shortcuts.storeList", "Move through the store list", "Shortcuts", .shortcuts, ["arrows", "navigate"]),
-        hit("shortcuts.jumpStore", "Jump to a specific store", "Shortcuts", .shortcuts, ["command", "⌘1", "⌘9"]),
-        hit("shortcuts.openAdmin", "Open Admin", "Shortcuts", .shortcuts, ["admin", "backend"]),
-        hit("shortcuts.openOnlineStore", "Open Online Store", "Shortcuts", .shortcuts, ["storefront", "online store"]),
-        hit("shortcuts.sectionGrid", "Move between cards", "Shortcuts", .shortcuts, ["sections", "grid"]),
-        hit("shortcuts.openLink", "Open the focused link", "Shortcuts", .shortcuts, ["return", "enter"]),
-        hit("shortcuts.keepOpen", "Open a link and keep the panel open", "Shortcuts", .shortcuts, ["command-click", "⌘-click"]),
-        hit("shortcuts.linkSearch", "Toggle search on the focused link", "Shortcuts", .shortcuts, ["inline search"]),
-        hit("shortcuts.create", "Open the focused link's New +", "Shortcuts", .shortcuts, ["create", "add"]),
-        hit("shortcuts.escape", "Step back, then close the panel", "Shortcuts", .shortcuts, ["escape", "esc"]),
+        // Keybindings
+        hit("keybindings.global", "Open or close the panel", "Keybindings", .keybindings, ["global hotkey", "toggle panel"]),
+        hit("keybindings.quit", "Quit Storefront", "Keybindings", .keybindings, ["quit", "exit"]),
+        hit("keybindings.focusSearch", "Focus the store search field", "Keybindings", .keybindings, ["search", "find store"]),
+        hit("keybindings.storeList", "Move through the store list", "Keybindings", .keybindings, ["arrows", "navigate"]),
+        hit("keybindings.jumpStore", "Jump to a specific store", "Keybindings", .keybindings, ["command", "⌘1", "⌘9"]),
+        hit("keybindings.openAdmin", "Open Admin", "Keybindings", .keybindings, ["admin", "backend"]),
+        hit("keybindings.openOnlineStore", "Open Online Store", "Keybindings", .keybindings, ["storefront", "online store"]),
+        hit("keybindings.sectionGrid", "Move between cards", "Keybindings", .keybindings, ["sections", "grid"]),
+        hit("keybindings.openLink", "Open the focused link", "Keybindings", .keybindings, ["return", "enter"]),
+        hit("keybindings.keepOpen", "Open a link and keep the panel open", "Keybindings", .keybindings, ["command-click", "⌘-click"]),
+        hit("keybindings.linkSearch", "Toggle search on the focused link", "Keybindings", .keybindings, ["inline search"]),
+        hit("keybindings.create", "Open the focused link's New +", "Keybindings", .keybindings, ["create", "add"]),
+        hit("keybindings.escape", "Step back, then close the panel", "Keybindings", .keybindings, ["escape", "esc"]),
 
         // General
         hit("general.login", "Launch at login", "General", .general, ["startup", "login item"]),

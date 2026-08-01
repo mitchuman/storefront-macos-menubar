@@ -9,9 +9,8 @@ struct StoreRailView: View {
             searchField
                 .padding(.bottom, 7)
 
-            Text("STORES · \(appState.visibleStores.count)")
-                .font(.mono(9.5, weight: .semibold))
-                .tracking(1.2)
+            Text("Stores · \(appState.visibleStores.count)")
+                .font(.system(size: 11, weight: .semibold))
                 .foregroundStyle(Theme.textMeta36)
                 .padding(.horizontal, 8)
                 .padding(.bottom, 4)
@@ -74,7 +73,7 @@ struct StoreRailView: View {
                     .foregroundStyle(Theme.textMeta36)
                 Spacer()
                 Button {
-                    appState.selectedSettingsTab = .shortcuts
+                    appState.selectedSettingsTab = .keybindings
                     // Reuses the same path the status-item menu's tab shortcuts use —
                     // `AppDelegate` posts this same notification because it's an `NSObject`
                     // outside the SwiftUI hierarchy and can't hold `@Environment(\.openWindow)`
@@ -88,7 +87,7 @@ struct StoreRailView: View {
                         .foregroundStyle(Theme.textMeta30)
                 }
                 .buttonStyle(.plain)
-                .help("All keyboard shortcuts")
+                .help("All keybindings")
             }
             legendItem(symbolNames: ["arrow.up", "arrow.down"], label: "Stores")
             legendItem(symbolNames: ["arrow.left", "arrow.right"], label: "Cards")
