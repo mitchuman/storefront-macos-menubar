@@ -11,7 +11,7 @@ private let logger = Logger(subsystem: "com.humanmarketing.storefront", category
 ///
 /// A standalone singleton, not routed through `NSApp.delegate` — we already learned that
 /// `NSApp.delegate as? AppDelegate` silently fails under `@NSApplicationDelegateAdaptor`
-/// (see the `@Environment(\.openSettings)` fix used for the Settings window).
+/// (see the `@Environment(\.openWindow)` fix used for the Settings window).
 @MainActor
 final class GlobalHotKeyManager {
     static let shared = GlobalHotKeyManager()

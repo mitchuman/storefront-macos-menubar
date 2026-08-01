@@ -4,28 +4,55 @@ struct GeneralTabView: View {
     @EnvironmentObject var appState: AppState
 
     var body: some View {
-        Form {
-            Toggle("Launch at login", isOn: Binding(
-                get: { appState.settings.launchAtLogin },
-                set: { appState.setLaunchAtLogin($0) }
-            ))
-            .padding(.vertical, 4)
-
-            Toggle("Show in menu bar", isOn: Binding(
-                get: { appState.settings.showInMenuBar },
-                set: { newValue in
-                    AppDelegate.shared?.setShowInMenuBar(newValue)
+        ScrollView {
+            SettingsGroupedCard {
+                SettingsGroupedRow("Launch at login") {
+                    Toggle(
+                        "",
+                        isOn: Binding(
+                            get: { appState.settings.launchAtLogin },
+                            set: { appState.setLaunchAtLogin($0) }
+                        )
+                    )
+                    .labelsHidden()
+                    .toggleStyle(.switch)
+                    .controlSize(.small)
                 }
-            ))
-            .padding(.vertical, 4)
 
-            Toggle("Show in Dock", isOn: Binding(
-                get: { appState.settings.showInDock },
-                set: { AppDelegate.shared?.setShowInDock($0) }
-            ))
-            .padding(.vertical, 4)
+                Divider().overlay(Theme.hairline)
+
+                SettingsGroupedRow("Show in menu bar") {
+                    Toggle(
+                        "",
+                        isOn: Binding(
+                            get: { appState.settings.showInMenuBar },
+                            set: { AppDelegate.shared?.setShowInMenuBar($0) }
+                        )
+                    )
+                    .labelsHidden()
+                    .toggleStyle(.switch)
+                    .controlSize(.small)
+                }
+
+                Divider().overlay(Theme.hairline)
+
+                SettingsGroupedRow("Show in Dock") {
+                    Toggle(
+                        "",
+                        isOn: Binding(
+                            get: { appState.settings.showInDock },
+                            set: { AppDelegate.shared?.setShowInDock($0) }
+                        )
+                    )
+                    .labelsHidden()
+                    .toggleStyle(.switch)
+                    .controlSize(.small)
+                }
+            }
+            .padding(18)
+            .frame(maxWidth: .infinity, alignment: .topLeading)
         }
-        .padding(18)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .settingsTopScrollEdgeBlur()
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 }

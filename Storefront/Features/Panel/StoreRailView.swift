@@ -77,7 +77,7 @@ struct StoreRailView: View {
                     appState.selectedSettingsTab = .shortcuts
                     // Reuses the same path the status-item menu's tab shortcuts use —
                     // `AppDelegate` posts this same notification because it's an `NSObject`
-                    // outside the SwiftUI hierarchy and can't hold `@Environment(\.openSettings)`
+                    // outside the SwiftUI hierarchy and can't hold `@Environment(\.openWindow)`
                     // itself; from here (a SwiftUI view) it'd be simpler to call it directly,
                     // but reusing the one existing path keeps "how Settings gets opened" in
                     // a single place rather than two slightly different ones.

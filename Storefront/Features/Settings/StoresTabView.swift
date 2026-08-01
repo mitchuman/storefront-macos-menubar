@@ -48,17 +48,22 @@ struct StoresTabView: View {
                 }
                 .listStyle(.plain)
                 .scrollContentBackground(.hidden)
+                .settingsTopScrollEdgeBlur()
             }
             .background(Theme.settingsCardFill)
             .clipShape(RoundedRectangle(cornerRadius: 9))
             .overlay(RoundedRectangle(cornerRadius: 9).strokeBorder(Theme.borderColor, lineWidth: 1))
 
-            HStack(spacing: 8) {
-                SettingsPillButton(title: "＋ Add store…") { beginAdding() }
-                SettingsPillButton(title: "Import CSV…", action: importCSV)
-                SettingsPillButton(title: "Export CSV…", action: exportCSV)
+            HStack(spacing: 14) {
+                SettingsTextLink("＋ Add store", action: beginAdding)
+                SettingsTextLink("Import CSV", action: importCSV)
+                SettingsTextLink("Export CSV", action: exportCSV)
                 Spacer()
-                SettingsPillButton(title: "Delete All…", isEnabled: !appState.stores.isEmpty, isDestructive: true) {
+                SettingsTextLink(
+                    "Delete All",
+                    isEnabled: !appState.stores.isEmpty,
+                    isDestructive: true
+                ) {
                     isConfirmingDeleteAll = true
                 }
             }
@@ -204,6 +209,7 @@ struct StoresTabView: View {
             .scaleEffect(1.8)
             .frame(width: 20, height: 20)
             .clipShape(Circle())
+            .overlay(Circle().strokeBorder(Theme.borderColor, lineWidth: 1))
             .contentShape(Circle())
     }
 
@@ -400,29 +406,35 @@ private extension View {
     }
 }
 
-/// A plain, chrome-free button matching the design's white/bordered pill style.
-/// Avoids `.buttonStyle(.bordered)`'s system hover chrome, which can subtly resize on hover.
-private struct SettingsPillButton: View {
+/// Plain text action link for Settings footers — no pill chrome.
+private struct SettingsTextLink: View {
     let title: String
     var isEnabled: Bool = true
     var isDestructive: Bool = false
     let action: () -> Void
 
+    init(
+        _ title: String,
+        isEnabled: Bool = true,
+        isDestructive: Bool = false,
+        action: @escaping () -> Void
+    ) {
+        self.title = title
+        self.isEnabled = isEnabled
+        self.isDestructive = isDestructive
+        self.action = action
+    }
+
     private var textColor: Color {
         guard isEnabled else { return Theme.textMeta40 }
-        return isDestructive ? Theme.errorDot : Theme.textBody
+        return isDestructive ? .red : Color.accentColor
     }
 
     var body: some View {
-        Text(title)
+        Button(title, action: action)
+            .buttonStyle(.plain)
             .font(.system(size: 11.5, weight: .medium))
             .foregroundStyle(textColor)
-            .padding(.horizontal, 11)
-            .padding(.vertical, 6)
-            .background(Theme.settingsCardFill)
-            .clipShape(RoundedRectangle(cornerRadius: 7))
-            .overlay(RoundedRectangle(cornerRadius: 7).strokeBorder(Theme.borderColor, lineWidth: 1))
-            .contentShape(Rectangle())
-            .onTapGesture { if isEnabled { action() } }
+            .disabled(!isEnabled)
     }
 }

@@ -9,14 +9,36 @@ enum PanelFocusArea: Equatable {
     case cards
 }
 
-/// Identifies a `SettingsRootView` tab — lets the status-item menu's quick links jump
-/// straight to a specific tab instead of always landing on whichever one is first.
-enum SettingsTab: Hashable {
-    case general
+/// Identifies a `SettingsRootView` sidebar pane — lets the status-item menu's quick
+/// links jump straight to a specific pane instead of always landing on the default.
+enum SettingsTab: String, Hashable, CaseIterable, Identifiable {
     case stores
     case sections
     case shortcuts
+    case general
     case about
+
+    var id: Self { self }
+
+    var title: String {
+        switch self {
+        case .stores: "Stores"
+        case .sections: "Sections"
+        case .shortcuts: "Shortcuts"
+        case .general: "General"
+        case .about: "About"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .stores: "bag"
+        case .sections: "square.grid.2x2"
+        case .shortcuts: "keyboard"
+        case .general: "gearshape"
+        case .about: "info.circle"
+        }
+    }
 }
 
 @MainActor

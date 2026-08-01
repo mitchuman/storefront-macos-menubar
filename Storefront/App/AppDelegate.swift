@@ -4,8 +4,8 @@ import Sparkle
 
 extension Notification.Name {
     /// Posted by AppDelegate (and the panel rail) to open Settings — `PanelView`
-    /// observes this and calls `@Environment(\.openSettings)`, and AppDelegate also
-    /// opens an explicit fallback Settings window when that path isn't available.
+    /// observes this and calls `@Environment(\.openWindow)`, and AppDelegate also
+    /// brings any existing Settings window forward / triggers the Settings… menu item.
     static let openSettingsRequested = Notification.Name("openSettingsRequested")
 }
 
@@ -335,19 +335,36 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     // MARK: - Settings
 
-    /// Always opens the SwiftUI `Settings` scene (toolbar tabs with icons) — never a
-    /// separate `NSWindow` hosting `SettingsRootView`, which rendered a plain TabView
-    /// without the Settings chrome and looked different depending on Dock visibility.
+    /// Opens the dedicated Settings `Window` (id: `"settings"`).
     func openSettingsWindow(tab: SettingsTab? = nil) {
         if let tab {
             appState.selectedSettingsTab = tab
         }
         NSApp.activate(ignoringOtherApps: true)
-        // `PanelView` holds `@Environment(\.openSettings)` and performs the real open.
         NotificationCenter.default.post(name: .openSettingsRequested, object: nil)
-        // Direct AppKit path as a backup when the panel hosting controller hasn't
-        // mounted its SwiftUI hierarchy yet (e.g. right after launch).
-        NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+        // Bring an existing window forward, or invoke Settings… (Commands → openWindow)
+        // when the panel hosting controller hasn't mounted yet.
+        DispatchQueue.main.async {
+            if let window = Self.findSettingsWindow() {
+                window.makeKeyAndOrderFront(nil)
+            } else if let item = Self.settingsMenuItem(), let action = item.action {
+                NSApp.sendAction(action, to: item.target, from: item)
+            }
+        }
+    }
+
+    private static func findSettingsWindow() -> NSWindow? {
+        NSApp.windows.first { window in
+            let id = window.identifier?.rawValue ?? ""
+            return id == "settings" || id.contains("settings") || window.title == "Settings"
+        }
+    }
+
+    private static func settingsMenuItem() -> NSMenuItem? {
+        guard let appMenu = NSApp.mainMenu?.items.first?.submenu else { return nil }
+        return appMenu.items.first { item in
+            item.keyEquivalent == "," || item.title.localizedCaseInsensitiveContains("settings")
+        }
     }
 
     // MARK: - General toggles

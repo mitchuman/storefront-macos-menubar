@@ -108,6 +108,7 @@ struct ShortcutsTabView: View {
             }
             .padding(18)
         }
+        .settingsTopScrollEdgeBlur()
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
 

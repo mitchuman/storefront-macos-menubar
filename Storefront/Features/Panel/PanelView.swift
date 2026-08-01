@@ -9,7 +9,7 @@ struct PanelView: View {
     /// Non-text focus target so shortcuts keep working after the search field is blurred
     /// (e.g. after ⌘1–9), without the text field swallowing ⌘A / ⌘O.
     @FocusState private var panelFocused: Bool
-    @Environment(\.openSettings) private var openSettings
+    @Environment(\.openWindow) private var openWindow
 
     /// The right panel's frame is fully determined by fixed layout constants (not
     /// measured dynamically) — a `GeometryReader` here proved unreliable, since its
@@ -74,7 +74,7 @@ struct PanelView: View {
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: .openSettingsRequested)) { _ in
-            openSettings()
+            openWindow(id: "settings")
             NSApp.activate(ignoringOtherApps: true)
         }
         .onKeyPress { keyPress in

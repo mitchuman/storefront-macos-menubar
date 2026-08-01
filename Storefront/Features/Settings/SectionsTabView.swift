@@ -5,6 +5,7 @@ import SwiftUI
 /// affected whichever store happened to be selected, which read as broken.)
 struct SectionsTabView: View {
     @EnvironmentObject var appState: AppState
+    @State private var isConfirmingReset = false
 
     private var allEnabled: Bool {
         appState.settings.enabledSections.count == SectionID.allCases.count
@@ -53,6 +54,7 @@ struct SectionsTabView: View {
             }
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
+            .settingsTopScrollEdgeBlur()
             .background(Theme.settingsCardFill)
             .clipShape(RoundedRectangle(cornerRadius: 9))
             .overlay(RoundedRectangle(cornerRadius: 9).strokeBorder(Theme.borderColor, lineWidth: 1))
@@ -62,13 +64,23 @@ struct SectionsTabView: View {
                     .font(.system(size: 11))
                     .foregroundStyle(Theme.textSecondary)
                 Spacer()
-                Button("Reset to Default", action: resetToDefault)
+                Button("Reset to Default") { isConfirmingReset = true }
                     .buttonStyle(.plain)
                     .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(Theme.accent)
+                    .foregroundStyle(Color.red)
             }
         }
         .padding(18)
+        .confirmationDialog(
+            "Reset sections to default?",
+            isPresented: $isConfirmingReset,
+            titleVisibility: .visible
+        ) {
+            Button("Reset to Default", role: .destructive) { resetToDefault() }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This restores the default section order and enables every section for all stores.")
+        }
     }
 
     private func resetToDefault() {
