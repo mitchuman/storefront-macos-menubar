@@ -5,16 +5,22 @@ enum SettingsRowMetrics {
     static let horizontalPadding: CGFloat = 11
     static let reorderWidth: CGFloat = 22
     static let rowSpacing: CGFloat = 6
-    /// Subtle left cutoff for inter-row hairlines (Keybindings style).
+    /// Subtle left cutoff for inter-row hairlines (Keybindings / non-reorder rows).
     static let separatorLeading: CGFloat = 11
+    /// Hairline starts after the reorder grip + gap (not underneath the handle).
+    static var afterReorderSeparatorLeading: CGFloat {
+        horizontalPadding + reorderWidth + rowSpacing
+    }
 }
 
 /// Hairline between grouped rows — inset on the leading edge like Keybindings.
 struct SettingsGroupedDivider: View {
+    var leadingInset: CGFloat = SettingsRowMetrics.separatorLeading
+
     var body: some View {
         Divider()
             .overlay(Theme.hairline)
-            .padding(.leading, SettingsRowMetrics.separatorLeading)
+            .padding(.leading, leadingInset)
     }
 }
 
@@ -56,7 +62,7 @@ struct SettingsGroupedRow<Trailing: View>: View {
     }
 
     var body: some View {
-        HStack(alignment: subtitle == nil ? .center : .top, spacing: 12) {
+        HStack(alignment: .center, spacing: 12) {
             VStack(alignment: .leading, spacing: subtitle == nil ? 0 : 3) {
                 Text(title)
                     .font(.system(size: 12.5))

@@ -40,10 +40,10 @@ struct SettingsRootView: View {
             detailPane(for: appState.selectedSettingsTab)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                 .navigationTitle(appState.selectedSettingsTab.title)
-                // List-based Stores must not inherit the titleband scroll-edge — it
-                // pulls the entire NavigationSplitView under the titlebar. ScrollView
-                // panes (including Sections) opt in themselves.
-                .applySettingsDetailScrollEdgeBlur(for: appState.selectedSettingsTab)
+                // Soft progressive blur under the titleband for every pane (cmux recipe).
+                // Stores' List disables its own edge effect so it doesn't pull the split
+                // view under the titlebar.
+                .settingsTopScrollEdgeBlur()
         }
         .frame(
             minWidth: SettingsWindowMetrics.minWidth,
@@ -136,14 +136,12 @@ struct SettingsRootView: View {
         .padding(.vertical, 6)
         .background {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(Color.primary.opacity(0.06))
+                .fill(.ultraThinMaterial)
         }
         .padding(.horizontal, 10)
         .padding(.top, 4)
         .padding(.bottom, 8)
         .frame(maxWidth: .infinity, alignment: .leading)
-        // Full-width material so scrolling sidebar rows blur underneath.
-        .background(.ultraThinMaterial)
         .zIndex(1)
     }
 
@@ -160,20 +158,6 @@ struct SettingsRootView: View {
             GeneralTabView()
         case .about:
             AboutTabView()
-        }
-    }
-}
-
-private extension View {
-    /// Titleband progressive blur for ScrollView-driven Settings panes.
-    /// Stores (List) and Sections (owns blur on its ScrollView) stay opted out here.
-    @ViewBuilder
-    func applySettingsDetailScrollEdgeBlur(for tab: SettingsTab) -> some View {
-        switch tab {
-        case .stores, .sections:
-            self
-        case .general, .keybindings, .about:
-            self.settingsTopScrollEdgeBlur()
         }
     }
 }

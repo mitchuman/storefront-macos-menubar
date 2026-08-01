@@ -245,6 +245,7 @@ struct SectionsTabView: View {
         VStack(spacing: 0) {
             HStack(spacing: SettingsRowMetrics.rowSpacing) {
                 Image(systemName: "line.3.horizontal")
+                    .font(.system(size: 11, weight: .semibold))
                     .foregroundStyle(Theme.textMeta25)
                     .frame(width: SettingsRowMetrics.reorderWidth, alignment: .leading)
                 Image(section.iconName)
@@ -267,7 +268,7 @@ struct SectionsTabView: View {
             .opacity(draggingSection == section ? 0.45 : 1)
 
             if section != appState.settings.sectionOrder.last {
-                SettingsGroupedDivider()
+                SettingsGroupedDivider(leadingInset: SettingsRowMetrics.afterReorderSeparatorLeading)
             }
         }
         .background(Theme.settingsCardFill)

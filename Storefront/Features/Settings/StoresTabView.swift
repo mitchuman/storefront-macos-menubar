@@ -15,6 +15,7 @@ struct StoresTabView: View {
     @State private var newColorHex = "1f6f4a"
     @State private var csvErrorMessage: String?
     @State private var isConfirmingDeleteAll = false
+    @State private var draggingStoreID: Store.ID?
 
     var orderedStores: [Store] {
         appState.stores.sorted { $0.sortOrder < $1.sortOrder }
@@ -22,78 +23,89 @@ struct StoresTabView: View {
 
     private enum Column {
         static let order: CGFloat = SettingsRowMetrics.reorderWidth
-        static let accent: CGFloat = 28
+        static let accent: CGFloat = 20
         static let spacing: CGFloat = SettingsRowMetrics.rowSpacing
-        /// Inset so row separators begin at the accent color control.
-        static var separatorLeading: CGFloat {
-            SettingsRowMetrics.horizontalPadding + order + spacing
-        }
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text("Drag rows to reorder. Hidden stores stay out of the panel.")
-                    .font(.system(size: 11))
-                    .foregroundStyle(Theme.textSecondary)
-                Spacer(minLength: 0)
-                Button(allVisible ? "Hide All" : "Show All", action: toggleAllVisibility)
-                    .buttonStyle(.plain)
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(Color.accentColor)
-            }
-
-            List {
-                ForEach(orderedStores) { store in
-                    storeRow(store: store)
-                        .listRowBackground(Theme.settingsCardFill)
-                        .listRowSeparator(.hidden)
-                        .listRowInsets(EdgeInsets())
+        ScrollView {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Text("Drag rows to reorder. Hidden stores stay out of the panel.")
+                        .font(.system(size: 11))
+                        .foregroundStyle(Theme.textSecondary)
+                    Spacer(minLength: 0)
+                    Button(allVisible ? "Hide All" : "Show All", action: toggleAllVisibility)
+                        .buttonStyle(.plain)
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(Color.accentColor)
                 }
-                .onMove(perform: moveStores)
 
-                Button(action: beginAdding) {
-                    HStack(spacing: Column.spacing) {
-                        Image(systemName: "plus")
-                            .font(.system(size: 12, weight: .semibold))
-                            .frame(width: Column.order, alignment: .leading)
-                        Text("Add Store")
-                            .font(.system(size: 12.5))
-                        Spacer(minLength: 0)
+                VStack(spacing: 0) {
+                    ForEach(orderedStores) { store in
+                        storeRow(store: store)
+                            .onDrag {
+                                draggingStoreID = store.id
+                                return NSItemProvider(object: store.id.uuidString as NSString)
+                            }
+                            .onDrop(
+                                of: [.text],
+                                delegate: StoreReorderDropDelegate(
+                                    targetID: store.id,
+                                    orderedIDs: orderedStores.map(\.id),
+                                    draggingStoreID: $draggingStoreID,
+                                    onMove: { from, to in
+                                        reorderStores(from: from, to: to, save: false)
+                                    },
+                                    onDrop: {
+                                        appState.save()
+                                    }
+                                )
+                            )
                     }
-                    .foregroundStyle(Color.accentColor)
-                    .padding(.horizontal, SettingsRowMetrics.horizontalPadding)
-                    .padding(.vertical, 9)
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .listRowBackground(Theme.settingsCardFill)
-                .listRowSeparator(.hidden)
-                .listRowInsets(EdgeInsets())
-            }
-            .listStyle(.plain)
-            .scrollContentBackground(.hidden)
-            .settingsTopScrollEdgeBlur()
-            .background(Theme.settingsCardFill)
-            .clipShape(RoundedRectangle(cornerRadius: 9))
-            .overlay(RoundedRectangle(cornerRadius: 9).strokeBorder(Theme.borderColor, lineWidth: 1))
 
-            HStack(spacing: 14) {
-                SettingsTextLink("Import CSV", action: importCSV)
-                SettingsTextLink("Export CSV", action: exportCSV)
-                Spacer()
-                SettingsTextLink(
-                    "Delete All",
-                    isEnabled: !appState.stores.isEmpty,
-                    isDestructive: true
-                ) {
-                    isConfirmingDeleteAll = true
+                    if !orderedStores.isEmpty {
+                        SettingsGroupedDivider(leadingInset: SettingsRowMetrics.afterReorderSeparatorLeading)
+                    }
+
+                    Button(action: beginAdding) {
+                        HStack(spacing: Column.spacing) {
+                            Image(systemName: "plus")
+                                .font(.system(size: 12, weight: .semibold))
+                                .frame(width: Column.order, alignment: .leading)
+                            Text("Add Store")
+                                .font(.system(size: 12.5))
+                            Spacer(minLength: 0)
+                        }
+                        .foregroundStyle(Color.accentColor)
+                        .padding(.horizontal, SettingsRowMetrics.horizontalPadding)
+                        .padding(.vertical, 9)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                }
+                .background(Theme.settingsCardFill)
+                .clipShape(RoundedRectangle(cornerRadius: 9))
+                .overlay(RoundedRectangle(cornerRadius: 9).strokeBorder(Theme.borderColor, lineWidth: 1))
+
+                HStack(spacing: 14) {
+                    SettingsTextLink("Import CSV", action: importCSV)
+                    SettingsTextLink("Export CSV", action: exportCSV)
+                    Spacer()
+                    SettingsTextLink(
+                        "Delete All",
+                        isEnabled: !appState.stores.isEmpty,
+                        isDestructive: true
+                    ) {
+                        isConfirmingDeleteAll = true
+                    }
                 }
             }
-
-            Spacer()
+            .padding(18)
+            .frame(maxWidth: .infinity, alignment: .topLeading)
         }
-        .padding(18)
+        .settingsTopScrollEdgeBlur()
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .sheet(isPresented: $isAddingStore) {
             storeSheet(title: "Add a store", confirmTitle: "Add", store: nil, domain: $newDomain, displayName: $newDisplayName, colorBinding: newColorBinding) {
                 addStore()
@@ -145,6 +157,7 @@ struct StoresTabView: View {
         VStack(spacing: 0) {
             HStack(spacing: Column.spacing) {
                 Image(systemName: "line.3.horizontal")
+                    .font(.system(size: 11, weight: .semibold))
                     .foregroundStyle(Theme.textMeta25)
                     .frame(width: Column.order, alignment: .leading)
 
@@ -194,11 +207,11 @@ struct StoresTabView: View {
             }
             .padding(.horizontal, SettingsRowMetrics.horizontalPadding)
             .padding(.vertical, 9)
-            .opacity(store.isVisible ? 1 : 0.5)
+            .opacity(store.isVisible ? (draggingStoreID == store.id ? 0.45 : 1) : 0.5)
 
-            Divider()
-                .overlay(Theme.hairline)
-                .padding(.leading, Column.separatorLeading)
+            if store.id != orderedStores.last?.id {
+                SettingsGroupedDivider(leadingInset: SettingsRowMetrics.afterReorderSeparatorLeading)
+            }
         }
     }
 
@@ -231,8 +244,16 @@ struct StoresTabView: View {
         appState.save()
     }
 
-    private func moveStores(from source: IndexSet, to destination: Int) {
-        appState.moveStore(fromOffsets: source, toOffset: destination)
+    private func reorderStores(from: Int, to: Int, save: Bool) {
+        var ordered = orderedStores
+        ordered.move(fromOffsets: IndexSet(integer: from), toOffset: to)
+        for (index, store) in ordered.enumerated() {
+            guard let idx = appState.stores.firstIndex(where: { $0.id == store.id }) else { continue }
+            appState.stores[idx].sortOrder = index
+        }
+        if save {
+            appState.save()
+        }
     }
 
     private func colorBinding(for store: Store) -> Binding<Color> {
@@ -382,6 +403,42 @@ struct StoresTabView: View {
             logger.error("CSV import failed: \(error.localizedDescription, privacy: .public)")
             csvErrorMessage = "Couldn't read that file — make sure it's a valid UTF-8 CSV."
         }
+    }
+}
+
+// MARK: - Drag reorder
+
+private struct StoreReorderDropDelegate: DropDelegate {
+    let targetID: Store.ID
+    let orderedIDs: [Store.ID]
+    @Binding var draggingStoreID: Store.ID?
+    let onMove: (_ from: Int, _ to: Int) -> Void
+    let onDrop: () -> Void
+
+    func validateDrop(info: DropInfo) -> Bool {
+        draggingStoreID != nil
+    }
+
+    func dropEntered(info: DropInfo) {
+        guard let draggingStoreID,
+              draggingStoreID != targetID,
+              let from = orderedIDs.firstIndex(of: draggingStoreID),
+              let to = orderedIDs.firstIndex(of: targetID)
+        else { return }
+
+        withAnimation(.easeInOut(duration: 0.15)) {
+            onMove(from, to > from ? to + 1 : to)
+        }
+    }
+
+    func performDrop(info: DropInfo) -> Bool {
+        draggingStoreID = nil
+        onDrop()
+        return true
+    }
+
+    func dropUpdated(info: DropInfo) -> DropProposal? {
+        DropProposal(operation: .move)
     }
 }
 

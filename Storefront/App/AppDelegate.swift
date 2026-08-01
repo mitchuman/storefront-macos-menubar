@@ -77,6 +77,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return true
     }
 
+    /// Keep running as a menu-bar / hotkey app when Settings is closed.
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
+        false
+    }
+
     // MARK: - Status item
 
     /// Wipe any leftover "hidden by ⌘-drag" flags for our autosave name (and a few
