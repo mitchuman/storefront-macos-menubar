@@ -12,30 +12,30 @@ enum PanelFocusArea: Equatable {
 /// Identifies a `SettingsRootView` sidebar pane — lets the status-item menu's quick
 /// links jump straight to a specific pane instead of always landing on the default.
 enum SettingsTab: String, Hashable, CaseIterable, Identifiable {
+    case general
     case stores
     case sections
     case keybindings
-    case general
     case about
 
     var id: Self { self }
 
     var title: String {
         switch self {
+        case .general: "General"
         case .stores: "Stores"
         case .sections: "Sections"
         case .keybindings: "Keybindings"
-        case .general: "General"
         case .about: "About"
         }
     }
 
     var systemImage: String {
         switch self {
+        case .general: "gearshape"
         case .stores: "bag"
         case .sections: "square.grid.2x2"
         case .keybindings: "keyboard"
-        case .general: "gearshape"
         case .about: "info.circle"
         }
     }

@@ -206,13 +206,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         menu.addItem(.separator())
 
-        let settingsItem = NSMenuItem(title: "Settings", action: nil, keyEquivalent: "")
-        let settingsSubmenu = NSMenu()
-        settingsSubmenu.addItem(settingsTabItem(title: "Stores", tab: .stores))
-        settingsSubmenu.addItem(settingsTabItem(title: "Sections", tab: .sections))
-        settingsSubmenu.addItem(settingsTabItem(title: "Keybindings", tab: .keybindings))
-        settingsItem.submenu = settingsSubmenu
+        // Top-level peers (same group) — not nested under Settings.
+        let settingsItem = NSMenuItem(title: "Settings", action: #selector(openSettingsFromMenu), keyEquivalent: "")
+        settingsItem.target = self
         menu.addItem(settingsItem)
+        menu.addItem(settingsTabItem(title: "Stores", tab: .stores))
+        menu.addItem(settingsTabItem(title: "Sections", tab: .sections))
+        menu.addItem(settingsTabItem(title: "Keybindings", tab: .keybindings))
 
         menu.addItem(.separator())
 
@@ -233,6 +233,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func openPanelFromMenu() {
         togglePanel()
+    }
+
+    @objc private func openSettingsFromMenu() {
+        openSettingsWindow(tab: .general)
     }
 
     private func settingsTabItem(title: String, tab: SettingsTab) -> NSMenuItem {

@@ -100,7 +100,7 @@ struct SectionsTabView: View {
                                 ForEach(appState.settings.savedSectionPresets) { preset in
                                     Text(preset.name).tag(ActiveSectionPreset.saved(preset.id))
                                 }
-                                Text("Custom").tag(ActiveSectionPreset.custom)
+                                Text("Create new").tag(ActiveSectionPreset.custom)
                             }
                         }
                         .labelsHidden()
@@ -138,7 +138,7 @@ struct SectionsTabView: View {
 
                     SettingsGroupedRow(
                         "Library",
-                        subtitle: "Import or export your saved custom presets as CSV."
+                        subtitle: "Manage your saved custom presets as CSV."
                     ) {
                         HStack(spacing: 14) {
                             SettingsTextLink("Import", action: importPresetsCSV)

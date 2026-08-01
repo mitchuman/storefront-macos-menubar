@@ -43,7 +43,7 @@ enum SettingsSearchIndex {
         hit("sections.preset.storeManager", "Store manager", "Sections", .sections, ["preset", "orders", "customers"]),
         hit("sections.preset.marketer", "Marketer", "Sections", .sections, ["preset", "analytics", "discounts"]),
         hit("sections.preset.developer", "Developer", "Sections", .sections, ["preset", "themes", "content"]),
-        hit("sections.preset.custom", "Custom", "Sections", .sections, ["preset", "save layout"]),
+        hit("sections.preset.custom", "Create new", "Sections", .sections, ["preset", "custom", "save layout"]),
         hit("sections.preset.save", "Save current", "Sections", .sections, ["save", "named preset", "custom preset", "save preset"]),
         hit("sections.preset.rename", "Rename Preset", "Sections", .sections, ["rename", "saved preset"]),
         hit("sections.preset.delete", "Delete Preset", "Sections", .sections, ["remove", "saved preset"]),
