@@ -179,6 +179,22 @@ private struct PanelBackgroundThumbnailPicker: View {
 private struct PanelBackgroundPreview: View {
     let opaque: Bool
 
+    /// Solid panel body — slightly darker in dark so elevated chrome can read.
+    private var opaqueBodyFill: Color {
+        Color.adaptive(
+            light: Color(nsColor: .windowBackgroundColor),
+            dark: Color(white: 0.13)
+        )
+    }
+
+    /// Elevated rail/cards — brighter in dark for contrast against the body.
+    private var opaqueElevatedFill: Color {
+        Color.adaptive(
+            light: Color(nsColor: .controlBackgroundColor),
+            dark: Color(white: 0.28)
+        )
+    }
+
     var body: some View {
         ZStack {
             // Desktop wallpaper hint (matches Appearance previews’ colorful backdrop)
@@ -193,17 +209,13 @@ private struct PanelBackgroundPreview: View {
 
             // Panel body — solid for Opaque, frosted wash for Liquid Glass (popover chrome).
             RoundedRectangle(cornerRadius: 5, style: .continuous)
-                .fill(
-                    opaque
-                        ? Color(nsColor: .windowBackgroundColor)
-                        : Color.white.opacity(0.55)
-                )
+                .fill(opaque ? opaqueBodyFill : Color.white.opacity(0.55))
                 .padding(5)
 
             HStack(alignment: .top, spacing: 3) {
                 // Floating sidebar rail
                 RoundedRectangle(cornerRadius: 3.5, style: .continuous)
-                    .fill(opaque ? Color(nsColor: .controlBackgroundColor) : Color.white.opacity(0.42))
+                    .fill(opaque ? opaqueElevatedFill : Color.white.opacity(0.42))
                     .overlay {
                         if opaque {
                             RoundedRectangle(cornerRadius: 3.5, style: .continuous)
@@ -228,7 +240,7 @@ private struct PanelBackgroundPreview: View {
                 VStack(spacing: 3) {
                     ForEach(0..<2, id: \.self) { _ in
                         RoundedRectangle(cornerRadius: 3, style: .continuous)
-                            .fill(opaque ? Color(nsColor: .controlBackgroundColor) : Color.white.opacity(0.38))
+                            .fill(opaque ? opaqueElevatedFill : Color.white.opacity(0.38))
                             .overlay {
                                 if opaque {
                                     RoundedRectangle(cornerRadius: 3, style: .continuous)

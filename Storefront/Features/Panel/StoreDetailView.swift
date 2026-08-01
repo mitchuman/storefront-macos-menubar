@@ -86,13 +86,11 @@ struct StoreDetailView: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Text(store.displayName)
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(Theme.textPrimary)
-                CopyableHandleView(handle: store.handle, accentColor: store.color)
-                Spacer()
-            }
+            Text(store.displayName)
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(Theme.textPrimary)
+            CopyableHandleView(handle: store.handle, domain: store.myshopifyDomain, accentColor: store.color)
+                .padding(.top, 3)
             HStack(spacing: 6) {
                 if let adminURL = store.adminURL {
                     HeaderActionButton(title: "Admin", iconName: "HomeIcon", background: store.color, foreground: store.accentTextColor) {
@@ -119,40 +117,91 @@ struct StoreDetailView: View {
     }
 }
 
-/// The store's `myshopify.com` handle, shown next to its display name. Click to copy
-/// it to the clipboard; a checkmark fades in beside it to confirm, then fades back out.
+/// The store's `myshopify.com` domain, shown next to its display name as two
+/// tappable segments. Click the handle to copy just that id; click `.myshopify.com`
+/// to copy the full domain. A checkmark fades in beside it to confirm.
 private struct CopyableHandleView: View {
     let handle: String
+    let domain: String
     let accentColor: Color
-    @State private var isHovering = false
+    @State private var hoveringHandle = false
+    @State private var hoveringSuffix = false
     @State private var didCopy = false
+
+    private static let suffix = ".myshopify.com"
+
+    private var handleColor: Color {
+        (hoveringHandle || hoveringSuffix) ? Theme.textBody : Theme.textSecondary
+    }
+
+    private var suffixColor: Color {
+        hoveringSuffix ? Theme.textBody : Theme.textMeta30
+    }
 
     var body: some View {
         HStack(spacing: 4) {
-            Text(handle)
-                .font(.mono(10.5))
-                .foregroundStyle(isHovering ? Theme.textBody : Theme.textMeta40)
+            HStack(spacing: 0) {
+                Text(handle)
+                    .font(.mono(10.5))
+                    .foregroundStyle(handleColor)
+                    .overlay(alignment: .bottom) {
+                        TightDashUnderline(color: handleColor)
+                            .opacity(hoveringHandle || hoveringSuffix ? 1 : 0)
+                    }
+                    .contentShape(Rectangle())
+                    .onHover { hoveringHandle = $0 }
+                    .onTapGesture { copy(handle) }
+                    .help("Copy handle")
+
+                Text(Self.suffix)
+                    .font(.mono(10.5))
+                    .foregroundStyle(suffixColor)
+                    .overlay(alignment: .bottom) {
+                        TightDashUnderline(color: suffixColor)
+                            .opacity(hoveringSuffix ? 1 : 0)
+                    }
+                    .contentShape(Rectangle())
+                    .onHover { hoveringSuffix = $0 }
+                    .onTapGesture { copy(domain) }
+                    .help("Copy domain")
+            }
             Image(systemName: "checkmark")
                 .font(.system(size: 9, weight: .bold))
                 .foregroundStyle(accentColor)
                 .opacity(didCopy ? 1 : 0)
         }
-        .contentShape(Rectangle())
-        .onHover { isHovering = $0 }
-        .onTapGesture { copy() }
-        .help("Click to copy")
         .animation(.easeOut(duration: 0.15), value: didCopy)
+        .animation(.easeOut(duration: 0.12), value: hoveringHandle)
+        .animation(.easeOut(duration: 0.12), value: hoveringSuffix)
     }
 
-    private func copy() {
+    private func copy(_ string: String) {
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
-        pasteboard.setString(handle, forType: .string)
+        pasteboard.setString(string, forType: .string)
         didCopy = true
         Task {
             try? await Task.sleep(nanoseconds: 1_200_000_000)
             didCopy = false
         }
+    }
+}
+
+/// Compact dashed underline — tighter than system `.dash` spacing.
+private struct TightDashUnderline: View {
+    let color: Color
+
+    var body: some View {
+        GeometryReader { geo in
+            Path { path in
+                path.move(to: CGPoint(x: 0, y: 0.5))
+                path.addLine(to: CGPoint(x: geo.size.width, y: 0.5))
+            }
+            .stroke(color, style: StrokeStyle(lineWidth: 1, dash: [2.5, 1.5]))
+        }
+        .frame(height: 1)
+        .offset(y: 1)
+        .allowsHitTesting(false)
     }
 }
 
@@ -238,14 +287,17 @@ struct SectionCardView: View {
         .padding(.horizontal, 5)
         .padding(.vertical, 10)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        // Clip only the backdrop so row hover shadows aren't cut off.
         .background {
-            if isOpaque {
-                Theme.panelOpaqueElevatedFill
-            } else {
-                SidebarGlassBackground(cornerRadius: 9, glassStyle: .clear)
+            Group {
+                if isOpaque {
+                    Theme.panelOpaqueElevatedFill
+                } else {
+                    SidebarGlassBackground(cornerRadius: 9, glassStyle: .clear)
+                }
             }
+            .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
         }
-        .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
         .overlay {
             if isOpaque {
                 RoundedRectangle(cornerRadius: 9, style: .continuous)
@@ -373,8 +425,23 @@ private struct CardLinkRow: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
-        .background(isHighlighted || isSearchExpanded ? Theme.hoverFill : .clear)
-        .clipShape(RoundedRectangle(cornerRadius: 5))
+        .background {
+            if isHighlighted || isSearchExpanded {
+                // Opaque base is required — translucent fills cast no visible shadow.
+                // Dark uses a lifted gray so the chip reads on both glass and opaque cards.
+                RoundedRectangle(cornerRadius: 5)
+                    .fill(Self.hoverChipFill)
+                    .shadow(color: .black.opacity(0.14), radius: 1, y: 0.5)
+            }
+        }
+    }
+
+    /// Solid elevated chip — matches dark opaque contrast on liquid glass too.
+    private static var hoverChipFill: Color {
+        Color.adaptive(
+            light: Color(nsColor: .controlBackgroundColor),
+            dark: Color(white: 0.28)
+        )
     }
 
     private var labelColor: Color {
