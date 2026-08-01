@@ -165,6 +165,19 @@ private struct HeaderActionButton: View {
     let foreground: Color
     let action: () -> Void
 
+    private var shape: RoundedRectangle { RoundedRectangle(cornerRadius: 6) }
+
+    private var fill: LinearGradient {
+        LinearGradient(
+            colors: [
+                Color.white.composited(over: background, alpha: 0.12),
+                background,
+            ],
+            startPoint: .top,
+            endPoint: .bottom
+        )
+    }
+
     var body: some View {
         HStack(spacing: 5) {
             Image(iconName)
@@ -178,9 +191,13 @@ private struct HeaderActionButton: View {
             .foregroundStyle(foreground)
             .padding(.horizontal, 9)
             .padding(.vertical, 5)
-            .background(background)
-            .clipShape(RoundedRectangle(cornerRadius: 6))
-            .contentShape(Rectangle())
+            .background {
+                shape
+                    .fill(fill)
+                    .shadow(color: .black.opacity(0.14), radius: 1, y: 0.5)
+            }
+            .overlay(shape.strokeBorder(Color.white.opacity(0.25), lineWidth: 0.5))
+            .contentShape(shape)
             .onTapGesture(perform: action)
     }
 }
