@@ -10,6 +10,7 @@ enum Theme {
     /// Hotkey recorder “listening” label.
     static let recordingText = Color.adaptive(light: Color(hex: "d4785a"), dark: Color(hex: "e8a090"))
 
+    /// Legacy flat rail wash — prefer `SidebarGlassBackground` for the floating rail.
     static let railBackground = Color.adaptive(light: .black.opacity(0.025), dark: .white.opacity(0.03))
     static let footerBackground = Color.adaptive(light: .black.opacity(0.02), dark: .white.opacity(0.02))
     static let hoverFill = Color.adaptive(light: .black.opacity(0.045), dark: .white.opacity(0.07))
@@ -40,6 +41,11 @@ enum Theme {
 
     static let panelSize = CGSize(width: 560, height: 520)
     static let railWidth: CGFloat = 186
+    /// Inset around the floating glass rail (leading / top / bottom).
+    static let railInset: CGFloat = 8
+    /// Gap between the floating rail and the detail column.
+    static let railGap: CGFloat = 8
+    static let railCornerRadius: CGFloat = 12
 
     static var monoFont: Font.Design { .monospaced }
 }

@@ -35,40 +35,42 @@ struct StoreDetailView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            header
-            Divider().overlay(Theme.hairline)
-
-            ScrollViewReader { scrollProxy in
-                ScrollView {
-                    Grid(horizontalSpacing: 8, verticalSpacing: 8) {
-                        ForEach(sectionRows, id: \.self) { row in
-                            GridRow {
-                                ForEach(row, id: \.self) { section in
-                                    SectionCardView(
-                                        section: section,
-                                        store: store,
-                                        isFocused: appState.focusArea == .cards && appState.focusedSectionIndex == (enabledSections.firstIndex(of: section) ?? -1),
-                                        focusedRowIndex: appState.focusedRowIndex,
-                                        focusedRowSearchID: focusedRowSearchID
-                                    )
-                                    .id(section)
-                                }
-                                if row.count == 1 {
-                                    Color.clear
-                                }
+        // Same recipe as Settings → Keybindings: soft `scrollEdgeEffectStyle` under a
+        // top bar. `safeAreaBar` is the popover stand-in for the Settings titleband
+        // that the system progressive blur attaches to.
+        ScrollViewReader { scrollProxy in
+            ScrollView {
+                Grid(horizontalSpacing: 8, verticalSpacing: 8) {
+                    ForEach(sectionRows, id: \.self) { row in
+                        GridRow {
+                            ForEach(row, id: \.self) { section in
+                                SectionCardView(
+                                    section: section,
+                                    store: store,
+                                    isFocused: appState.focusArea == .cards && appState.focusedSectionIndex == (enabledSections.firstIndex(of: section) ?? -1),
+                                    focusedRowIndex: appState.focusedRowIndex,
+                                    focusedRowSearchID: focusedRowSearchID
+                                )
+                                .id(section)
+                            }
+                            if row.count == 1 {
+                                Color.clear
                             }
                         }
                     }
-                    .padding(12)
                 }
-                .onChange(of: appState.focusedSectionIndex) { _, newIndex in
-                    scrollToFocusedSection(proxy: scrollProxy, index: newIndex)
-                }
-                .onChange(of: appState.focusArea) { _, newArea in
-                    if newArea == .cards {
-                        scrollToFocusedSection(proxy: scrollProxy, index: appState.focusedSectionIndex)
-                    }
+                .padding(12)
+            }
+            .settingsTopScrollEdgeBlur()
+            .detailHeaderSafeAreaBar {
+                header
+            }
+            .onChange(of: appState.focusedSectionIndex) { _, newIndex in
+                scrollToFocusedSection(proxy: scrollProxy, index: newIndex)
+            }
+            .onChange(of: appState.focusArea) { _, newArea in
+                if newArea == .cards {
+                    scrollToFocusedSection(proxy: scrollProxy, index: appState.focusedSectionIndex)
                 }
             }
         }
@@ -113,6 +115,7 @@ struct StoreDetailView: View {
         .padding(.horizontal, 14)
         .padding(.top, 12)
         .padding(.bottom, 12)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 

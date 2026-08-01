@@ -36,7 +36,10 @@ struct StoreRailView: View {
         .padding(.vertical, 8)
         .padding(.horizontal, 7)
         .frame(width: Theme.railWidth)
-        .background(Theme.railBackground)
+        .background {
+            SidebarGlassBackground(cornerRadius: Theme.railCornerRadius)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: Theme.railCornerRadius, style: .continuous))
     }
 
     private var searchField: some View {

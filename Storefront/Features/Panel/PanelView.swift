@@ -16,16 +16,15 @@ struct PanelView: View {
     /// preference never committed a non-zero value through the conditionally-built
     /// (`if store != nil { … } else { … }`, `.id(store.id)`-churning) content above it.
     private var rightPanelFrame: CGRect {
-        let dividerWidth: CGFloat = 1
-        let originX = Theme.railWidth + dividerWidth
+        let originX = Theme.railInset + Theme.railWidth + Theme.railGap
         return CGRect(x: originX, y: 0, width: Theme.panelSize.width - originX, height: Theme.panelSize.height)
     }
 
     var body: some View {
-        HStack(spacing: 0) {
+        HStack(spacing: Theme.railGap) {
             StoreRailView(searchFocused: $searchFocused)
-
-            Divider().overlay(Theme.divider)
+                .padding(.leading, Theme.railInset)
+                .padding(.vertical, Theme.railInset)
 
             if let store = appState.selectedStore {
                 StoreDetailView(store: store, focusedRowSearchID: $focusedRowSearchID)
@@ -47,6 +46,7 @@ struct PanelView: View {
         }
         .frame(width: Theme.panelSize.width, height: Theme.panelSize.height)
         // Root stays clear so NSPopover chrome fills body and beak with one material.
+        .preferredColorScheme(appState.settings.appearancePreference.colorScheme)
         .focusable()
         .focused($panelFocused)
         .onAppear {

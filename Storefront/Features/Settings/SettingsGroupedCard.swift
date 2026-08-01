@@ -59,14 +59,69 @@ struct SettingsGroupedRow<Trailing: View>: View {
     }
 }
 
+/// Plain text action link for Settings footers — no pill chrome.
+struct SettingsTextLink: View {
+    let title: String
+    var isEnabled: Bool = true
+    var isDestructive: Bool = false
+    let action: () -> Void
+
+    init(
+        _ title: String,
+        isEnabled: Bool = true,
+        isDestructive: Bool = false,
+        action: @escaping () -> Void
+    ) {
+        self.title = title
+        self.isEnabled = isEnabled
+        self.isDestructive = isDestructive
+        self.action = action
+    }
+
+    private var textColor: Color {
+        guard isEnabled else { return Theme.textMeta40 }
+        return isDestructive ? .red : Color.accentColor
+    }
+
+    var body: some View {
+        Button(title, action: action)
+            .buttonStyle(.plain)
+            .font(.system(size: 11.5, weight: .medium))
+            .foregroundStyle(textColor)
+            .disabled(!isEnabled)
+    }
+}
+
 extension View {
-    /// Soft progressive blur under the Settings titleband (Tahoe+). No-op below macOS 26.
+    /// Soft progressive blur at the top scroll edge (Tahoe+). No-op below macOS 26.
+    /// Same helper Settings → Keybindings uses under the window titleband.
     @ViewBuilder
-    func settingsTopScrollEdgeBlur() -> some View {
+    func topScrollEdgeBlur() -> some View {
         if #available(macOS 26.0, *) {
             self.scrollEdgeEffectStyle(.soft, for: .top)
         } else {
             self
+        }
+    }
+
+    /// Soft progressive blur under the Settings titleband (Tahoe+). No-op below macOS 26.
+    @ViewBuilder
+    func settingsTopScrollEdgeBlur() -> some View {
+        topScrollEdgeBlur()
+    }
+
+    /// Pins a top bar that participates in the system scroll-edge progressive blur
+    /// (`safeAreaBar` on macOS 26+). Falls back to `safeAreaInset` below Tahoe.
+    @ViewBuilder
+    func detailHeaderSafeAreaBar<Bar: View>(@ViewBuilder bar: () -> Bar) -> some View {
+        if #available(macOS 26.0, *) {
+            self.safeAreaBar(edge: .top, spacing: 0) {
+                bar()
+            }
+        } else {
+            self.safeAreaInset(edge: .top, spacing: 0) {
+                bar()
+            }
         }
     }
 }
