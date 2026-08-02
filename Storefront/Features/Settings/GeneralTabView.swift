@@ -295,13 +295,6 @@ private struct PanelBackgroundPreview: View {
         )
     }
 
-    private var glassCardFill: Color {
-        Color.adaptive(
-            light: Color.white.opacity(0.38),
-            dark: Color.white.opacity(0.16)
-        )
-    }
-
     private var chromeMarkFill: Color {
         if opaque {
             return Color.black.opacity(isDark ? 0.35 : 0.12)
@@ -367,7 +360,7 @@ private struct PanelBackgroundPreview: View {
                 VStack(spacing: 3) {
                     ForEach(0..<2, id: \.self) { _ in
                         RoundedRectangle(cornerRadius: 3, style: .continuous)
-                            .fill(opaque ? opaqueElevatedFill : glassCardFill)
+                            .fill(opaque ? opaqueElevatedFill : glassElevatedFill)
                             .overlay {
                                 if opaque {
                                     RoundedRectangle(cornerRadius: 3, style: .continuous)
