@@ -110,6 +110,12 @@ final class AppState: ObservableObject {
         save()
     }
 
+    func setAppIconPreference(_ preference: AppIconPreference) {
+        settings.appIconPreference = preference
+        AppIconPreference.apply(preference)
+        save()
+    }
+
     func setOpaqueMenuBarWidget(_ opaque: Bool) {
         settings.opaqueMenuBarWidget = opaque
         AppDelegate.shared?.applyPanelBackgroundOpacity(opaque)

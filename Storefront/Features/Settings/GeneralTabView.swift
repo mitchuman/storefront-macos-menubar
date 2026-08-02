@@ -35,6 +35,24 @@ struct GeneralTabView: View {
                 }
 
                 SettingsGroupedCard {
+                    SettingsGroupedRow(
+                        "App Icon",
+                        subtitle: "Dock and About. Auto follows system Light/Dark.",
+                        alignment: .top
+                    ) {
+                        AppIconThumbnailPicker(
+                            selection: Binding(
+                                get: { appState.settings.appIconPreference },
+                                set: { appState.setAppIconPreference($0) }
+                            )
+                        )
+                        .fixedSize()
+                        .layoutPriority(1)
+                    }
+                    .padding(.vertical, 6)
+                }
+
+                SettingsGroupedCard {
                     SettingsGroupedRow("Launch at login") {
                         Toggle(
                             "",
@@ -129,6 +147,70 @@ private struct AppearanceThumbnailPicker: View {
     }
 }
 
+/// Auto / Light / Dark app icon tiles (cmux-style overlapping Auto preview).
+private struct AppIconThumbnailPicker: View {
+    @Binding var selection: AppIconPreference
+
+    private let previewSize: CGFloat = 40
+    private let autoIconSize: CGFloat = 30
+
+    var body: some View {
+        HStack(spacing: 10) {
+            ForEach(AppIconPreference.displayOrder) { option in
+                Button {
+                    selection = option
+                } label: {
+                    VStack(spacing: 5) {
+                        Group {
+                            if option == .system {
+                                ZStack {
+                                    // Dark behind; Light on top (leading).
+                                    appIconImage("AppIconDark")
+                                        .frame(width: autoIconSize, height: autoIconSize)
+                                        .offset(x: 8)
+                                    appIconImage("AppIconLight")
+                                        .frame(width: autoIconSize, height: autoIconSize)
+                                        .offset(x: -8)
+                                }
+                                .frame(width: previewSize, height: previewSize)
+                            } else {
+                                appIconImage(option.imageName)
+                                    .frame(width: previewSize, height: previewSize)
+                            }
+                        }
+                        .padding(2)
+                        .overlay {
+                            if selection == option {
+                                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                    .strokeBorder(Color.accentColor, lineWidth: 2.5)
+                            }
+                        }
+
+                        Text(option.title)
+                            .font(.system(size: 10.5, weight: selection == option ? .semibold : .regular))
+                            .foregroundStyle(selection == option ? Theme.textPrimary : Theme.textSecondary)
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func appIconImage(_ name: String) -> some View {
+        if let image = NSImage(named: name) {
+            Image(nsImage: image)
+                .resizable()
+                .interpolation(.high)
+                .aspectRatio(contentMode: .fit)
+        } else {
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(Color.secondary.opacity(0.2))
+        }
+    }
+}
+
 /// Liquid Glass vs Opaque thumbnails for the menu bar widget chrome.
 private struct PanelBackgroundThumbnailPicker: View {
     @Binding var opaque: Bool
@@ -178,6 +260,9 @@ private struct PanelBackgroundThumbnailPicker: View {
 /// Mini panel mock: wallpaper + floating rail/cards — glass wash vs solid elevated chrome.
 private struct PanelBackgroundPreview: View {
     let opaque: Bool
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var isDark: Bool { colorScheme == .dark }
 
     /// Solid panel body — slightly darker in dark so elevated chrome can read.
     private var opaqueBodyFill: Color {
@@ -195,31 +280,73 @@ private struct PanelBackgroundPreview: View {
         )
     }
 
+    /// Frosted panel wash — light glass in Light, dark glass when Appearance is Dark.
+    private var glassBodyFill: Color {
+        Color.adaptive(
+            light: Color.white.opacity(0.55),
+            dark: Color.white.opacity(0.14)
+        )
+    }
+
+    private var glassElevatedFill: Color {
+        Color.adaptive(
+            light: Color.white.opacity(0.42),
+            dark: Color.white.opacity(0.20)
+        )
+    }
+
+    private var glassCardFill: Color {
+        Color.adaptive(
+            light: Color.white.opacity(0.38),
+            dark: Color.white.opacity(0.16)
+        )
+    }
+
+    private var chromeMarkFill: Color {
+        if opaque {
+            return Color.black.opacity(isDark ? 0.35 : 0.12)
+        }
+        return Color.adaptive(
+            light: Color.black.opacity(0.18),
+            dark: Color.white.opacity(0.45)
+        )
+    }
+
+    private var wallpaperColors: [Color] {
+        if isDark {
+            return [
+                Color(red: 0.12, green: 0.14, blue: 0.32),
+                Color(red: 0.22, green: 0.12, blue: 0.38),
+            ]
+        }
+        return [
+            Color(red: 0.45, green: 0.68, blue: 0.92),
+            Color(red: 0.82, green: 0.72, blue: 0.55),
+        ]
+    }
+
     var body: some View {
         ZStack {
-            // Desktop wallpaper hint (matches Appearance previews’ colorful backdrop)
+            // Desktop wallpaper hint — tracks Appearance (Light/Dark/Auto).
             LinearGradient(
-                colors: [
-                    Color(red: 0.45, green: 0.68, blue: 0.92),
-                    Color(red: 0.82, green: 0.72, blue: 0.55),
-                ],
+                colors: wallpaperColors,
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
 
             // Panel body — solid for Opaque, frosted wash for Liquid Glass (popover chrome).
             RoundedRectangle(cornerRadius: 5, style: .continuous)
-                .fill(opaque ? opaqueBodyFill : Color.white.opacity(0.55))
+                .fill(opaque ? opaqueBodyFill : glassBodyFill)
                 .padding(5)
 
             HStack(alignment: .top, spacing: 3) {
                 // Floating sidebar rail
                 RoundedRectangle(cornerRadius: 3.5, style: .continuous)
-                    .fill(opaque ? opaqueElevatedFill : Color.white.opacity(0.42))
+                    .fill(opaque ? opaqueElevatedFill : glassElevatedFill)
                     .overlay {
                         if opaque {
                             RoundedRectangle(cornerRadius: 3.5, style: .continuous)
-                                .strokeBorder(Color.black.opacity(0.1), lineWidth: 0.5)
+                                .strokeBorder(Color.black.opacity(isDark ? 0.35 : 0.1), lineWidth: 0.5)
                         }
                     }
                     .shadow(color: opaque ? .black.opacity(0.12) : .clear, radius: 1, y: 0.5)
@@ -227,10 +354,10 @@ private struct PanelBackgroundPreview: View {
                     .overlay(alignment: .top) {
                         VStack(spacing: 2) {
                             Capsule()
-                                .fill(Color.black.opacity(opaque ? 0.12 : 0.18))
+                                .fill(chromeMarkFill)
                                 .frame(width: 10, height: 2.5)
                             Capsule()
-                                .fill(Color.black.opacity(opaque ? 0.08 : 0.12))
+                                .fill(chromeMarkFill.opacity(0.7))
                                 .frame(width: 10, height: 2.5)
                         }
                         .padding(.top, 4)
@@ -240,11 +367,11 @@ private struct PanelBackgroundPreview: View {
                 VStack(spacing: 3) {
                     ForEach(0..<2, id: \.self) { _ in
                         RoundedRectangle(cornerRadius: 3, style: .continuous)
-                            .fill(opaque ? opaqueElevatedFill : Color.white.opacity(0.38))
+                            .fill(opaque ? opaqueElevatedFill : glassCardFill)
                             .overlay {
                                 if opaque {
                                     RoundedRectangle(cornerRadius: 3, style: .continuous)
-                                        .strokeBorder(Color.black.opacity(0.1), lineWidth: 0.5)
+                                        .strokeBorder(Color.black.opacity(isDark ? 0.35 : 0.1), lineWidth: 0.5)
                                 }
                             }
                             .shadow(color: opaque ? .black.opacity(0.1) : .clear, radius: 0.8, y: 0.4)

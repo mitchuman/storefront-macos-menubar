@@ -26,7 +26,12 @@ targets:
     type: application
     platform: macOS
     sources:
+      # Keep AppIcon.icon as a single Icon Composer package (don't flatten Assets/).
       - path: Storefront
+        excludes:
+          - Resources/AppIcon.icon
+      - path: Storefront/Resources/AppIcon.icon
+        buildPhase: resources
     dependencies:
       - package: Sparkle
     settings:

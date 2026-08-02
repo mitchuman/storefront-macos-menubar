@@ -10,8 +10,7 @@ struct AboutTabView: View {
             VStack(spacing: 0) {
                 HStack {
                     Spacer()
-                    // Reads the actual configured `AppIcon` asset directly, rather than a
-                    // duplicated image, so this preview can't drift out of sync with it.
+                    // Live Dock icon (Icon Composer Auto, or Light/Dark override).
                     Image(nsImage: NSApplication.shared.applicationIconImage)
                         .resizable()
                         .frame(width: 64, height: 64)

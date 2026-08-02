@@ -17,6 +17,80 @@ struct SavedSectionPreset: Identifiable, Codable, Equatable {
     var enabledSections: Set<SectionID>
 }
 
+/// Dock / About icon choice — mirrors cmux `AppIconMode`.
+///
+/// Auto (and Light/Dark when they already match system) clear
+/// `applicationIconImage` so the Dock uses Icon Composer `AppIcon` with the
+/// same Liquid Glass chrome/size. Forced Light-on-dark / Dark-on-light uses an
+/// inset imageset so the tile scale matches that chrome.
+enum AppIconPreference: String, Codable, CaseIterable, Identifiable, Hashable {
+    case system
+    case light
+    case dark
+
+    var id: Self { self }
+
+    var title: String {
+        switch self {
+        case .system: "Auto"
+        case .light: "Light"
+        case .dark: "Dark"
+        }
+    }
+
+    /// Settings order: Auto → Light → Dark.
+    static let displayOrder: [AppIconPreference] = [.system, .light, .dark]
+
+    /// Thumbnail asset. Auto uses Light for a single-tile fallback.
+    var imageName: String {
+        switch self {
+        case .system, .light: "AppIconLight"
+        case .dark: "AppIconDark"
+        }
+    }
+
+    /// Updates the running app's Dock / About icon.
+    @MainActor
+    static func apply(_ preference: AppIconPreference) {
+        let systemDark = NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+        switch preference {
+        case .system:
+            NSApp.applicationIconImage = nil
+        case .light:
+            // Same chrome/size as Auto whenever system is already Light.
+            NSApp.applicationIconImage = systemDark ? dockOverrideImage(named: "AppIconLight") : nil
+        case .dark:
+            // Same chrome/size as Auto whenever system is already Dark.
+            NSApp.applicationIconImage = systemDark ? nil : dockOverrideImage(named: "AppIconDark")
+        }
+    }
+
+    /// Pads a flattened imageset so `applicationIconImage` matches the Dock’s
+    /// system App Icon content scale (full-bleed overrides read ~15–20% larger).
+    @MainActor
+    private static func dockOverrideImage(named name: String) -> NSImage? {
+        guard let source = NSImage(named: name) else { return nil }
+        let canvas: CGFloat = 1024
+        // Empirically matches Icon Composer + Dock Liquid Glass tile scale.
+        let content: CGFloat = canvas * 0.80
+        let image = NSImage(size: NSSize(width: canvas, height: canvas))
+        image.lockFocus()
+        NSGraphicsContext.current?.imageInterpolation = .high
+        let rect = NSRect(
+            x: (canvas - content) / 2,
+            y: (canvas - content) / 2,
+            width: content,
+            height: content
+        )
+        source.draw(in: rect, from: .zero, operation: .sourceOver, fraction: 1, respectFlipped: true, hints: [
+            .interpolation: NSImageInterpolation.high
+        ])
+        image.unlockFocus()
+        image.isTemplate = false
+        return image
+    }
+}
+
 /// App-wide light/dark preference for the menu bar panel and Settings window.
 enum AppearancePreference: String, Codable, CaseIterable, Identifiable, Hashable {
     case light
@@ -84,6 +158,8 @@ struct AppSettings: Codable, Equatable {
     var showInDock: Bool = false
     /// Light / Dark / System — drives panel + Settings appearance.
     var appearancePreference: AppearancePreference = .system
+    /// Auto / Light / Dark Dock icon (cmux-style). Auto uses Icon Composer chrome.
+    var appIconPreference: AppIconPreference = .system
     /// When true, the menu bar widget uses opaque chrome instead of Liquid Glass vibrancy.
     var opaqueMenuBarWidget: Bool = false
     var globalHotkey: KeyCombo = .default
@@ -114,6 +190,7 @@ struct AppSettings: Codable, Equatable {
         showInMenuBar: Bool = true,
         showInDock: Bool = false,
         appearancePreference: AppearancePreference = .system,
+        appIconPreference: AppIconPreference = .system,
         opaqueMenuBarWidget: Bool = false,
         globalHotkey: KeyCombo = .default,
         openAdminHotkey: KeyCombo = .openAdminDefault,
@@ -132,6 +209,7 @@ struct AppSettings: Codable, Equatable {
         self.showInMenuBar = showInMenuBar
         self.showInDock = showInDock
         self.appearancePreference = appearancePreference
+        self.appIconPreference = appIconPreference
         self.opaqueMenuBarWidget = opaqueMenuBarWidget
         self.globalHotkey = globalHotkey
         self.openAdminHotkey = openAdminHotkey
@@ -153,6 +231,7 @@ struct AppSettings: Codable, Equatable {
         showInMenuBar = try c.decodeIfPresent(Bool.self, forKey: .showInMenuBar) ?? true
         showInDock = try c.decodeIfPresent(Bool.self, forKey: .showInDock) ?? false
         appearancePreference = try c.decodeIfPresent(AppearancePreference.self, forKey: .appearancePreference) ?? .system
+        appIconPreference = try c.decodeIfPresent(AppIconPreference.self, forKey: .appIconPreference) ?? .system
         opaqueMenuBarWidget = try c.decodeIfPresent(Bool.self, forKey: .opaqueMenuBarWidget) ?? false
         globalHotkey = try c.decodeIfPresent(KeyCombo.self, forKey: .globalHotkey) ?? .default
         openAdminHotkey = try c.decodeIfPresent(KeyCombo.self, forKey: .openAdminHotkey) ?? .openAdminDefault

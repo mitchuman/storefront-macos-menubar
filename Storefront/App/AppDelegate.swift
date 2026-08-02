@@ -59,6 +59,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         applyActivationPolicy()
         applyAppearancePreference(appState.settings.appearancePreference)
         applyPanelBackgroundOpacity(appState.settings.opaqueMenuBarWidget)
+        // After launch — Tahoe can wedge if `applicationIconImage` runs in App.init.
+        AppIconPreference.apply(appState.settings.appIconPreference)
         observeSystemAppearanceChanges()
 
         GlobalHotKeyManager.shared.register(appState.settings.globalHotkey) { [weak self] in
@@ -456,9 +458,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func systemAppearanceDidChange() {
-        guard appState.settings.appearancePreference == .system else { return }
-        applyAppearancePreference(.system)
-        appState.objectWillChange.send()
+        // Defaults can lag this notification — resolve on the next turn.
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            // Light/Dark may switch between bundle chrome and an inset override
+            // when system appearance flips.
+            AppIconPreference.apply(self.appState.settings.appIconPreference)
+            guard self.appState.settings.appearancePreference == .system else { return }
+            self.applyAppearancePreference(.system)
+            self.appState.objectWillChange.send()
+        }
     }
 
     // MARK: - Sparkle
