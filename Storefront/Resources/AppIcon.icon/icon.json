@@ -10,18 +10,18 @@
           "hidden" : false,
           "image-name-specializations" : [
             {
-              "value" : "ChatGPT Image Aug 1, 2026, 03_21_51 PM.png"
+              "value" : "AppIconForeground-dark.png"
             },
             {
               "appearance" : "light",
-              "value" : "35fa92257bd97bf60bc9b4956524b54269ad9661-1254x1254.png"
+              "value" : "AppIconForeground-light.png"
             },
             {
               "appearance" : "dark",
-              "value" : "ChatGPT Image Aug 1, 2026, 03_21_51 PM.png"
+              "value" : "AppIconForeground-dark.png"
             }
           ],
-          "name" : "35fa92257bd97bf60bc9b4956524b54269ad9661-1254x1254",
+          "name" : "AppIconForeground",
           "position" : {
             "scale" : 0.82,
             "translation-in-points" : [

@@ -37,13 +37,11 @@ struct SettingsRootView: View {
         } detail: {
             // No outer ScrollView — Stores uses List, which collapses to zero height
             // when nested in an unbounded scroll container. Sections is ScrollView-based.
+            // Each pane owns `.settingsTopScrollEdgeBlur()` on its scroller so the
+            // titleband progressive blur tracks the real scroll view (not this wrapper).
             detailPane(for: appState.selectedSettingsTab)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                 .navigationTitle(appState.selectedSettingsTab.title)
-                // Soft progressive blur under the titleband for every pane (cmux recipe).
-                // Stores' List disables its own edge effect so it doesn't pull the split
-                // view under the titlebar.
-                .settingsTopScrollEdgeBlur()
         }
         .frame(
             minWidth: SettingsWindowMetrics.minWidth,

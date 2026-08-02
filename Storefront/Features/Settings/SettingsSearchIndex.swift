@@ -114,14 +114,6 @@ enum SettingsSearchIndex {
         return all.filter { $0.matches(q) }
     }
 
-    /// Tabs that should remain visible in the sidebar while searching (any hit lands here).
-    static func matchingTabs(query: String, storeNames: [String], sectionTitles: [String]) -> [SettingsTab] {
-        let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !q.isEmpty else { return SettingsTab.allCases }
-        let tabs = Set(hits(query: q, storeNames: storeNames, sectionTitles: sectionTitles).map(\.tab))
-        return SettingsTab.allCases.filter { tabs.contains($0) }
-    }
-
     private static func hit(
         _ id: String,
         _ title: String,

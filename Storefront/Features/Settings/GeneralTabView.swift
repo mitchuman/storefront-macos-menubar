@@ -109,37 +109,18 @@ struct GeneralTabView: View {
 private struct AppearanceThumbnailPicker: View {
     @Binding var selection: AppearancePreference
 
-    private let previewSize = CGSize(width: 64, height: 44)
-    private let cornerRadius: CGFloat = 7
-
     var body: some View {
-        HStack(spacing: 14) {
+        HStack(spacing: SettingsThumbnailMetrics.spacing) {
             ForEach(AppearancePreference.displayOrder) { option in
                 Button {
                     selection = option
                 } label: {
-                    VStack(spacing: 6) {
+                    SettingsThumbnailChrome(
+                        title: option.title,
+                        isSelected: selection == option
+                    ) {
                         AppearanceDesktopPreview(style: option)
-                            .frame(width: previewSize.width, height: previewSize.height)
-                            .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-                            .overlay {
-                                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                                    .strokeBorder(Color.black.opacity(0.08), lineWidth: 0.5)
-                            }
-                            .shadow(color: .black.opacity(0.12), radius: 1.5, y: 0.5)
-                            .padding(2.5)
-                            .overlay {
-                                if selection == option {
-                                    RoundedRectangle(cornerRadius: cornerRadius + 2.5, style: .continuous)
-                                        .strokeBorder(Color.accentColor, lineWidth: 2.5)
-                                }
-                            }
-
-                        Text(option.title)
-                            .font(.system(size: 11, weight: selection == option ? .semibold : .regular))
-                            .foregroundStyle(selection == option ? Theme.textPrimary : Theme.textSecondary)
                     }
-                    .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
             }
@@ -215,45 +196,80 @@ private struct AppIconThumbnailPicker: View {
 private struct PanelBackgroundThumbnailPicker: View {
     @Binding var opaque: Bool
 
-    private let previewSize = CGSize(width: 64, height: 44)
-    private let cornerRadius: CGFloat = 7
-
     private var options: [(opaque: Bool, title: String)] {
         [(false, "Liquid Glass"), (true, "Opaque")]
     }
 
     var body: some View {
-        HStack(spacing: 14) {
+        HStack(spacing: SettingsThumbnailMetrics.spacing) {
             ForEach(options, id: \.title) { option in
                 Button {
                     opaque = option.opaque
                 } label: {
-                    VStack(spacing: 6) {
+                    SettingsThumbnailChrome(
+                        title: option.title,
+                        isSelected: opaque == option.opaque
+                    ) {
                         PanelBackgroundPreview(opaque: option.opaque)
-                            .frame(width: previewSize.width, height: previewSize.height)
-                            .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-                            .overlay {
-                                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                                    .strokeBorder(Color.black.opacity(0.08), lineWidth: 0.5)
-                            }
-                            .shadow(color: .black.opacity(0.12), radius: 1.5, y: 0.5)
-                            .padding(2.5)
-                            .overlay {
-                                if opaque == option.opaque {
-                                    RoundedRectangle(cornerRadius: cornerRadius + 2.5, style: .continuous)
-                                        .strokeBorder(Color.accentColor, lineWidth: 2.5)
-                                }
-                            }
-
-                        Text(option.title)
-                            .font(.system(size: 11, weight: opaque == option.opaque ? .semibold : .regular))
-                            .foregroundStyle(opaque == option.opaque ? Theme.textPrimary : Theme.textSecondary)
                     }
-                    .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
             }
         }
+    }
+}
+
+private enum SettingsThumbnailMetrics {
+    static let spacing: CGFloat = 14
+    static let previewSize = CGSize(width: 64, height: 44)
+    static let cornerRadius: CGFloat = 7
+    static let ringInset: CGFloat = 2.5
+}
+
+/// Shared System Settings–style preview tile: framed thumbnail + caption + accent ring.
+private struct SettingsThumbnailChrome<Preview: View>: View {
+    let title: String
+    let isSelected: Bool
+    @ViewBuilder var preview: () -> Preview
+
+    var body: some View {
+        VStack(spacing: 6) {
+            preview()
+                .frame(
+                    width: SettingsThumbnailMetrics.previewSize.width,
+                    height: SettingsThumbnailMetrics.previewSize.height
+                )
+                .clipShape(
+                    RoundedRectangle(
+                        cornerRadius: SettingsThumbnailMetrics.cornerRadius,
+                        style: .continuous
+                    )
+                )
+                .overlay {
+                    RoundedRectangle(
+                        cornerRadius: SettingsThumbnailMetrics.cornerRadius,
+                        style: .continuous
+                    )
+                    .strokeBorder(Color.black.opacity(0.08), lineWidth: 0.5)
+                }
+                .shadow(color: .black.opacity(0.12), radius: 1.5, y: 0.5)
+                .padding(SettingsThumbnailMetrics.ringInset)
+                .overlay {
+                    if isSelected {
+                        RoundedRectangle(
+                            cornerRadius: SettingsThumbnailMetrics.cornerRadius
+                                + SettingsThumbnailMetrics.ringInset,
+                            style: .continuous
+                        )
+                        .strokeBorder(Color.accentColor, lineWidth: 2.5)
+                    }
+                }
+
+            Text(title)
+                .font(.system(size: 11, weight: isSelected ? .semibold : .regular))
+                .foregroundStyle(isSelected ? Theme.textPrimary : Theme.textSecondary)
+        }
+        .contentShape(Rectangle())
     }
 }
 
