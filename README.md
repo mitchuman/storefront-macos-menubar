@@ -2,7 +2,7 @@
 
 A macOS menu bar app for jumping into any Shopify store’s admin panel. Pick a store, open the section you need, and get on with it.
 
-![Storefront panel](screenshot.png)
+![Storefront panel](/screenshot.png)
 
 ## Features
 
