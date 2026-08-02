@@ -10,7 +10,7 @@ struct StoreRailView: View {
                 .padding(.bottom, 7)
 
             Text("Stores · \(appState.visibleStores.count)")
-                .font(.system(size: 11, weight: .semibold))
+                .font(.system(size: 11, weight: .regular))
                 .foregroundStyle(Theme.textMeta36)
                 .padding(.horizontal, 8)
                 .padding(.bottom, 4)
@@ -62,22 +62,38 @@ struct StoreRailView: View {
             Image(systemName: "magnifyingglass")
                 .font(.system(size: 10))
                 .foregroundStyle(Theme.textMeta30)
-            TextField("Search stores", text: Binding(
-                get: { appState.query },
-                set: { appState.query = $0.replacingOccurrences(of: "\n", with: "") }
-            ))
-                .textFieldStyle(.plain)
-                .font(.system(size: 11.5))
-                .lineLimit(1)
-                .focused($searchFocused)
-                .onSubmit { }
+                .allowsHitTesting(false)
+            // Custom placeholder: AppKit's cell placeholder jumps when the field editor
+            // attaches on focus; a SwiftUI label stays put.
+            ZStack(alignment: .leading) {
+                if appState.query.isEmpty {
+                    Text("Search stores")
+                        .font(.system(size: 11.5))
+                        .foregroundStyle(Theme.textMeta30)
+                        .allowsHitTesting(false)
+                }
+                TextField("", text: Binding(
+                    get: { appState.query },
+                    set: { appState.query = $0.replacingOccurrences(of: "\n", with: "") }
+                ))
+                    .textFieldStyle(.plain)
+                    .font(.system(size: 11.5))
+                    .lineLimit(1)
+                    .focused($searchFocused)
+                    .focusEffectDisabled()
+                    .background(TextFieldAppKitTuning())
+                    .onSubmit { }
+            }
             KeyComboView(combo: appState.settings.globalHotkey, font: .system(size: 8, weight: .regular))
                 .foregroundStyle(Theme.textMeta25)
+                .allowsHitTesting(false)
         }
         .padding(.horizontal, 8)
-        .padding(.vertical, 5)
+        .frame(height: 26)
         .background(Theme.searchFill)
         .clipShape(RoundedRectangle(cornerRadius: 6))
+        .contentShape(Rectangle())
+        .onTapGesture { searchFocused = true }
     }
 
     /// A compact, non-interactive reminder of the panel's keyboard shortcuts — replaces
@@ -151,7 +167,7 @@ private struct StoreRowView: View {
     /// suppressing this row, so it shows no highlight at all mid-transit.
     private var effectiveHovering: Bool { isHovering && !isSuppressed }
 
-    private var showStar: Bool { store.isFavorite || effectiveHovering }
+    private var showStar: Bool { store.isFavorite || effectiveHovering || isSelected }
     private var hasBadge: Bool { shortcutIndex <= 9 }
 
     private static let starWidth: CGFloat = 16
@@ -177,7 +193,7 @@ private struct StoreRowView: View {
         ZStack(alignment: .trailing) {
             HStack(spacing: 8) {
                 Text(store.displayName)
-                    .font(.system(size: 12.5, weight: isSelected ? .medium : .regular))
+                    .font(.system(size: 12.5, weight: .regular))
                     .foregroundStyle(isSelected ? Theme.textPrimary : Theme.textBody)
                     .lineLimit(1)
                     .truncationMode(.tail)

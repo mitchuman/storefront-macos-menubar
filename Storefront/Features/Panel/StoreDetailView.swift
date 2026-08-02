@@ -21,6 +21,9 @@ struct StoreDetailView: View {
     @EnvironmentObject var appState: AppState
     let store: Store
     var focusedRowSearchID: FocusState<String?>.Binding
+    /// Invoked when ⌃S is pressed while a row search field holds focus (TextField can
+    /// swallow the chord before `PanelView.onKeyPress` sees it).
+    var onToggleLinkSearchKey: () -> Bool = { false }
     @Environment(\.colorScheme) private var colorScheme
 
     var enabledSections: [SectionID] { appState.enabledSections }
@@ -49,7 +52,8 @@ struct StoreDetailView: View {
                                     store: store,
                                     isFocused: appState.focusArea == .cards && appState.focusedSectionIndex == (enabledSections.firstIndex(of: section) ?? -1),
                                     focusedRowIndex: appState.focusedRowIndex,
-                                    focusedRowSearchID: focusedRowSearchID
+                                    focusedRowSearchID: focusedRowSearchID,
+                                    onToggleLinkSearchKey: onToggleLinkSearchKey
                                 )
                                 .id(section)
                             }
@@ -65,13 +69,10 @@ struct StoreDetailView: View {
             .detailHeaderSafeAreaBar {
                 header
             }
-            .onChange(of: appState.focusedSectionIndex) { _, newIndex in
-                scrollToFocusedSection(proxy: scrollProxy, index: newIndex)
-            }
-            .onChange(of: appState.focusArea) { _, newArea in
-                if newArea == .cards {
-                    scrollToFocusedSection(proxy: scrollProxy, index: appState.focusedSectionIndex)
-                }
+            // Scroll only when keyboard navigation bumps `cardScrollGeneration` — not when
+            // hover/click updates `focusedSectionIndex`.
+            .onChange(of: appState.cardScrollGeneration) { _, _ in
+                scrollToFocusedSection(proxy: scrollProxy, index: appState.focusedSectionIndex)
             }
         }
     }
@@ -258,6 +259,7 @@ struct SectionCardView: View {
     var isFocused: Bool = false
     var focusedRowIndex: Int = 0
     var focusedRowSearchID: FocusState<String?>.Binding
+    var onToggleLinkSearchKey: () -> Bool = { false }
     @EnvironmentObject var appState: AppState
 
     private var rows: [LinkRow] { StaticLinkCatalog.rows(for: section) }
@@ -274,7 +276,15 @@ struct SectionCardView: View {
 
             VStack(alignment: .leading, spacing: 0) {
                 ForEach(Array(rows.enumerated()), id: \.element.id) { index, row in
-                    CardLinkRow(row: row, store: store, isKeyboardFocused: isFocused && index == focusedRowIndex, focusedRowSearchID: focusedRowSearchID)
+                    CardLinkRow(
+                        row: row,
+                        store: store,
+                        section: section,
+                        rowIndex: index,
+                        isActive: isFocused && index == focusedRowIndex,
+                        focusedRowSearchID: focusedRowSearchID,
+                        onToggleLinkSearchKey: onToggleLinkSearchKey
+                    )
                 }
             }
             // Grid equalizes card height across a GridRow's two columns (see the comment
@@ -314,10 +324,18 @@ struct SectionCardView: View {
 private struct CardLinkRow: View {
     let row: LinkRow
     let store: Store
-    var isKeyboardFocused: Bool = false
+    let section: SectionID
+    let rowIndex: Int
+    /// Sole active highlight for this store's card grid — driven by `AppState` so hover,
+    /// click, and arrow keys share one selection (hover/click override arrows).
+    var isActive: Bool = false
     var focusedRowSearchID: FocusState<String?>.Binding
+    var onToggleLinkSearchKey: () -> Bool = { false }
     @EnvironmentObject var appState: AppState
-    @State private var isHovering = false
+    /// True while the pointer is inside this row — used to activate after hover is
+    /// re-armed following a keyboard scroll (`.onHover` does not re-fire for a
+    /// stationary cursor).
+    @State private var pointerInside = false
 
     /// Lives in `AppState` (not local `@State`) so the ⌃S keyboard shortcut can toggle a
     /// row's search regardless of which `CardLinkRow` instance it belongs to, and so
@@ -332,7 +350,6 @@ private struct CardLinkRow: View {
         )
     }
 
-    private var isHighlighted: Bool { isHovering || isKeyboardFocused }
     private var hasTrailingActions: Bool { row.createAction != nil || row.supportsSearch }
 
     var body: some View {
@@ -344,7 +361,7 @@ private struct CardLinkRow: View {
                         .resizable()
                         .scaledToFit()
                         .frame(width: 14, height: 14)
-                        .foregroundStyle(isHighlighted ? Theme.textBody : Theme.textMeta40)
+                        .foregroundStyle(isActive ? Theme.textBody : Theme.textMeta40)
                     Text(row.title)
                         .font(.system(size: 12, weight: row.emphasis == .emphasized ? .medium : .regular))
                         .foregroundStyle(labelColor)
@@ -358,13 +375,17 @@ private struct CardLinkRow: View {
                 // `maxHeight: .infinity` stretches to match this row's *full* height,
                 // including the padding, instead of leaving a dead strip top/bottom.
                 .contentShape(Rectangle())
-                .onTapGesture { openLink() }
+                .onTapGesture {
+                    becomeActive()
+                    openLink()
+                }
 
                 // Its own tight-spacing group — the outer HStack's spacing (6) only applies
                 // between the link zone and this whole cluster, not within it.
                 HStack(alignment: .center, spacing: 2) {
                     if row.supportsSearch {
                         PillSegment(isActive: isSearchExpanded) {
+                            becomeActive()
                             if isSearchExpanded {
                                 appState.expandedSearchRowIDs[store.id]?.remove(row.id)
                                 if focusedRowSearchID.wrappedValue == row.id {
@@ -389,6 +410,7 @@ private struct CardLinkRow: View {
                     }
                     if row.createAction != nil {
                         PillSegment {
+                            becomeActive()
                             guard let url = row.createURL(for: store.myshopifyDomain) else { return }
                             openStoreLink(url)
                         } label: {
@@ -401,32 +423,58 @@ private struct CardLinkRow: View {
             .padding(.leading, 6)
             .padding(.trailing, hasTrailingActions ? 3 : 6)
             .contentShape(Rectangle())
-            .onHover { isHovering = $0 }
+            .onHover { hovering in
+                pointerInside = hovering
+                if hovering { tryActivateFromHover() }
+            }
+            .onChange(of: appState.cardLinkHoverArmed) { _, armed in
+                if armed && pointerInside { becomeActive() }
+            }
 
             if isSearchExpanded {
                 Rectangle()
                     .fill(Theme.divider)
                     .frame(height: 1)
 
-                TextField("Search", text: searchQuery)
-                    .textFieldStyle(.plain)
-                    .font(.system(size: 11.5))
-                    .lineLimit(1)
-                    .focused(focusedRowSearchID, equals: row.id)
-                    .onSubmit { submitSearch() }
-                    .onExitCommand {
-                        appState.expandedSearchRowIDs[store.id]?.remove(row.id)
-                        if focusedRowSearchID.wrappedValue == row.id {
-                            focusedRowSearchID.wrappedValue = nil
-                        }
+                // Custom placeholder: AppKit's cell placeholder jumps when the field
+                // editor attaches on focus; a SwiftUI label stays put.
+                ZStack(alignment: .leading) {
+                    if searchQuery.wrappedValue.isEmpty {
+                        Text("Search")
+                            .font(.system(size: 11.5))
+                            .foregroundStyle(Theme.textMeta30)
+                            .allowsHitTesting(false)
                     }
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 5)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                    TextField("", text: searchQuery)
+                        .textFieldStyle(.plain)
+                        .font(.system(size: 11.5))
+                        .lineLimit(1)
+                        .focused(focusedRowSearchID, equals: row.id)
+                        .focusEffectDisabled()
+                        .background(TextFieldAppKitTuning(insertionPointColor: NSColor(store.color)))
+                        .onSubmit { submitSearch() }
+                        .onExitCommand {
+                            appState.expandedSearchRowIDs[store.id]?.remove(row.id)
+                            if focusedRowSearchID.wrappedValue == row.id {
+                                focusedRowSearchID.wrappedValue = nil
+                            }
+                        }
+                        .onKeyPress { keyPress in
+                            if appState.settings.toggleLinkSearchHotkey.matches(keyPress) {
+                                return onToggleLinkSearchKey() ? .handled : .ignored
+                            }
+                            return .ignored
+                        }
+                }
+                .padding(.horizontal, 8)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(height: 26)
             }
         }
         .background {
-            if isHighlighted || isSearchExpanded {
+            // Active highlight is AppState-driven only — never stack hover + arrow
+            // highlights. Expanded search without active focus keeps no fill.
+            if isActive {
                 RoundedRectangle(cornerRadius: 5)
                     .fill(Theme.controlFill)
             }
@@ -436,8 +484,16 @@ private struct CardLinkRow: View {
     private var labelColor: Color {
         switch row.emphasis {
         case .emphasized: return Theme.textPrimary
-        case .normal: return isHighlighted ? Theme.textPrimary : Theme.textBody
+        case .normal: return isActive ? Theme.textPrimary : Theme.textBody
         }
+    }
+
+    private func tryActivateFromHover() {
+        appState.focusCardLink(section: section, rowIndex: rowIndex, fromHover: true)
+    }
+
+    private func becomeActive() {
+        appState.focusCardLink(section: section, rowIndex: rowIndex)
     }
 
     private func openLink() {

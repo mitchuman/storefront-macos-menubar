@@ -53,6 +53,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             rootView: PanelView().environmentObject(appState)
         )
         hosting.view.wantsLayer = true
+        hosting.view.focusRingType = .none
         pop.contentViewController = hosting
         popover = pop
 

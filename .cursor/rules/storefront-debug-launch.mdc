@@ -1,0 +1,12 @@
+---
+description: How to build and relaunch the Storefront macOS Debug app for local testing
+alwaysApply: true
+---
+
+# Storefront Debug app launch
+
+When building and launching the Storefront macOS Debug app for local testing:
+
+1. Quit any existing local Storefront instances first (`pkill -x Storefront`), so you are not testing a stale process.
+2. Build, then `open` the Debug app.
+3. Do NOT send Cmd+, or otherwise auto-open Settings — the user opens Settings themselves.

@@ -50,6 +50,13 @@ final class AppState: ObservableObject {
     @Published var focusArea: PanelFocusArea = .rail
     @Published var focusedSectionIndex: Int = 0
     @Published var focusedRowIndex: Int = 0
+    /// Bumped only by keyboard card navigation so the detail column scrolls for arrows,
+    /// not when hover/click updates the focused section.
+    @Published private(set) var cardScrollGeneration: UInt = 0
+    /// After a keyboard-driven scroll, card-link hover activation stays off until the
+    /// pointer actually moves — so a stationary mouse that lands on a link mid-scroll
+    /// does not steal the active row.
+    @Published private(set) var cardLinkHoverArmed = true
     @Published var selectedSettingsTab: SettingsTab = .general
     /// Bumped when appearance changes so Settings can remount and pick up fresh
     /// dynamic colors (Dark → System was leaving cards/sidebar stuck dark).
@@ -180,10 +187,24 @@ final class AppState: ObservableObject {
         focusArea = .cards
         focusedSectionIndex = 0
         focusedRowIndex = 0
+        requestCardScroll()
     }
 
     func exitToRail() {
         focusArea = .rail
+    }
+
+    /// Makes a specific card link the sole active target (hover/click). Keyboard arrows
+    /// use the same indices — hover overrides whatever arrows last selected.
+    /// - Parameter fromHover: when true, ignored while hover is disarmed after a scroll.
+    func focusCardLink(section: SectionID, rowIndex: Int, fromHover: Bool = false) {
+        if fromHover && !cardLinkHoverArmed { return }
+        guard let sectionIndex = enabledSections.firstIndex(of: section) else { return }
+        let rows = StaticLinkCatalog.rows(for: section)
+        guard rowIndex >= 0, rowIndex < rows.count else { return }
+        focusArea = .cards
+        focusedSectionIndex = sectionIndex
+        focusedRowIndex = rowIndex
     }
 
     /// Left/Right — moves between cards in the same flat reading order the grid already
@@ -194,6 +215,7 @@ final class AppState: ObservableObject {
         guard sectionCount > 0 else { return }
         focusedSectionIndex = ((focusedSectionIndex + offset) % sectionCount + sectionCount) % sectionCount
         focusedRowIndex = 0
+        requestCardScroll()
     }
 
     /// Up/Down while focused on a card — wraps within that card's own rows, does not
@@ -203,6 +225,19 @@ final class AppState: ObservableObject {
         let rowCount = StaticLinkCatalog.rows(for: enabledSections[focusedSectionIndex]).count
         guard rowCount > 0 else { return }
         focusedRowIndex = ((focusedRowIndex + offset) % rowCount + rowCount) % rowCount
+    }
+
+    /// Keyboard card navigation only — arms a one-shot scroll and ignores hover
+    /// activation until the next real mouse move.
+    private func requestCardScroll() {
+        cardLinkHoverArmed = false
+        cardScrollGeneration &+= 1
+    }
+
+    /// Called from the panel mouse-tracking overlay on real pointer movement.
+    func notePanelMouseMoved() {
+        guard !cardLinkHoverArmed else { return }
+        cardLinkHoverArmed = true
     }
 
     /// The `LinkRow` the keyboard is currently focused on within the card grid, shared by

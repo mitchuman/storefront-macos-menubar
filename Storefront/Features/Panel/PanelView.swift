@@ -9,6 +9,9 @@ struct PanelView: View {
     /// Non-text focus target so shortcuts keep working after the search field is blurred
     /// (e.g. after ⌘1–9), without the text field swallowing ⌘A / ⌘O.
     @FocusState private var panelFocused: Bool
+    /// When true, clearing `focusedRowSearchID` must not bounce focus to the rail search
+    /// (⌃S collapse parks on the panel instead).
+    @State private var suppressRailSearchRefocus = false
     @Environment(\.openWindow) private var openWindow
 
     /// The right panel's frame is fully determined by fixed layout constants (not
@@ -27,7 +30,11 @@ struct PanelView: View {
                 .padding(.vertical, Theme.railInset)
 
             if let store = appState.selectedStore {
-                StoreDetailView(store: store, focusedRowSearchID: $focusedRowSearchID)
+                StoreDetailView(
+                    store: store,
+                    focusedRowSearchID: $focusedRowSearchID,
+                    onToggleLinkSearchKey: { performToggleLinkSearch() }
+                )
                     .id(store.id)
             } else {
                 emptyState
@@ -37,6 +44,7 @@ struct PanelView: View {
         .background(
             MouseTrackingOverlay { point in
                 safeTriangle.handleMouseMoved(to: point)
+                appState.notePanelMouseMoved()
             }
             .allowsHitTesting(false)
         )
@@ -55,6 +63,7 @@ struct PanelView: View {
         .preferredColorScheme(appState.settings.appearancePreference.colorScheme)
         .focusable()
         .focused($panelFocused)
+        .focusEffectDisabled()
         .onAppear {
             searchFocused = true
             appState.exitToRail()
@@ -70,12 +79,13 @@ struct PanelView: View {
             safeTriangle.updateSelectedRowID(newValue)
         }
         .onChange(of: focusedRowSearchID) { oldValue, newValue in
-            // A row's search field just lost real keyboard focus (Escape, toggle-off,
-            // submit, or ⌃S collapsing it) — restore focus to the rail's search field so
-            // *something* always holds it. Without this, `.onKeyPress` below has no
-            // focused responder to fire from at all, silently breaking every keyboard
-            // shortcut (arrows included) until the panel is closed and reopened.
-            if oldValue != nil && newValue == nil {
+            // A row's search field just lost real keyboard focus (Escape, submit, or
+            // collapsing via the magnifying-glass control) — restore focus to the rail's
+            // search field so *something* always holds it. Without this, `.onKeyPress`
+            // below has no focused responder to fire from at all, silently breaking every
+            // keyboard shortcut (arrows included) until the panel is closed and reopened.
+            // ⌃S collapse sets `suppressRailSearchRefocus` and parks on the panel instead.
+            if oldValue != nil && newValue == nil, !suppressRailSearchRefocus {
                 searchFocused = true
             }
         }
@@ -112,6 +122,43 @@ struct PanelView: View {
         }
     }
 
+    /// Shared by panel `onKeyPress` and the row-search `TextField` (which can swallow ⌃S
+    /// before it bubbles). Returns whether the shortcut was applicable.
+    @discardableResult
+    private func performToggleLinkSearch() -> Bool {
+        // Block only while typing in the rail store search with no active card link.
+        // Hover/click puts `focusArea` into `.cards`, so ⌃S still works for mouse users
+        // even if the rail search still holds text focus.
+        if searchFocused && focusedRowSearchID == nil && appState.focusArea != .cards {
+            return false
+        }
+        guard let result = appState.toggleSearchForFocusedLink() else { return false }
+        if result.isNowExpanded {
+            suppressRailSearchRefocus = false
+            focusLinkSearchField(result.rowID)
+        } else {
+            suppressRailSearchRefocus = true
+            moveKeyboardFocusToPanel()
+            DispatchQueue.main.async {
+                suppressRailSearchRefocus = false
+            }
+        }
+        return true
+    }
+
+    /// Puts the caret in the expanded row search — sync + next-turn so the field exists
+    /// in the hierarchy after expand before `@FocusState` commits.
+    private func focusLinkSearchField(_ rowID: String) {
+        panelFocused = false
+        searchFocused = false
+        focusedRowSearchID = rowID
+        DispatchQueue.main.async {
+            self.panelFocused = false
+            self.searchFocused = false
+            self.focusedRowSearchID = rowID
+        }
+    }
+
     private func handleKeyPress(_ keyPress: KeyPress) -> KeyPress.Result {
         let typingInSearch = searchFocused || focusedRowSearchID != nil
 
@@ -121,16 +168,10 @@ struct PanelView: View {
             return .handled
         }
         // Link-search toggle stays available while a row search is focused (so ⌃S
-        // can collapse it), but not while the rail store search is focused.
-        if !searchFocused, appState.settings.toggleLinkSearchHotkey.matches(keyPress) {
-            if let result = appState.toggleSearchForFocusedLink() {
-                if result.isNowExpanded {
-                    focusedRowSearchID = result.rowID
-                } else if focusedRowSearchID == result.rowID {
-                    focusedRowSearchID = nil
-                }
-            }
-            return .handled
+        // can collapse/re-expand continuously), but not while the rail store search
+        // is focused.
+        if appState.settings.toggleLinkSearchHotkey.matches(keyPress) {
+            return performToggleLinkSearch() ? .handled : .ignored
         }
 
         if keyPress.modifiers.contains(.command) {
