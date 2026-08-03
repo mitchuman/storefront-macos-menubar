@@ -320,6 +320,32 @@ final class AppState: ObservableObject {
         stores.append(store)
         if selectedStoreID == nil { selectedStoreID = store.id }
         save()
+        fetchFavicon(for: store)
+    }
+
+    /// Updates identity fields for an existing store. Refetches the favicon when the domain changes.
+    func updateStore(_ store: Store, displayName: String, domain: String) {
+        guard let index = stores.firstIndex(where: { $0.id == store.id }) else { return }
+        let domainChanged = stores[index].myshopifyDomain != domain
+        stores[index].displayName = displayName
+        stores[index].myshopifyDomain = domain
+        save()
+        if domainChanged {
+            FaviconStore.shared.remove(storeID: store.id)
+            fetchFavicon(for: stores[index], force: true)
+        }
+    }
+
+    /// Force-refreshes favicons for every store (Settings → Stores). Returns how many icons were saved.
+    @discardableResult
+    func refreshFavicons() async -> Int {
+        await FaviconStore.shared.fetch(stores: stores, force: true)
+    }
+
+    private func fetchFavicon(for store: Store, force: Bool = false) {
+        Task {
+            await FaviconStore.shared.fetch(stores: [store], force: force)
+        }
     }
 
     // MARK: - CSV import/export
@@ -534,6 +560,14 @@ final class AppState: ObservableObject {
 
     func removeStore(_ store: Store) {
         stores.removeAll { $0.id == store.id }
+        FaviconStore.shared.remove(storeID: store.id)
+        save()
+    }
+
+    func removeAllStores() {
+        stores.removeAll()
+        FaviconStore.shared.removeAll()
+        selectedStoreID = nil
         save()
     }
 

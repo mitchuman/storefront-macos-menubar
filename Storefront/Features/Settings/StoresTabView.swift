@@ -16,6 +16,8 @@ struct StoresTabView: View {
     @State private var csvErrorMessage: String?
     @State private var isConfirmingDeleteAll = false
     @State private var draggingStoreID: Store.ID?
+    @State private var isRefreshingFavicons = false
+    @State private var faviconRefreshMessage: String?
 
     var orderedStores: [Store] {
         appState.stores.sorted { $0.sortOrder < $1.sortOrder }
@@ -34,7 +36,16 @@ struct StoresTabView: View {
                     Text("Drag rows to reorder. Hidden stores stay out of the panel.")
                         .font(.system(size: 11))
                         .foregroundStyle(Theme.textSecondary)
-                    Spacer(minLength: 0)
+                    Spacer(minLength: 8)
+                    if isRefreshingFavicons {
+                        ProgressView()
+                            .controlSize(.small)
+                    }
+                    Button(isRefreshingFavicons ? "Refreshing…" : "Refresh favicons", action: refreshFavicons)
+                        .buttonStyle(.plain)
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(Color.accentColor)
+                        .disabled(isRefreshingFavicons || appState.stores.isEmpty)
                     Button(allVisible ? "Hide All" : "Show All", action: toggleAllVisibility)
                         .buttonStyle(.plain)
                         .font(.system(size: 11, weight: .medium))
@@ -139,6 +150,14 @@ struct StoresTabView: View {
         } message: {
             Text(csvErrorMessage ?? "")
         }
+        .alert("Favicons", isPresented: Binding(
+            get: { faviconRefreshMessage != nil },
+            set: { if !$0 { faviconRefreshMessage = nil } }
+        )) {
+            Button("OK", role: .cancel) { faviconRefreshMessage = nil }
+        } message: {
+            Text(faviconRefreshMessage ?? "")
+        }
     }
 
     private var allVisible: Bool {
@@ -163,6 +182,9 @@ struct StoresTabView: View {
 
                 colorSwatch(color: colorBinding(for: store))
                     .frame(width: Column.accent, alignment: .leading)
+                    .opacity(store.isVisible ? 1 : 0.5)
+
+                StoreFaviconView(store: store, size: 18)
                     .opacity(store.isVisible ? 1 : 0.5)
 
                 Text(store.displayName)
@@ -242,8 +264,23 @@ struct StoresTabView: View {
     }
 
     private func deleteAllStores() {
-        appState.stores.removeAll()
-        appState.save()
+        appState.removeAllStores()
+    }
+
+    private func refreshFavicons() {
+        guard !isRefreshingFavicons else { return }
+        isRefreshingFavicons = true
+        Task {
+            let updated = await appState.refreshFavicons()
+            isRefreshingFavicons = false
+            if updated == 0 {
+                faviconRefreshMessage = "Couldn't find new favicons. Stores without a public icon keep their initials."
+            } else {
+                faviconRefreshMessage = updated == 1
+                    ? "Updated 1 favicon."
+                    : "Updated \(updated) favicons."
+            }
+        }
     }
 
     private func reorderStores(from: Int, to: Int, save: Bool) {
@@ -368,13 +405,7 @@ struct StoresTabView: View {
         if !domain.hasSuffix(".myshopify.com") {
             domain = domain.replacingOccurrences(of: ".myshopify.com", with: "") + ".myshopify.com"
         }
-        guard let index = appState.stores.firstIndex(where: { $0.id == store.id }) else {
-            editingStore = nil
-            return
-        }
-        appState.stores[index].displayName = newDisplayName
-        appState.stores[index].myshopifyDomain = domain
-        appState.save()
+        appState.updateStore(store, displayName: newDisplayName, domain: domain)
         editingStore = nil
     }
 

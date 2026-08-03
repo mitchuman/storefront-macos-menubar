@@ -231,6 +231,7 @@ private struct StoreRowView: View {
     var body: some View {
         ZStack(alignment: .trailing) {
             HStack(spacing: 8) {
+                StoreFaviconView(store: store, size: 16)
                 Text(store.displayName)
                     .font(.system(size: 12.5, weight: .regular))
                     .foregroundStyle(isSelected ? Theme.textPrimary : Theme.textBody)

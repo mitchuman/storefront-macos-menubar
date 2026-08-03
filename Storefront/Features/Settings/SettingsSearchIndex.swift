@@ -34,6 +34,7 @@ enum SettingsSearchIndex {
         hit("stores.export", "Export CSV", "Stores", .stores, ["csv", "export"]),
         hit("stores.deleteAll", "Delete All", "Stores", .stores, ["remove", "clear"]),
         hit("stores.hideAll", "Hide All / Show All", "Stores", .stores, ["visibility", "enable"]),
+        hit("stores.refreshFavicons", "Refresh favicons", "Stores", .stores, ["favicon", "icon", "logo"]),
         hit("stores.displayName", "Display name", "Stores", .stores, ["name", "rename"]),
         hit("stores.accent", "Accent color", "Stores", .stores, ["color", "swatch"]),
         hit("stores.domain", "Store domain", "Stores", .stores, ["myshopify.com", "url"]),

@@ -87,11 +87,14 @@ struct StoreDetailView: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text(store.displayName)
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(Theme.textPrimary)
-                // Floating panel: drag from the title like a native titlebar label.
-                .modifier(PanelWindowDragModifier(enabled: !appState.settings.showInMenuBar || appState.settings.openUnderMouse))
+            HStack(spacing: 8) {
+                StoreFaviconView(store: store, size: 22)
+                Text(store.displayName)
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(Theme.textPrimary)
+                    // Floating panel: drag from the title like a native titlebar label.
+                    .modifier(PanelWindowDragModifier(enabled: !appState.settings.showInMenuBar || appState.settings.openUnderMouse))
+            }
             CopyableHandleView(handle: store.handle, domain: store.myshopifyDomain, accentColor: store.color)
                 .padding(.top, 3)
             HStack(spacing: 6) {
