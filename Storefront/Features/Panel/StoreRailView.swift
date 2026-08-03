@@ -96,39 +96,34 @@ struct StoreRailView: View {
         .onTapGesture { searchFocused = true }
     }
 
-    /// A compact, non-interactive reminder of the panel's keyboard shortcuts — replaces
-    /// the old "Settings" row (Settings is still reachable via the status-bar right-click
-    /// menu).
+    /// Compact keyboard-shortcut reminder for the panel, plus Settings / Navigate links.
     private var navigationLegend: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(spacing: 4) {
-                Text("Navigate:")
-                    .font(.system(size: 10, weight: .semibold))
-                    .foregroundStyle(Theme.textMeta36)
-                Spacer()
-                Button {
-                    appState.selectedSettingsTab = .keybindings
-                    // Reuses the same path the status-item menu's tab shortcuts use —
-                    // `AppDelegate` posts this same notification because it's an `NSObject`
-                    // outside the SwiftUI hierarchy and can't hold `@Environment(\.openWindow)`
-                    // itself; from here (a SwiftUI view) it'd be simpler to call it directly,
-                    // but reusing the one existing path keeps "how Settings gets opened" in
-                    // a single place rather than two slightly different ones.
-                    NotificationCenter.default.post(name: .openSettingsRequested, object: nil)
-                } label: {
-                    Image(systemName: "keyboard")
-                        .font(.system(size: 9.5, weight: .medium))
-                        .foregroundStyle(Theme.textMeta30)
-                }
-                .buttonStyle(.plain)
-                .help("All keybindings")
+        VStack(alignment: .leading, spacing: 2) {
+            LegendLinkRow(systemImage: "gearshape", label: "Settings", help: "Settings", shortcutKey: ",") {
+                appState.selectedSettingsTab = .general
+                NotificationCenter.default.post(name: .openSettingsRequested, object: nil)
             }
-            legendItem(symbolNames: ["arrow.up", "arrow.down"], label: "Stores")
-            legendItem(symbolNames: ["arrow.left", "arrow.right"], label: "Cards")
-            legendItem(symbolNames: ["arrow.up", "arrow.down"], label: "Links")
+            LegendLinkRow(systemImage: "keyboard", label: "Navigate", help: "All keybindings") {
+                appState.selectedSettingsTab = .keybindings
+                // Reuses the same path the status-item menu's tab shortcuts use —
+                // `AppDelegate` posts this same notification because it's an `NSObject`
+                // outside the SwiftUI hierarchy and can't hold `@Environment(\.openWindow)`
+                // itself; from here (a SwiftUI view) it'd be simpler to call it directly,
+                // but reusing the one existing path keeps "how Settings gets opened" in
+                // a single place rather than two slightly different ones.
+                NotificationCenter.default.post(name: .openSettingsRequested, object: nil)
+            }
+
+            VStack(alignment: .leading, spacing: 4) {
+                legendItem(symbolNames: ["arrow.up", "arrow.down"], label: "Stores")
+                legendItem(symbolNames: ["arrow.left", "arrow.right"], label: "Cards")
+                legendItem(symbolNames: ["arrow.up", "arrow.down"], label: "Links")
+            }
+            .padding(.horizontal, 6)
+            .padding(.top, 4)
         }
-        .padding(.horizontal, 9)
-        .padding(.vertical, 6)
+        .padding(.horizontal, 5)
+        .padding(.vertical, 4)
     }
 
     private func legendItem(symbolNames: [String], label: String) -> some View {
@@ -151,6 +146,58 @@ struct StoreRailView: View {
                 .font(.system(size: 10.5))
                 .foregroundStyle(Theme.textMeta36)
         }
+    }
+}
+
+/// Compact rail footer link — same hover fill language as store rows, but smaller so it
+/// stays visually secondary to the sidebar list above.
+private struct LegendLinkRow: View {
+    let systemImage: String
+    let label: String
+    let help: String
+    var shortcutKey: String? = nil
+    let action: () -> Void
+    @State private var isHovering = false
+
+    private var contentColor: Color {
+        isHovering ? Theme.textBody : Theme.textMeta36
+    }
+
+    private var iconColor: Color {
+        isHovering ? Theme.textBody : Theme.textMeta30
+    }
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 5) {
+                Image(systemName: systemImage)
+                    .font(.system(size: 9.5, weight: .medium))
+                    .foregroundStyle(iconColor)
+                    .frame(width: 10, alignment: .center)
+                Text(label)
+                    .font(.system(size: 10.5))
+                    .foregroundStyle(contentColor)
+                Spacer(minLength: 4)
+                if let shortcutKey {
+                    HStack(spacing: 1) {
+                        Image(systemName: "command")
+                            .font(.system(size: 8, weight: .medium))
+                        Text(shortcutKey)
+                            .font(.mono(9))
+                    }
+                    .foregroundStyle(isHovering ? Theme.textMeta36 : Theme.textMeta25)
+                }
+            }
+            .padding(.horizontal, 6)
+            .padding(.vertical, 3)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(isHovering ? Theme.hoverFill : Color.clear)
+            .clipShape(RoundedRectangle(cornerRadius: 5))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help(help)
+        .onHover { isHovering = $0 }
     }
 }
 

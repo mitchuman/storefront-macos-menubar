@@ -163,10 +163,12 @@ struct StoresTabView: View {
 
                 colorSwatch(color: colorBinding(for: store))
                     .frame(width: Column.accent, alignment: .leading)
+                    .opacity(store.isVisible ? 1 : 0.5)
 
                 Text(store.displayName)
                     .font(.system(size: 12.5))
                     .foregroundStyle(Theme.textPrimary)
+                    .opacity(store.isVisible ? 1 : 0.5)
 
                 Spacer(minLength: 12)
 
@@ -207,7 +209,7 @@ struct StoresTabView: View {
             }
             .padding(.horizontal, SettingsRowMetrics.horizontalPadding)
             .padding(.vertical, 9)
-            .opacity(store.isVisible ? (draggingStoreID == store.id ? 0.45 : 1) : 0.5)
+            .opacity(draggingStoreID == store.id ? 0.45 : 1)
 
             if store.id != orderedStores.last?.id {
                 SettingsGroupedDivider(leadingInset: SettingsRowMetrics.afterReorderSeparatorLeading)
