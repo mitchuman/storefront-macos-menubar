@@ -107,13 +107,33 @@ struct StoreRailView: View {
         .onTapGesture { searchFocused = true }
     }
 
-    /// Settings link at the bottom of the store rail.
+    /// Settings link at the bottom of the store rail — Update button sits above when OTA is available.
     private var navigationLegend: some View {
-        LegendLinkRow(systemImage: "gearshape", label: "Settings", help: "Settings", shortcutKey: ",") {
-            appState.selectedSettingsTab = .general
-            NotificationCenter.default.post(name: .openSettingsRequested, object: nil)
+        VStack(alignment: .leading, spacing: 6) {
+            if appState.updateAvailable {
+                Button {
+                    AppDelegate.shared?.checkForUpdates(nil)
+                } label: {
+                    Text("Update Available")
+                        .font(.system(size: 10.5, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .lineLimit(1)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 5)
+                        .background(Color.blue)
+                        .clipShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .help("Install available update")
+                .padding(.top, 6)
+            }
+
+            LegendLinkRow(systemImage: "gearshape", label: "Settings", help: "Settings", shortcutKey: ",") {
+                appState.selectedSettingsTab = .general
+                NotificationCenter.default.post(name: .openSettingsRequested, object: nil)
+            }
+            .padding(.vertical, 4)
         }
-        .padding(.vertical, 4)
     }
 }
 

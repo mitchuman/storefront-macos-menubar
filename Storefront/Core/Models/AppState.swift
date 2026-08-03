@@ -61,6 +61,8 @@ final class AppState: ObservableObject {
     /// does not steal the active row.
     @Published private(set) var cardLinkHoverArmed = true
     @Published var selectedSettingsTab: SettingsTab = .general
+    /// Sparkle found an OTA update — panel rail shows an Update button while true.
+    @Published var updateAvailable = false
     /// Bumped when appearance changes so Settings can remount and pick up fresh
     /// dynamic colors (Dark → System was leaving cards/sidebar stuck dark).
     @Published private(set) var appearanceRevision: UInt = 0

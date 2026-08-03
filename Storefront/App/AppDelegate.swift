@@ -26,8 +26,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Invisible window used to anchor the popover when the menu bar item is hidden.
     private var panelAnchorWindow: NSWindow?
     let appState = AppState()
-    private let updaterController = SPUStandardUpdaterController(
-        startingUpdater: true, updaterDelegate: nil, userDriverDelegate: nil
+    /// Lazy so `self` can be the user-driver delegate (gentle reminders → rail Update button).
+    private lazy var updaterController = SPUStandardUpdaterController(
+        startingUpdater: true, updaterDelegate: nil, userDriverDelegate: self
     )
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -482,5 +483,36 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 extension AppDelegate: NSPopoverDelegate {
     func popoverDidClose(_ notification: Notification) {
         tearDownPanelAnchorWindow()
+    }
+}
+
+// Gentle scheduled reminders: defer Sparkle's auto alert and surface the rail Update button.
+// User-initiated checks (menu / About / the button itself) still use Sparkle's standard UI.
+extension AppDelegate: SPUStandardUserDriverDelegate {
+    var supportsGentleScheduledUpdateReminders: Bool { true }
+
+    func standardUserDriverShouldHandleShowingScheduledUpdate(
+        _ update: SUAppcastItem,
+        andInImmediateFocus immediateFocus: Bool
+    ) -> Bool {
+        false
+    }
+
+    func standardUserDriverWillHandleShowingUpdate(
+        _ handleShowingUpdate: Bool,
+        forUpdate update: SUAppcastItem,
+        state: SPUUserUpdateState
+    ) {
+        if !handleShowingUpdate {
+            appState.updateAvailable = true
+        }
+    }
+
+    func standardUserDriverDidReceiveUserAttention(forUpdate update: SUAppcastItem) {
+        appState.updateAvailable = false
+    }
+
+    func standardUserDriverWillFinishUpdateSession() {
+        appState.updateAvailable = false
     }
 }
