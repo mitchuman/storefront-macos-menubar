@@ -251,16 +251,17 @@ private struct StoreRowView: View {
                 .padding(.trailing, starTrailingOffset)
                 .opacity(showStar ? 1 : 0)
         }
-        .padding(.leading, 12)
+        .padding(.leading, 15)
         .padding(.trailing, 9)
         .padding(.vertical, 7)
         .background(rowBackground)
-        // A left-edge accent bar instead of a leading color dot — one less element (and
-        // its spacing) before the store name, and the color still reads at a glance.
+        // Accent bar inset from the row edge so it clears the rounded clip and sits
+        // just ahead of the favicon with a small gap.
         .background(alignment: .leading) {
             RoundedRectangle(cornerRadius: 2)
                 .fill(store.color)
                 .frame(width: 3)
+                .padding(.leading, 5)
                 .padding(.vertical, 5)
         }
         .clipShape(RoundedRectangle(cornerRadius: 7))
