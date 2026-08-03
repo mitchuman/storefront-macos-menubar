@@ -87,6 +87,7 @@ enum SettingsSearchIndex {
         hit("about.repo", "Repository", "About", .about, ["github", "source"]),
         hit("about.dev", "Developed by", "About", .about, ["nuotsu", "author"]),
         hit("about.updates", "Check for Updates", "About", .about, ["sparkle", "update"]),
+        hit("about.feedback", "Send Feedback", "About", .about, ["contact", "support", "feedback"]),
     ]
 
     static func hits(query: String, storeNames: [String], sectionTitles: [String]) -> [SettingsSearchHit] {

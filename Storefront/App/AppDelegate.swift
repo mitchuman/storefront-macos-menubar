@@ -228,6 +228,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         updateItem.target = self
         menu.addItem(updateItem)
 
+        let feedbackItem = NSMenuItem(title: "Send Feedback", action: #selector(sendFeedback(_:)), keyEquivalent: "")
+        feedbackItem.target = self
+        menu.addItem(feedbackItem)
+
         menu.addItem(.separator())
 
         let quitItem = NSMenuItem(title: "Quit Storefront", action: #selector(quitFromMenu), keyEquivalent: "q")
@@ -477,6 +481,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc func checkForUpdates(_ sender: Any?) {
         updaterController.checkForUpdates(sender)
+    }
+
+    @objc func sendFeedback(_ sender: Any?) {
+        guard let url = URL(string: "https://storefront.nuotsu.dev/contact?source=context-menu") else { return }
+        NSWorkspace.shared.open(url)
     }
 }
 

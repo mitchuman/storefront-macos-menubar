@@ -4,6 +4,7 @@ import AppKit
 struct AboutTabView: View {
     private static let nuotsuURL = URL(string: "https://nuotsu.dev")!
     private static let repoURL = URL(string: "https://github.com/nuotsu/storefront-macos-menubar")!
+    private static let feedbackURL = URL(string: "https://storefront.nuotsu.dev/contact?source=settings-about")!
 
     var body: some View {
         ScrollView {
@@ -48,12 +49,21 @@ struct AboutTabView: View {
                     .padding(.vertical, 0)
                 }
 
-                HStack {
-                    Spacer(minLength: 0)
-                    Button("Check for Updates…") {
-                        AppDelegate.shared?.checkForUpdates(nil)
+                VStack(spacing: 8) {
+                    HStack {
+                        Spacer(minLength: 0)
+                        Button("Check for Updates…") {
+                            AppDelegate.shared?.checkForUpdates(nil)
+                        }
+                        Spacer(minLength: 0)
                     }
-                    Spacer(minLength: 0)
+                    HStack {
+                        Spacer(minLength: 0)
+                        Button("Send Feedback") {
+                            NSWorkspace.shared.open(Self.feedbackURL)
+                        }
+                        Spacer(minLength: 0)
+                    }
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.top, 12)
