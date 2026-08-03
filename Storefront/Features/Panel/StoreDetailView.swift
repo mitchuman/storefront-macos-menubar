@@ -101,7 +101,7 @@ struct StoreDetailView: View {
                 if let shopURL = store.shopURL {
                     HeaderActionButton(
                         title: "Online Store",
-                        iconName: "GlobeIcon",
+                        iconName: "StoreIcon",
                         background: store.color.pillBackground(colorScheme: colorScheme),
                         foreground: store.color.pillTextColor(colorScheme: colorScheme)
                     ) {
