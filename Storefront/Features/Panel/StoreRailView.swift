@@ -132,7 +132,7 @@ struct StoreRailView: View {
                 appState.selectedSettingsTab = .general
                 NotificationCenter.default.post(name: .openSettingsRequested, object: nil)
             }
-            .padding(.vertical, 4)
+            .padding(.top, 4)
         }
     }
 }

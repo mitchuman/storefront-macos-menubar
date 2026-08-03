@@ -55,6 +55,31 @@ enum Theme {
     static let railGap: CGFloat = 8
     static let railCornerRadius: CGFloat = 12
 
+    /// Distance from the panel’s top-leading origin to the center of the first
+    /// store row in the rail (search + “N Stores” + dividers + half a row).
+    /// Used to open the detached floating panel under the pointer.
+    static var floatingPanelFirstStoreRowCenter: CGPoint {
+        // Vertical stack inside the rail (see StoreRailView):
+        // railInset + rail top pad + search(26) + search bottom(7) + spacing(1)
+        // + stores label(~14) + label bottom(4) + spacing(1) + divider(1) + spacing(1)
+        // + scroll top pad(4) + half of first row (~29/2).
+        let y =
+            railInset
+            + 8 // rail content top padding
+            + 26 // search field height
+            + 7 // search bottom padding
+            + 1 // VStack spacing
+            + 14 // “N Stores” label row
+            + 4 // label bottom padding
+            + 1 // spacing
+            + 1 // divider
+            + 1 // spacing
+            + 4 // scroll top padding
+            + 14.5 // center of first store row
+        let x = railInset + railWidth / 2
+        return CGPoint(x: x, y: y)
+    }
+
     static var monoFont: Font.Design { .monospaced }
 }
 

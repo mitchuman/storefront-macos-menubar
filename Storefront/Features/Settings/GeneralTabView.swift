@@ -37,6 +37,25 @@ struct GeneralTabView: View {
 
                     SettingsGroupedDivider()
 
+                    SettingsGroupedRow(
+                        "Open under mouse",
+                        subtitle: "Disable to open below the menu bar icon."
+                    ) {
+                        Toggle(
+                            "",
+                            isOn: Binding(
+                                get: { appState.settings.openUnderMouse },
+                                set: { appState.setOpenUnderMouse($0) }
+                            )
+                        )
+                        .labelsHidden()
+                        .toggleStyle(.switch)
+                        .controlSize(.small)
+                        .disabled(!appState.settings.showInMenuBar)
+                    }
+
+                    SettingsGroupedDivider()
+
                     SettingsGroupedRow("Show in Dock") {
                         Toggle(
                             "",

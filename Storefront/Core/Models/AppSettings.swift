@@ -235,6 +235,10 @@ struct AppSettings: Codable, Equatable {
     var showInMenuBar: Bool = true
     /// When true, the app uses a regular activation policy and appears in the Dock.
     var showInDock: Bool = false
+    /// When true, the widget opens as a floating panel under the pointer instead of
+    /// attaching to the menu bar icon. Ignored (effectively always on) when the menu
+    /// bar icon is hidden.
+    var openUnderMouse: Bool = false
     /// Light / Dark / System — drives panel + Settings appearance.
     var appearancePreference: AppearancePreference = .system
     /// Auto / Light / Dark Dock icon (cmux-style). Auto uses Icon Composer chrome.
@@ -270,6 +274,7 @@ struct AppSettings: Codable, Equatable {
         launchAtLogin: Bool = false,
         showInMenuBar: Bool = true,
         showInDock: Bool = false,
+        openUnderMouse: Bool = false,
         appearancePreference: AppearancePreference = .system,
         appIconPreference: AppIconPreference = .system,
         menuBarIconPreference: MenuBarIconPreference = .bag,
@@ -290,6 +295,7 @@ struct AppSettings: Codable, Equatable {
         self.launchAtLogin = launchAtLogin
         self.showInMenuBar = showInMenuBar
         self.showInDock = showInDock
+        self.openUnderMouse = openUnderMouse
         self.appearancePreference = appearancePreference
         self.appIconPreference = appIconPreference
         self.menuBarIconPreference = menuBarIconPreference
@@ -313,6 +319,7 @@ struct AppSettings: Codable, Equatable {
         launchAtLogin = try c.decodeIfPresent(Bool.self, forKey: .launchAtLogin) ?? false
         showInMenuBar = try c.decodeIfPresent(Bool.self, forKey: .showInMenuBar) ?? true
         showInDock = try c.decodeIfPresent(Bool.self, forKey: .showInDock) ?? false
+        openUnderMouse = try c.decodeIfPresent(Bool.self, forKey: .openUnderMouse) ?? false
         appearancePreference = try c.decodeIfPresent(AppearancePreference.self, forKey: .appearancePreference) ?? .system
         appIconPreference = try c.decodeIfPresent(AppIconPreference.self, forKey: .appIconPreference) ?? .system
         menuBarIconPreference = try c.decodeIfPresent(MenuBarIconPreference.self, forKey: .menuBarIconPreference) ?? .bag

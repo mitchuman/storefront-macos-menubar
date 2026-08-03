@@ -90,6 +90,8 @@ struct StoreDetailView: View {
             Text(store.displayName)
                 .font(.system(size: 16, weight: .semibold))
                 .foregroundStyle(Theme.textPrimary)
+                // Floating panel: drag from the title like a native titlebar label.
+                .modifier(PanelWindowDragModifier(enabled: !appState.settings.showInMenuBar || appState.settings.openUnderMouse))
             CopyableHandleView(handle: store.handle, domain: store.myshopifyDomain, accentColor: store.color)
                 .padding(.top, 3)
             HStack(spacing: 6) {
@@ -128,6 +130,7 @@ private struct CopyableHandleView: View {
     @State private var hoveringHandle = false
     @State private var hoveringSuffix = false
     @State private var didCopy = false
+    @State private var hideCheckmarkTask: Task<Void, Never>?
 
     private static let suffix = ".myshopify.com"
 
@@ -174,6 +177,10 @@ private struct CopyableHandleView: View {
         .animation(.easeOut(duration: 0.15), value: didCopy)
         .animation(.easeOut(duration: 0.12), value: hoveringHandle)
         .animation(.easeOut(duration: 0.12), value: hoveringSuffix)
+        .onDisappear {
+            hideCheckmarkTask?.cancel()
+            hideCheckmarkTask = nil
+        }
     }
 
     private func copy(_ string: String) {
@@ -181,9 +188,13 @@ private struct CopyableHandleView: View {
         pasteboard.clearContents()
         pasteboard.setString(string, forType: .string)
         didCopy = true
-        Task {
+        // Only the latest click owns the fade-out — older sleeps must not clear a newer copy.
+        hideCheckmarkTask?.cancel()
+        hideCheckmarkTask = Task {
             try? await Task.sleep(nanoseconds: 1_200_000_000)
+            guard !Task.isCancelled else { return }
             didCopy = false
+            hideCheckmarkTask = nil
         }
     }
 }

@@ -140,6 +140,11 @@ final class AppState: ObservableObject {
         save()
     }
 
+    func setOpenUnderMouse(_ enabled: Bool) {
+        settings.openUnderMouse = enabled
+        save()
+    }
+
     /// Favorited stores first (starring moves a store to the top), each group
     /// otherwise in the user's chosen order.
     var visibleStores: [Store] {

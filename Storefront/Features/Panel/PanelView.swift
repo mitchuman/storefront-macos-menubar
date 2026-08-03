@@ -14,6 +14,32 @@ struct PanelView: View {
     @State private var suppressRailSearchRefocus = false
     @Environment(\.openWindow) private var openWindow
 
+    /// Detached floating window (under mouse, or menu bar icon hidden).
+    private var isFloatingPanel: Bool {
+        !appState.settings.showInMenuBar || appState.settings.openUnderMouse
+    }
+
+    private var panelCornerRadius: CGFloat {
+        isFloatingPanel ? 14 : 0
+    }
+
+    @ViewBuilder
+    private var panelChromeBackground: some View {
+        if appState.settings.opaqueMenuBarWidget {
+            Theme.panelOpaqueFill
+        } else if isFloatingPanel {
+            // No NSPopover vibrancy behind us — supply glass chrome for the frame.
+            // allowsHitTesting(false) is belt-and-suspenders; the NSView also
+            // passthrough-hitTests (see SidebarGlassBackground).
+            SidebarGlassBackground(
+                cornerRadius: panelCornerRadius,
+                material: .popover,
+                blendingMode: .behindWindow
+            )
+            .allowsHitTesting(false)
+        }
+    }
+
     /// The right panel's frame is fully determined by fixed layout constants (not
     /// measured dynamically) — a `GeometryReader` here proved unreliable, since its
     /// preference never committed a non-zero value through the conditionally-built
@@ -53,20 +79,17 @@ struct PanelView: View {
             safeTriangle.updateRowFrames(frames)
         }
         .frame(width: Theme.panelSize.width, height: Theme.panelSize.height)
-        // Transparent: root stays clear so NSPopover vibrancy fills body + beak.
-        // Opaque: solid adaptive fill for the full panel frame.
-        .background {
-            if appState.settings.opaqueMenuBarWidget {
-                Theme.panelOpaqueFill
-            }
-        }
+        // Menu bar popover: root stays clear so NSPopover vibrancy fills body + beak
+        // (opaque mode fills the frame). Floating (menu bar off): provide our own
+        // rounded chrome since there is no popover arrow / system beak.
+        .background { panelChromeBackground }
+        .modifier(FloatingPanelChromeModifier(isFloating: isFloatingPanel, cornerRadius: panelCornerRadius))
         .preferredColorScheme(appState.settings.appearancePreference.colorScheme)
         .focusable()
         .focused($panelFocused)
         .focusEffectDisabled()
         .onAppear {
-            moveKeyboardFocusToPanel()
-            appState.exitToRail()
+            resetPanelInteractionToRail()
             safeTriangle.updateRightPanelFrame(rightPanelFrame)
             safeTriangle.configure { rowID in
                 if let store = appState.stores.first(where: { $0.id == rowID }) {
@@ -74,6 +97,10 @@ struct PanelView: View {
                 }
             }
             safeTriangle.updateSelectedRowID(appState.selectedStoreID)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .panelWillShow)) { _ in
+            // Hosting controller is reused across opens — onAppear won't fire again.
+            resetPanelInteractionToRail()
         }
         .onChange(of: appState.selectedStoreID) { _, newValue in
             safeTriangle.updateSelectedRowID(newValue)
@@ -113,6 +140,12 @@ struct PanelView: View {
             searchFocused = false
             panelFocused = true
         }
+    }
+
+    /// Store list active, cards inactive — ready for ↑↓ store navigation.
+    private func resetPanelInteractionToRail() {
+        appState.exitToRail()
+        moveKeyboardFocusToPanel()
     }
 
     private func focusStoreSearch() {
@@ -269,6 +302,22 @@ struct PanelView: View {
                 .foregroundStyle(Theme.textSecondary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+/// Rounded clip for the detached (menu bar off) panel only —
+/// leave the menu-bar NSPopover path untouched so the system beak still composites.
+private struct FloatingPanelChromeModifier: ViewModifier {
+    let isFloating: Bool
+    let cornerRadius: CGFloat
+
+    func body(content: Content) -> some View {
+        if isFloating {
+            content
+                .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+        } else {
+            content
+        }
     }
 }
 

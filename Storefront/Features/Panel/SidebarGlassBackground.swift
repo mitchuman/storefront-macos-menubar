@@ -3,6 +3,10 @@ import SwiftUI
 
 /// Floating sidebar / header chrome — prefers macOS 26 `NSGlassEffectView`, falls back to
 /// `NSVisualEffectView` (cmux `SidebarVisualEffectBackground` recipe).
+///
+/// Always installed as a **background**: the representable’s root view returns `nil`
+/// from `hitTest` so AppKit cannot steal clicks from SwiftUI controls on top
+/// (same failure mode as `MouseTrackingOverlay` without a passthrough `hitTest`).
 struct SidebarGlassBackground: NSViewRepresentable {
     /// `NSGlassEffectView` style — `0` regular (frosted), `1` clear (blur without white wash).
     enum GlassStyle: Int {
@@ -21,32 +25,43 @@ struct SidebarGlassBackground: NSViewRepresentable {
         NSClassFromString("NSGlassEffectView") != nil
     }
 
-    func makeNSView(context: Context) -> NSView {
+    func makeNSView(context: Context) -> PassthroughContainerView {
+        let container = PassthroughContainerView()
+        container.autoresizingMask = [.width, .height]
+
+        let chrome: NSView
         if preferLiquidGlass, let glassClass = NSClassFromString("NSGlassEffectView") as? NSView.Type {
             let glass = glassClass.init(frame: .zero)
             glass.autoresizingMask = [.width, .height]
             glass.wantsLayer = true
             applyCornerRadius(to: glass)
             applyGlassConfiguration(to: glass)
-            return glass
+            chrome = glass
+        } else {
+            let view = NSVisualEffectView()
+            view.autoresizingMask = [.width, .height]
+            view.wantsLayer = true
+            view.layerContentsRedrawPolicy = .onSetNeedsDisplay
+            view.material = material
+            view.blendingMode = blendingMode
+            view.state = .active
+            applyCornerRadius(to: view)
+            chrome = view
         }
 
-        let view = NSVisualEffectView()
-        view.autoresizingMask = [.width, .height]
-        view.wantsLayer = true
-        view.layerContentsRedrawPolicy = .onSetNeedsDisplay
-        view.material = material
-        view.blendingMode = blendingMode
-        view.state = .active
-        applyCornerRadius(to: view)
-        return view
+        chrome.frame = container.bounds
+        container.addSubview(chrome)
+        container.chromeView = chrome
+        return container
     }
 
-    func updateNSView(_ nsView: NSView, context: Context) {
-        applyCornerRadius(to: nsView)
-        if nsView.className == "NSGlassEffectView" {
-            applyGlassConfiguration(to: nsView)
-        } else if let visualEffect = nsView as? NSVisualEffectView {
+    func updateNSView(_ container: PassthroughContainerView, context: Context) {
+        guard let chrome = container.chromeView else { return }
+        chrome.frame = container.bounds
+        applyCornerRadius(to: chrome)
+        if chrome.className == "NSGlassEffectView" {
+            applyGlassConfiguration(to: chrome)
+        } else if let visualEffect = chrome as? NSVisualEffectView {
             visualEffect.material = material
             visualEffect.blendingMode = blendingMode
             visualEffect.state = .active
@@ -75,5 +90,17 @@ struct SidebarGlassBackground: NSViewRepresentable {
             let setter = unsafeBitCast(implementation, to: StyleSetter.self)
             setter(glassView, styleSelector, glassStyle.rawValue)
         }
+    }
+}
+
+/// Hosts glass / vibrancy chrome but never wins AppKit hit-testing.
+final class PassthroughContainerView: NSView {
+    var chromeView: NSView?
+
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
+
+    override func layout() {
+        super.layout()
+        chromeView?.frame = bounds
     }
 }

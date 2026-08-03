@@ -7,6 +7,9 @@ extension Notification.Name {
     /// observes this and calls `@Environment(\.openWindow)`, and AppDelegate also
     /// brings any existing Settings window forward / triggers the Settings… menu item.
     static let openSettingsRequested = Notification.Name("openSettingsRequested")
+    /// Posted whenever the widget panel is about to appear (popover or floating) so
+    /// `PanelView` can reset rail focus even when the hosting controller is reused.
+    static let panelWillShow = Notification.Name("panelWillShow")
 }
 
 @MainActor
@@ -23,8 +26,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private var statusItem: NSStatusItem?
     private var popover: NSPopover?
-    /// Invisible window used to anchor the popover when the menu bar item is hidden.
-    private var panelAnchorWindow: NSWindow?
+    /// Borderless movable panel used when the menu bar icon is hidden (no popover beak).
+    private var floatingPanel: StorefrontFloatingPanel?
+    private var floatingPanelHosting: NSHostingController<AnyView>?
+    private var floatingClickOutsideMonitor: Any?
+    private var floatingGlobalClickOutsideMonitor: Any?
+    /// Suppresses click-outside dismiss briefly (⌘-click keep-open → browser activation).
+    private var suppressFloatingClickOutsideUntil: Date?
+    private static let floatingPanelCornerRadius: CGFloat = 14
     let appState = AppState()
     /// Lazy so `self` can be the user-driver delegate (gentle reminders → rail Update button).
     private lazy var updaterController = SPUStandardUpdaterController(
@@ -234,7 +243,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if NSApp.currentEvent?.type == .rightMouseUp {
             showStatusMenu()
         } else {
-            togglePanel()
+            // Icon click always anchors to the status item (beak), ignoring Open under mouse.
+            togglePanel(anchorToMenuBarIcon: true)
         }
     }
 
@@ -281,7 +291,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func openPanelFromMenu() {
-        togglePanel()
+        togglePanel(anchorToMenuBarIcon: true)
     }
 
     @objc private func openSettingsFromMenu() {
@@ -306,83 +316,190 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     // MARK: - Panel (hotkey + status click)
 
-    func togglePanel() {
-        guard let popover else { return }
+    private var isPanelVisible: Bool {
+        (popover?.isShown ?? false) || (floatingPanel?.isVisible ?? false)
+    }
 
-        if popover.isShown {
+    func togglePanel(anchorToMenuBarIcon: Bool = false) {
+        if isPanelVisible {
             closePanel()
             return
         }
 
-        if let button = statusItem?.button {
+        preparePanelForShow()
+
+        // Status-item click / menu: always popover under the icon (with beak).
+        // Hotkey: honor Open under mouse, or fall back to floating when no icon.
+        let preferFloating = !anchorToMenuBarIcon
+            && (appState.settings.openUnderMouse || statusItem?.button == nil)
+
+        if !preferFloating, let button = statusItem?.button, let popover {
             // Optical nudge: status glyphs often sit slightly right of midX; shift
             // the popover anchor 1pt so the arrow lines up with the icon.
             var anchor = button.bounds
             anchor.origin.x += 1
             popover.show(relativeTo: anchor, of: button, preferredEdge: .minY)
+            popover.contentViewController?.view.window?.becomeKey()
         } else {
-            // Menu bar icon hidden — still honor the global hotkey by anchoring near
-            // the pointer (or the primary screen’s menu-bar center as a fallback).
-            showPanelFromPointerAnchor(popover)
+            showFloatingPanel()
         }
-        popover.contentViewController?.view.window?.becomeKey()
+    }
+
+    /// Rail focus + keyboard parking before each open (hosting views are reused).
+    private func preparePanelForShow() {
+        appState.exitToRail()
+        NotificationCenter.default.post(name: .panelWillShow, object: nil)
     }
 
     func closePanel() {
         popover?.performClose(nil)
+        hideFloatingPanel()
     }
 
-    private func showPanelFromPointerAnchor(_ popover: NSPopover) {
-        tearDownPanelAnchorWindow()
+    private func showFloatingPanel() {
+        let panel = ensureFloatingPanel()
+        panel.setFrame(Self.clampedFloatingPanelFrame(near: NSEvent.mouseLocation), display: true)
+        applyAppearancePreference(appState.settings.appearancePreference)
+        applyPanelBackgroundOpacity(appState.settings.opaqueMenuBarWidget)
+        NSApp.activate(ignoringOtherApps: true)
+        // Brief grace so the opening interaction can't immediately dismiss us.
+        suppressFloatingClickOutsideUntil = Date().addingTimeInterval(0.2)
+        panel.makeKeyAndOrderFront(nil)
+        // Ensure SwiftUI’s focus / key-press path is live (Escape, TextField, buttons).
+        panel.makeFirstResponder(panel.contentView)
+        startFloatingClickOutsideMonitor()
+    }
 
-        let mouse = NSEvent.mouseLocation
-        let screen = NSScreen.screens.first { NSMouseInRect(mouse, $0.frame, false) }
-            ?? NSScreen.main
-        let anchorPoint: NSPoint
-        if let screen, NSMouseInRect(mouse, screen.frame, false) {
-            anchorPoint = mouse
-        } else if let screen {
-            anchorPoint = NSPoint(x: screen.frame.midX, y: screen.frame.maxY - 4)
-        } else {
-            anchorPoint = mouse
-        }
+    private func hideFloatingPanel() {
+        stopFloatingClickOutsideMonitor()
+        floatingPanel?.orderOut(nil)
+    }
 
-        let size = NSSize(width: 2, height: 2)
-        let frame = NSRect(
-            x: anchorPoint.x - size.width / 2,
-            y: anchorPoint.y - size.height / 2,
-            width: size.width,
-            height: size.height
-        )
-        let window = NSWindow(
-            contentRect: frame,
-            styleMask: .borderless,
+    private func ensureFloatingPanel() -> StorefrontFloatingPanel {
+        if let floatingPanel { return floatingPanel }
+
+        let size = Theme.panelSize
+        // Borderless windows return `canBecomeKey == false` by default — without a
+        // subclass override, SwiftUI never receives clicks or Escape.
+        let panel = StorefrontFloatingPanel(
+            contentRect: NSRect(origin: .zero, size: size),
+            styleMask: [.borderless, .fullSizeContentView],
             backing: .buffered,
             defer: false
         )
-        window.isOpaque = false
-        window.backgroundColor = .clear
-        window.hasShadow = false
-        window.level = .statusBar
-        window.ignoresMouseEvents = true
-        window.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle]
-        let anchorView = NSView(frame: NSRect(origin: .zero, size: size))
-        window.contentView = anchorView
-        window.orderFront(nil)
-        panelAnchorWindow = window
-        popover.show(relativeTo: anchorView.bounds, of: anchorView, preferredEdge: .minY)
+        panel.isFloatingPanel = true
+        panel.becomesKeyOnlyIfNeeded = false
+        panel.isOpaque = false
+        panel.backgroundColor = .clear
+        panel.hasShadow = true
+        panel.isMovable = true
+        // Empty chrome / non-interactive labels move the window; buttons and fields
+        // keep their own hit targets.
+        panel.isMovableByWindowBackground = true
+        panel.level = .floating
+        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        panel.hidesOnDeactivate = false
+        panel.isReleasedWhenClosed = false
+        panel.titleVisibility = .hidden
+        panel.titlebarAppearsTransparent = true
+        panel.acceptsMouseMovedEvents = true
+
+        let hosting = NSHostingController(
+            rootView: AnyView(PanelView().environmentObject(appState))
+        )
+        hosting.view.wantsLayer = true
+        hosting.view.focusRingType = .none
+        hosting.view.layer?.cornerRadius = Self.floatingPanelCornerRadius
+        hosting.view.layer?.cornerCurve = .continuous
+        hosting.view.layer?.masksToBounds = true
+        panel.contentViewController = hosting
+        panel.setContentSize(size)
+
+        floatingPanelHosting = hosting
+        floatingPanel = panel
+        return panel
     }
 
-    private func tearDownPanelAnchorWindow() {
-        panelAnchorWindow?.orderOut(nil)
-        panelAnchorWindow = nil
+    /// Places the panel so the pointer sits on the center of the first sidebar store row.
+    private static func clampedFloatingPanelFrame(near mouse: NSPoint) -> NSRect {
+        let size = Theme.panelSize
+        let anchorOffset = Theme.floatingPanelFirstStoreRowCenter
+
+        let screen = NSScreen.screens.first { NSMouseInRect(mouse, $0.frame, false) }
+            ?? NSScreen.main
+        let anchor: NSPoint
+        if let screen, NSMouseInRect(mouse, screen.frame, false) {
+            anchor = mouse
+        } else if let screen {
+            anchor = NSPoint(x: screen.frame.midX, y: screen.frame.maxY - 4)
+        } else {
+            anchor = mouse
+        }
+
+        // AppKit origin is bottom-left; SwiftUI offset y is measured from the top.
+        var frame = NSRect(
+            x: anchor.x - anchorOffset.x,
+            y: anchor.y - (size.height - anchorOffset.y),
+            width: size.width,
+            height: size.height
+        )
+
+        guard let visible = screen?.visibleFrame else { return frame }
+        frame.origin.x = min(max(frame.origin.x, visible.minX), visible.maxX - frame.width)
+        frame.origin.y = min(max(frame.origin.y, visible.minY), visible.maxY - frame.height)
+        return frame
+    }
+
+    private func startFloatingClickOutsideMonitor() {
+        stopFloatingClickOutsideMonitor()
+
+        let handler: (NSEvent) -> Void = { [weak self] event in
+            guard let self else { return }
+            guard let panel = self.floatingPanel, panel.isVisible else { return }
+            if let until = self.suppressFloatingClickOutsideUntil, Date() < until { return }
+
+            let point = NSEvent.mouseLocation
+            if panel.frame.contains(point) { return }
+            // Keep open when interacting with Settings.
+            if let settings = Self.findSettingsWindow(), settings.isVisible, settings.frame.contains(point) {
+                return
+            }
+            // Ignore the event that opened us (same runloop turn).
+            if event.type == .leftMouseDown || event.type == .rightMouseDown {
+                self.closePanel()
+            }
+        }
+
+        floatingClickOutsideMonitor = NSEvent.addLocalMonitorForEvents(
+            matching: [.leftMouseDown, .rightMouseDown]
+        ) { event in
+            handler(event)
+            return event
+        }
+        floatingGlobalClickOutsideMonitor = NSEvent.addGlobalMonitorForEvents(
+            matching: [.leftMouseDown, .rightMouseDown],
+            handler: handler
+        )
+    }
+
+    private func stopFloatingClickOutsideMonitor() {
+        if let floatingClickOutsideMonitor {
+            NSEvent.removeMonitor(floatingClickOutsideMonitor)
+            self.floatingClickOutsideMonitor = nil
+        }
+        if let floatingGlobalClickOutsideMonitor {
+            NSEvent.removeMonitor(floatingGlobalClickOutsideMonitor)
+            self.floatingGlobalClickOutsideMonitor = nil
+        }
     }
 
     /// Temporarily stops the popover from auto-dismissing when it loses key status
     /// (which normally happens the instant a link click activates the browser) — used
-    /// for the ⌘-click "keep open" behavior on links.
+    /// for the ⌘-click "keep open" behavior on links. Also suppresses floating
+    /// click-outside dismiss for the same window.
     func keepPopoverOpenTemporarily() {
         popover?.behavior = .applicationDefined
+        suppressFloatingClickOutsideUntil = Date().addingTimeInterval(1.5)
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
             self?.popover?.behavior = .transient
         }
@@ -433,6 +550,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         settings.showInMenuBar = enabled
         appState.settings = settings
         appState.save()
+        // Switching surfaces — close whichever panel is up so we don't leave a
+        // floating window around after restoring the menu bar icon (or vice versa).
+        closePanel()
         if enabled {
             clearStaleStatusItemVisibility()
             removeStatusItem()
@@ -458,14 +578,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.setActivationPolicy(policy)
     }
 
-    /// Keeps the menu bar panel popover and Settings windows on the chosen appearance
-    /// without overriding `NSApp.appearance` (which would recolor the status icon).
+    /// Keeps the menu bar panel popover, floating panel, and Settings windows on the
+    /// chosen appearance without overriding `NSApp.appearance` (which would recolor
+    /// the status icon).
     func applyAppearancePreference(_ preference: AppearancePreference) {
         NSApp.appearance = nil
         let appearance = preference.nsAppearance
 
         popover?.appearance = appearance
         popover?.contentViewController?.view.appearance = appearance
+
+        floatingPanel?.appearance = appearance
+        floatingPanelHosting?.view.appearance = appearance
 
         for window in NSApp.windows where Self.isSettingsWindow(window) {
             window.appearance = appearance
@@ -479,16 +603,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Opaque mode fills the hosting view so popover vibrancy doesn’t leak under SwiftUI;
     /// transparent mode stays clear so Liquid Glass / vibrancy show through.
     func applyPanelBackgroundOpacity(_ opaque: Bool) {
-        guard let view = popover?.contentViewController?.view else { return }
-        view.wantsLayer = true
-        if opaque {
-            var resolved: CGColor?
-            view.effectiveAppearance.performAsCurrentDrawingAppearance {
-                resolved = NSColor.windowBackgroundColor.cgColor
+        let views = [
+            popover?.contentViewController?.view,
+            floatingPanelHosting?.view,
+        ].compactMap { $0 }
+
+        for view in views {
+            view.wantsLayer = true
+            if opaque {
+                var resolved: CGColor?
+                view.effectiveAppearance.performAsCurrentDrawingAppearance {
+                    resolved = NSColor.windowBackgroundColor.cgColor
+                }
+                view.layer?.backgroundColor = resolved
+            } else {
+                view.layer?.backgroundColor = NSColor.clear.cgColor
             }
-            view.layer?.backgroundColor = resolved
-        } else {
-            view.layer?.backgroundColor = NSColor.clear.cgColor
         }
     }
 
@@ -526,10 +656,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 }
 
-extension AppDelegate: NSPopoverDelegate {
-    func popoverDidClose(_ notification: Notification) {
-        tearDownPanelAnchorWindow()
-    }
+extension AppDelegate: NSPopoverDelegate {}
+
+/// Borderless `NSPanel` that can become key/main so SwiftUI receives clicks and Escape.
+private final class StorefrontFloatingPanel: NSPanel {
+    override var canBecomeKey: Bool { true }
+    override var canBecomeMain: Bool { true }
 }
 
 // Gentle scheduled reminders: defer Sparkle's auto alert and surface the rail Update button.
