@@ -7,6 +7,51 @@ struct GeneralTabView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 SettingsGroupedCard {
+                    SettingsGroupedRow("Launch at login") {
+                        Toggle(
+                            "",
+                            isOn: Binding(
+                                get: { appState.settings.launchAtLogin },
+                                set: { appState.setLaunchAtLogin($0) }
+                            )
+                        )
+                        .labelsHidden()
+                        .toggleStyle(.switch)
+                        .controlSize(.small)
+                    }
+
+                    SettingsGroupedDivider()
+
+                    SettingsGroupedRow("Show in menu bar") {
+                        Toggle(
+                            "",
+                            isOn: Binding(
+                                get: { appState.settings.showInMenuBar },
+                                set: { AppDelegate.shared?.setShowInMenuBar($0) }
+                            )
+                        )
+                        .labelsHidden()
+                        .toggleStyle(.switch)
+                        .controlSize(.small)
+                    }
+
+                    SettingsGroupedDivider()
+
+                    SettingsGroupedRow("Show in Dock") {
+                        Toggle(
+                            "",
+                            isOn: Binding(
+                                get: { appState.settings.showInDock },
+                                set: { AppDelegate.shared?.setShowInDock($0) }
+                            )
+                        )
+                        .labelsHidden()
+                        .toggleStyle(.switch)
+                        .controlSize(.small)
+                    }
+                }
+
+                SettingsGroupedCard {
                     SettingsGroupedRow("Appearance", alignment: .top) {
                         AppearanceThumbnailPicker(
                             selection: Binding(
@@ -68,51 +113,6 @@ struct GeneralTabView: View {
                         .layoutPriority(1)
                     }
                     .padding(.vertical, 6)
-                }
-
-                SettingsGroupedCard {
-                    SettingsGroupedRow("Launch at login") {
-                        Toggle(
-                            "",
-                            isOn: Binding(
-                                get: { appState.settings.launchAtLogin },
-                                set: { appState.setLaunchAtLogin($0) }
-                            )
-                        )
-                        .labelsHidden()
-                        .toggleStyle(.switch)
-                        .controlSize(.small)
-                    }
-
-                    SettingsGroupedDivider()
-
-                    SettingsGroupedRow("Show in menu bar") {
-                        Toggle(
-                            "",
-                            isOn: Binding(
-                                get: { appState.settings.showInMenuBar },
-                                set: { AppDelegate.shared?.setShowInMenuBar($0) }
-                            )
-                        )
-                        .labelsHidden()
-                        .toggleStyle(.switch)
-                        .controlSize(.small)
-                    }
-
-                    SettingsGroupedDivider()
-
-                    SettingsGroupedRow("Show in Dock") {
-                        Toggle(
-                            "",
-                            isOn: Binding(
-                                get: { appState.settings.showInDock },
-                                set: { AppDelegate.shared?.setShowInDock($0) }
-                            )
-                        )
-                        .labelsHidden()
-                        .toggleStyle(.switch)
-                        .controlSize(.small)
-                    }
                 }
             }
             .padding(18)
