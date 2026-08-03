@@ -16,6 +16,7 @@ enum SettingsTab: String, Hashable, CaseIterable, Identifiable {
     case stores
     case sections
     case keybindings
+    case howToUse
     case about
 
     var id: Self { self }
@@ -26,6 +27,7 @@ enum SettingsTab: String, Hashable, CaseIterable, Identifiable {
         case .stores: "Stores"
         case .sections: "Sections"
         case .keybindings: "Keybindings"
+        case .howToUse: "How to use"
         case .about: "About"
         }
     }
@@ -36,6 +38,7 @@ enum SettingsTab: String, Hashable, CaseIterable, Identifiable {
         case .stores: "bag"
         case .sections: "square.grid.2x2"
         case .keybindings: "keyboard"
+        case .howToUse: "questionmark.circle"
         case .about: "info.circle"
         }
     }

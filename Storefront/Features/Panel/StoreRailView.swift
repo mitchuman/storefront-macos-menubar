@@ -9,11 +9,22 @@ struct StoreRailView: View {
             searchField
                 .padding(.bottom, 7)
 
-            Text("Stores · \(appState.visibleStores.count)")
-                .font(.system(size: 11, weight: .regular))
-                .foregroundStyle(Theme.textMeta36)
-                .padding(.horizontal, 8)
-                .padding(.bottom, 4)
+            HStack(spacing: 6) {
+                Text("\(appState.visibleStores.count) Stores")
+                    .font(.system(size: 11, weight: .regular))
+                    .foregroundStyle(Theme.textMeta36)
+                Spacer(minLength: 4)
+                if appState.focusArea == .rail {
+                    HStack(spacing: 0) {
+                        Image(systemName: "arrow.up")
+                        Image(systemName: "arrow.down")
+                    }
+                    .font(.system(size: 8, weight: .medium))
+                    .foregroundStyle(Theme.textMeta25)
+                }
+            }
+            .padding(.horizontal, 8)
+            .padding(.bottom, 4)
 
             Divider().overlay(Theme.hairline)
 
@@ -72,10 +83,10 @@ struct StoreRailView: View {
                         .foregroundStyle(Theme.textMeta30)
                         .allowsHitTesting(false)
                 }
-                TextField("", text: Binding(
-                    get: { appState.query },
-                    set: { appState.query = $0.replacingOccurrences(of: "\n", with: "") }
-                ))
+            TextField("", text: Binding(
+                get: { appState.query },
+                set: { appState.query = $0.replacingOccurrences(of: "\n", with: "") }
+            ))
                     .textFieldStyle(.plain)
                     .font(.system(size: 11.5))
                     .lineLimit(1)
@@ -84,7 +95,7 @@ struct StoreRailView: View {
                     .background(TextFieldAppKitTuning())
                     .onSubmit { }
             }
-            KeyComboView(combo: appState.settings.globalHotkey, font: .system(size: 8, weight: .regular))
+            KeyComboView(combo: appState.settings.focusSearchHotkey, font: .system(size: 8, weight: .regular))
                 .foregroundStyle(Theme.textMeta25)
                 .allowsHitTesting(false)
         }
@@ -96,56 +107,13 @@ struct StoreRailView: View {
         .onTapGesture { searchFocused = true }
     }
 
-    /// Compact keyboard-shortcut reminder for the panel, plus Settings / Navigate links.
+    /// Settings link at the bottom of the store rail.
     private var navigationLegend: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            LegendLinkRow(systemImage: "gearshape", label: "Settings", help: "Settings", shortcutKey: ",") {
-                appState.selectedSettingsTab = .general
-                NotificationCenter.default.post(name: .openSettingsRequested, object: nil)
-            }
-            LegendLinkRow(systemImage: "keyboard", label: "Navigate", help: "All keybindings") {
-                appState.selectedSettingsTab = .keybindings
-                // Reuses the same path the status-item menu's tab shortcuts use —
-                // `AppDelegate` posts this same notification because it's an `NSObject`
-                // outside the SwiftUI hierarchy and can't hold `@Environment(\.openWindow)`
-                // itself; from here (a SwiftUI view) it'd be simpler to call it directly,
-                // but reusing the one existing path keeps "how Settings gets opened" in
-                // a single place rather than two slightly different ones.
-                NotificationCenter.default.post(name: .openSettingsRequested, object: nil)
-            }
-
-            VStack(alignment: .leading, spacing: 4) {
-                legendItem(symbolNames: ["arrow.up", "arrow.down"], label: "Stores")
-                legendItem(symbolNames: ["arrow.left", "arrow.right"], label: "Cards")
-                legendItem(symbolNames: ["arrow.up", "arrow.down"], label: "Links")
-            }
-            .padding(.horizontal, 6)
-            .padding(.top, 4)
+        LegendLinkRow(systemImage: "gearshape", label: "Settings", help: "Settings", shortcutKey: ",") {
+            appState.selectedSettingsTab = .general
+            NotificationCenter.default.post(name: .openSettingsRequested, object: nil)
         }
-        .padding(.horizontal, 5)
         .padding(.vertical, 4)
-    }
-
-    private func legendItem(symbolNames: [String], label: String) -> some View {
-        HStack(spacing: 5) {
-            HStack(spacing: 3) {
-                ForEach(Array(symbolNames.enumerated()), id: \.offset) { index, name in
-                    if index > 0 {
-                        Text("/")
-                            .font(.system(size: 9, weight: .medium))
-                            .foregroundStyle(Theme.textMeta30)
-                    }
-                    Image(systemName: name)
-                        .font(.system(size: 9, weight: .medium))
-                        .foregroundStyle(Theme.textMeta30)
-                        .frame(width: 10, alignment: .center)
-                }
-            }
-            .frame(width: 36, alignment: .leading)
-            Text(label)
-                .font(.system(size: 10.5))
-                .foregroundStyle(Theme.textMeta36)
-        }
     }
 }
 
@@ -215,15 +183,19 @@ private struct StoreRowView: View {
     private var effectiveHovering: Bool { isHovering && !isSuppressed }
 
     private var showStar: Bool { store.isFavorite || effectiveHovering || isSelected }
-    private var hasBadge: Bool { shortcutIndex <= 9 }
+    /// Selected rows always show ←→; others keep `⌘N` through 9.
+    private var hasBadge: Bool { isSelected || shortcutIndex <= 9 }
 
     private static let starWidth: CGFloat = 16
     private static let badgeGap: CGFloat = 2
     private static let edgeGap: CGFloat = 0
     private static let badgeWidth: CGFloat = 18
+    /// Nudges ←→ into the row's trailing padding without moving the star.
+    private static let selectedBadgeNudge: CGFloat = 3
 
     /// Distance from the row's trailing edge to the star's own right edge — flush
-    /// near the edge when there's no `⌘N` badge, or just past the badge when there is.
+    /// near the edge when there's no badge, or just past the badge when there is.
+    /// Always uses the `⌘N` slot metrics so selecting a store never shifts the star.
     private var starTrailingOffset: CGFloat {
         hasBadge ? Self.badgeWidth + Self.badgeGap : Self.edgeGap
     }
@@ -247,10 +219,11 @@ private struct StoreRowView: View {
                     // Only reserved while the star is actually shown, so the name can use
                     // that width the rest of the time — the star itself sits in a fixed
                     // overlay (below) rather than this HStack's flow, so toggling this
-                    // padding never shifts the `⌘N` badge that follows.
+                    // padding never shifts the badge that follows.
                     .padding(.trailing, nameTrailingReserve)
                 Spacer(minLength: 4)
                 shortcutBadge
+                    .offset(x: isSelected ? Self.selectedBadgeNudge : 0)
             }
 
             StarButton(isFavorite: store.isFavorite, isRowHovering: effectiveHovering, action: onToggleFavorite)
@@ -284,11 +257,16 @@ private struct StoreRowView: View {
         }
     }
 
-    /// Collapses to zero width past `⌘9` — `starTrailingOffset` accounts for this same
-    /// `hasBadge` check, so the star sits flush near the edge when there's no badge at all.
+    /// Selected: static ←→. Unselected (1–9): `⌘N`. Collapses past 9 when not selected.
     private var shortcutBadge: some View {
         Group {
-            if hasBadge {
+            if isSelected {
+                HStack(spacing: 0) {
+                    Image(systemName: "arrow.left")
+                    Image(systemName: "arrow.right")
+                }
+                .font(.system(size: 8, weight: .medium))
+            } else if shortcutIndex <= 9 {
                 HStack(spacing: 1) {
                     Image(systemName: "command")
                         .font(.system(size: 8, weight: .medium))

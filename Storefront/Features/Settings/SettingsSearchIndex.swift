@@ -24,6 +24,7 @@ enum SettingsSearchIndex {
         hit("pane.stores", "Stores", "Stores", .stores, ["shopify", "myshopify", "store list"]),
         hit("pane.sections", "Sections", "Sections", .sections, ["admin sections", "cards", "panel"]),
         hit("pane.keybindings", "Keybindings", "Keybindings", .keybindings, ["hotkey", "keyboard", "keymap", "shortcuts"]),
+        hit("pane.howToUse", "How to use", "How to use", .howToUse, ["guide", "help", "onboarding", "getting started", "tutorial"]),
         hit("pane.general", "General", "General", .general, ["preferences", "options"]),
         hit("pane.about", "About", "About", .about, ["version", "credits", "update"]),
 
@@ -75,6 +76,11 @@ enum SettingsSearchIndex {
         hit("general.login", "Launch at login", "General", .general, ["startup", "login item"]),
         hit("general.menubar", "Show in menu bar", "General", .general, ["status item", "menu bar"]),
         hit("general.dock", "Show in Dock", "General", .general, ["dock icon", "activation"]),
+
+        // How to use
+        hit("howto.addStores", "Add your stores", "How to use", .howToUse, ["add store", "myshopify", "import csv"]),
+        hit("howto.customizeCards", "Customize your cards", "How to use", .howToUse, ["sections", "presets", "reorder"]),
+        hit("howto.navigate", "Navigate the panel", "How to use", .howToUse, ["keyboard", "arrows", "hotkey", "menu bar"]),
 
         // About
         hit("about.version", "Version", "About", .about, ["build", "release"]),

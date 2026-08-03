@@ -267,12 +267,24 @@ struct SectionCardView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text(section.title.uppercased())
-                .font(.mono(9.5, weight: .semibold))
-                .tracking(1.2)
-                .foregroundStyle(Theme.textMeta40)
-                .padding(.horizontal, 6)
-                .padding(.bottom, 8)
+            HStack(spacing: 6) {
+                Text(section.title.uppercased())
+                    .font(.mono(9.5, weight: .semibold))
+                    .tracking(1.2)
+                    .foregroundStyle(Theme.textMeta40)
+                    .lineLimit(1)
+                Spacer(minLength: 4)
+                if isFocused {
+                    HStack(spacing: 0) {
+                        Image(systemName: "arrow.up")
+                        Image(systemName: "arrow.down")
+                    }
+                    .font(.system(size: 8, weight: .medium))
+                    .foregroundStyle(Theme.textMeta25)
+                }
+            }
+            .padding(.horizontal, 6)
+            .padding(.bottom, 8)
 
             VStack(alignment: .leading, spacing: 0) {
                 ForEach(Array(rows.enumerated()), id: \.element.id) { index, row in

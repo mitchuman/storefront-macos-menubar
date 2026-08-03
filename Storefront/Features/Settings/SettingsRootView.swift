@@ -152,6 +152,8 @@ struct SettingsRootView: View {
             SectionsTabView()
         case .keybindings:
             KeybindingsTabView()
+        case .howToUse:
+            HowToUseTabView()
         case .general:
             GeneralTabView()
         case .about:

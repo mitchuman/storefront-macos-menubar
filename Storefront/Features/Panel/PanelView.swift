@@ -65,7 +65,7 @@ struct PanelView: View {
         .focused($panelFocused)
         .focusEffectDisabled()
         .onAppear {
-            searchFocused = true
+            moveKeyboardFocusToPanel()
             appState.exitToRail()
             safeTriangle.updateRightPanelFrame(rightPanelFrame)
             safeTriangle.configure { rowID in
@@ -77,6 +77,9 @@ struct PanelView: View {
         }
         .onChange(of: appState.selectedStoreID) { _, newValue in
             safeTriangle.updateSelectedRowID(newValue)
+            // Hover / ⌘N / arrow selection should leave the rail search so panel
+            // shortcuts (arrows, A/O, etc.) aren't swallowed by the TextField.
+            moveKeyboardFocusToPanel()
         }
         .onChange(of: focusedRowSearchID) { oldValue, newValue in
             // A row's search field just lost real keyboard focus (Escape, submit, or
@@ -187,6 +190,13 @@ struct PanelView: View {
             return .ignored
         }
 
+        // Escape from the rail search returns to the store list (not close / stay in field).
+        if keyPress.key == .escape, searchFocused {
+            appState.exitToRail()
+            moveKeyboardFocusToPanel()
+            return .handled
+        }
+
         // While typing in the rail or row search field, let the TextField handle
         // keys (including A/O/arrows) instead of panel shortcuts / grid nav.
         guard !typingInSearch else { return .ignored }
@@ -237,7 +247,7 @@ struct PanelView: View {
         case .escape:
             if appState.focusArea == .cards {
                 appState.exitToRail()
-                searchFocused = true
+                moveKeyboardFocusToPanel()
             } else {
                 AppDelegate.shared?.closePanel()
             }

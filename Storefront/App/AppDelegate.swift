@@ -209,6 +209,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         openItem.keyEquivalentModifierMask = mask
         openItem.target = self
         menu.addItem(openItem)
+        menu.addItem(settingsTabItem(title: "How to use", tab: .howToUse))
 
         menu.addItem(.separator())
 

@@ -140,17 +140,3 @@ extension Color {
     }
 }
 
-enum SampleData {
-    static let accountID = UUID()
-
-    static let stores: [Store] = [
-        Store(accountID: accountID, myshopifyDomain: "softies-comfort-wear.myshopify.com", displayName: "Softies Comfort Wear", colorHex: "1f6f4a", sortOrder: 0),
-        Store(accountID: accountID, myshopifyDomain: "myvibranthealth.myshopify.com", displayName: "My Vibrant Health", colorHex: "c07a2c", sortOrder: 1),
-        Store(accountID: accountID, myshopifyDomain: "cnpusa.myshopify.com", displayName: "CNP USA", colorHex: "3a6ea8", sortOrder: 2),
-        Store(accountID: accountID, myshopifyDomain: "ringwraps.myshopify.com", displayName: "Ringwraps", colorHex: "7a4b8c", sortOrder: 3),
-        Store(accountID: accountID, myshopifyDomain: "kwik-hang-curtains.myshopify.com", displayName: "Kwik Hang Curtains", colorHex: "4a7a5c", sortOrder: 4),
-        Store(accountID: accountID, myshopifyDomain: "haute-diggity-dog.myshopify.com", displayName: "Haute Diggity Dog", colorHex: "a8563a", sortOrder: 5),
-        Store(accountID: accountID, myshopifyDomain: "fidelis-pet.myshopify.com", displayName: "Fidelis Pet", colorHex: "5c9fd6", sortOrder: 6),
-        Store(accountID: accountID, myshopifyDomain: "noodleandboo.myshopify.com", displayName: "Noodle & Boo", colorHex: "a37bb8", sortOrder: 7),
-    ]
-}

@@ -17,9 +17,9 @@ final class PersistenceStore {
 
     func loadStores() -> [Store] {
         guard let data = try? Data(contentsOf: storesURL) else {
-            return SampleData.stores
+            return []
         }
-        return (try? JSONDecoder().decode([Store].self, from: data)) ?? SampleData.stores
+        return (try? JSONDecoder().decode([Store].self, from: data)) ?? []
     }
 
     func save(stores: [Store]) {
