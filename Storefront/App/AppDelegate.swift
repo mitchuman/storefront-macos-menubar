@@ -115,15 +115,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         item.isVisible = true
 
         if let button = item.button {
-            let config = NSImage.SymbolConfiguration(pointSize: 14, weight: .medium)
-            let image = NSImage(systemSymbolName: "bag", accessibilityDescription: "Storefront")?
-                .withSymbolConfiguration(config)
-            image?.isTemplate = true
-            button.image = image
-            // Text fallback so something still shows if the symbol fails to render.
-            if button.image == nil {
-                button.title = "SF"
-            }
             button.imagePosition = .imageOnly
             button.toolTip = "Storefront"
             button.target = self
@@ -132,6 +123,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         statusItem = item
+        applyMenuBarIcon()
         UserDefaults.standard.set(true, forKey: "NSStatusItem Visible \(Self.statusItemAutosaveName)")
         // Prefer a right-side slot (low value) so the icon isn't the first one
         // swallowed by the notch / application menu overflow on dual displays.
@@ -142,6 +134,51 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
             self?.warnIfMenuBarPermissionMissing()
         }
+    }
+
+    /// Updates the status item glyph from `menuBarIconPreference`.
+    func applyMenuBarIcon() {
+        guard let button = statusItem?.button else { return }
+        let preference = appState.settings.menuBarIconPreference
+        if let image = Self.menuBarStatusImage(for: preference) {
+            button.image = image
+            button.title = ""
+        } else {
+            button.image = nil
+            // Text fallback so something still shows if the asset fails to load.
+            button.title = "SF"
+        }
+    }
+
+    /// Template menu-bar glyph sized to match typical status-item SF Symbols.
+    private static func menuBarStatusImage(for preference: MenuBarIconPreference) -> NSImage? {
+        if let symbolName = preference.systemSymbolName {
+            let config = NSImage.SymbolConfiguration(pointSize: 13, weight: .medium)
+            let image = NSImage(systemSymbolName: symbolName, accessibilityDescription: "Storefront")?
+                .withSymbolConfiguration(config)
+            image?.isTemplate = true
+            return image
+        }
+
+        guard let assetName = preference.assetName,
+              let source = NSImage(named: assetName) else { return nil }
+        // Polaris SVGs read smaller than SF Symbols at the same point size; ~1.5× matches bag.
+        let size = NSSize(width: 19.5, height: 19.5)
+        let image = NSImage(size: size)
+        image.lockFocus()
+        NSGraphicsContext.current?.imageInterpolation = .high
+        source.draw(
+            in: NSRect(origin: .zero, size: size),
+            from: .zero,
+            operation: .sourceOver,
+            fraction: 1,
+            respectFlipped: true,
+            hints: [.interpolation: NSImageInterpolation.high]
+        )
+        image.unlockFocus()
+        image.isTemplate = true
+        image.accessibilityDescription = "Storefront"
+        return image
     }
 
     /// macOS 26 (Tahoe) added System Settings → Menu Bar permissions. Without the
@@ -169,7 +206,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let alert = NSAlert()
         alert.messageText = "Allow Storefront in the Menu Bar"
         alert.informativeText = """
-            macOS is hiding the bag icon until Storefront is allowed under:
+            macOS is hiding the menu bar icon until Storefront is allowed under:
 
             System Settings → Menu Bar
 
@@ -278,8 +315,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         if let button = statusItem?.button {
-            // Optical nudge: the bag SF Symbol’s visual center sits slightly right of
-            // the button bounds midX, so shift the anchor 1pt right for the arrow.
+            // Optical nudge: status glyphs often sit slightly right of midX; shift
+            // the popover anchor 1pt so the arrow lines up with the icon.
             var anchor = button.bounds
             anchor.origin.x += 1
             popover.show(relativeTo: anchor, of: button, preferredEdge: .minY)
@@ -422,7 +459,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     /// Keeps the menu bar panel popover and Settings windows on the chosen appearance
-    /// without overriding `NSApp.appearance` (which would recolor the bag status icon).
+    /// without overriding `NSApp.appearance` (which would recolor the status icon).
     func applyAppearancePreference(_ preference: AppearancePreference) {
         NSApp.appearance = nil
         let appearance = preference.nsAppearance

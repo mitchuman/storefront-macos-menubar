@@ -7,52 +7,6 @@ struct GeneralTabView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 SettingsGroupedCard {
-                    SettingsGroupedRow("Appearance", alignment: .top) {
-                        AppearanceThumbnailPicker(
-                            selection: Binding(
-                                get: { appState.settings.appearancePreference },
-                                set: { appState.setAppearancePreference($0) }
-                            )
-                        )
-                    }
-                    .padding(.vertical, 6)
-
-                    SettingsGroupedDivider()
-
-                    SettingsGroupedRow(
-                        "Widget background",
-                        subtitle: "Choose your preferred look for the menu bar widget.",
-                        alignment: .top
-                    ) {
-                        PanelBackgroundThumbnailPicker(
-                            opaque: Binding(
-                                get: { appState.settings.opaqueMenuBarWidget },
-                                set: { appState.setOpaqueMenuBarWidget($0) }
-                            )
-                        )
-                    }
-                    .padding(.vertical, 6)
-                }
-
-                SettingsGroupedCard {
-                    SettingsGroupedRow(
-                        "App Icon",
-                        subtitle: "Dock and About. Auto follows system Light/Dark.",
-                        alignment: .top
-                    ) {
-                        AppIconThumbnailPicker(
-                            selection: Binding(
-                                get: { appState.settings.appIconPreference },
-                                set: { appState.setAppIconPreference($0) }
-                            )
-                        )
-                        .fixedSize()
-                        .layoutPriority(1)
-                    }
-                    .padding(.vertical, 6)
-                }
-
-                SettingsGroupedCard {
                     SettingsGroupedRow("Launch at login") {
                         Toggle(
                             "",
@@ -96,12 +50,186 @@ struct GeneralTabView: View {
                         .controlSize(.small)
                     }
                 }
+
+                SettingsGroupedCard {
+                    SettingsGroupedRow("Appearance", alignment: .top) {
+                        AppearanceThumbnailPicker(
+                            selection: Binding(
+                                get: { appState.settings.appearancePreference },
+                                set: { appState.setAppearancePreference($0) }
+                            )
+                        )
+                    }
+                    .padding(.vertical, 6)
+
+                    SettingsGroupedDivider()
+
+                    SettingsGroupedRow(
+                        "Widget background",
+                        subtitle: "Choose your preferred look for the menu bar widget.",
+                        alignment: .top
+                    ) {
+                        PanelBackgroundThumbnailPicker(
+                            opaque: Binding(
+                                get: { appState.settings.opaqueMenuBarWidget },
+                                set: { appState.setOpaqueMenuBarWidget($0) }
+                            )
+                        )
+                    }
+                    .padding(.vertical, 6)
+                }
+
+                SettingsGroupedCard {
+                    SettingsGroupedRow(
+                        "Menu bar icon",
+                        subtitle: "Shown next to Control Center.",
+                        alignment: .top
+                    ) {
+                        MenuBarIconPreferencePicker(
+                            selection: Binding(
+                                get: { appState.settings.menuBarIconPreference },
+                                set: { appState.setMenuBarIconPreference($0) }
+                            )
+                        )
+                        .frame(width: IconSettingsMetrics.controlWidth)
+                        .layoutPriority(1)
+                    }
+                    .padding(.vertical, 6)
+
+                    SettingsGroupedDivider()
+
+                    SettingsGroupedRow(
+                        "App Icon",
+                        subtitle: "Dock and About. Auto follows system Light/Dark.",
+                        alignment: .top
+                    ) {
+                        AppIconThumbnailPicker(
+                            selection: Binding(
+                                get: { appState.settings.appIconPreference },
+                                set: { appState.setAppIconPreference($0) }
+                            )
+                        )
+                        .frame(width: IconSettingsMetrics.controlWidth)
+                        .layoutPriority(1)
+                    }
+                    .padding(.vertical, 6)
+                }
             }
             .padding(18)
             .frame(maxWidth: .infinity, alignment: .topLeading)
         }
         .settingsTopScrollEdgeBlur()
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+}
+
+/// Shared trailing width so Menu bar icon + App Icon controls share one column.
+private enum IconSettingsMetrics {
+    /// Three 40pt tiles + padding(2) each, with 10pt gaps — matches App Icon row.
+    static let controlWidth: CGFloat = 152
+}
+
+/// Split controls: Outline/Filled style + Bag/Cart/Store icon chips.
+private struct MenuBarIconPreferencePicker: View {
+    @Binding var selection: MenuBarIconPreference
+
+    private var filledBinding: Binding<Bool> {
+        Binding(
+            get: { selection.isFilled },
+            set: { selection = .preference(family: selection.family, filled: $0) }
+        )
+    }
+
+    var body: some View {
+        VStack(spacing: 10) {
+            Picker("Style", selection: filledBinding) {
+                Text("Outline").tag(false)
+                Text("Filled").tag(true)
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .controlSize(.small)
+            .frame(maxWidth: .infinity)
+
+            HStack(spacing: 10) {
+                ForEach(MenuBarIconPreference.Family.displayOrder) { family in
+                    let option = MenuBarIconPreference.preference(
+                        family: family,
+                        filled: selection.isFilled
+                    )
+                    Button {
+                        selection = option
+                    } label: {
+                        MenuBarIconChip(
+                            preference: option,
+                            title: family.title,
+                            isSelected: selection.family == family
+                        )
+                    }
+                    .buttonStyle(.plain)
+                    .help(family.title)
+                    .frame(maxWidth: .infinity)
+                }
+            }
+            .frame(maxWidth: .infinity)
+        }
+        .frame(maxWidth: .infinity)
+    }
+}
+
+private struct MenuBarIconChip: View {
+    let preference: MenuBarIconPreference
+    let title: String
+    let isSelected: Bool
+
+    private let size: CGFloat = 32
+    private let cornerRadius: CGFloat = 7
+    private let ringInset: CGFloat = 2
+
+    @ViewBuilder
+    private var glyph: some View {
+        if let symbolName = preference.systemSymbolName {
+            Image(systemName: symbolName)
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(Theme.textPrimary)
+        } else if let assetName = preference.assetName {
+            Image(assetName)
+                .renderingMode(.template)
+                .resizable()
+                .scaledToFit()
+                .frame(width: 20, height: 20)
+                .foregroundStyle(Theme.textPrimary)
+        }
+    }
+
+    var body: some View {
+        VStack(spacing: 4) {
+            glyph
+                .frame(width: size, height: size)
+                .background(
+                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                        .fill(Color(nsColor: .controlBackgroundColor))
+                )
+                .overlay {
+                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                        .strokeBorder(Color.black.opacity(0.08), lineWidth: 0.5)
+                }
+                .padding(ringInset)
+                .overlay {
+                    if isSelected {
+                        RoundedRectangle(
+                            cornerRadius: cornerRadius + ringInset,
+                            style: .continuous
+                        )
+                        .strokeBorder(Color.accentColor, lineWidth: 2)
+                    }
+                }
+
+            Text(title)
+                .font(.system(size: 10, weight: isSelected ? .semibold : .regular))
+                .foregroundStyle(isSelected ? Theme.textPrimary : Theme.textSecondary)
+        }
+        .contentShape(Rectangle())
     }
 }
 
@@ -171,11 +299,13 @@ private struct AppIconThumbnailPicker: View {
                             .font(.system(size: 10.5, weight: selection == option ? .semibold : .regular))
                             .foregroundStyle(selection == option ? Theme.textPrimary : Theme.textSecondary)
                     }
+                    .frame(maxWidth: .infinity)
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
             }
         }
+        .frame(maxWidth: .infinity)
     }
 
     @ViewBuilder

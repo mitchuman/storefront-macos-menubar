@@ -91,6 +91,85 @@ enum AppIconPreference: String, Codable, CaseIterable, Identifiable, Hashable {
     }
 }
 
+/// Menu bar status-item glyph — SF Symbol bag, or Polaris Cart / Store × outline / filled.
+enum MenuBarIconPreference: String, Codable, CaseIterable, Identifiable, Hashable {
+    case bag
+    case bagFilled
+    case cart
+    case cartFilled
+    case store
+    case storeFilled
+
+    var id: Self { self }
+
+    enum Family: String, CaseIterable, Identifiable {
+        case bag
+        case cart
+        case store
+
+        var id: Self { self }
+
+        var title: String {
+            switch self {
+            case .bag: "Bag"
+            case .cart: "Cart"
+            case .store: "Store"
+            }
+        }
+
+        /// Settings chip order: Bag → Store → Cart.
+        static let displayOrder: [Family] = [.bag, .store, .cart]
+    }
+
+    var family: Family {
+        switch self {
+        case .bag, .bagFilled: .bag
+        case .cart, .cartFilled: .cart
+        case .store, .storeFilled: .store
+        }
+    }
+
+    var isFilled: Bool {
+        switch self {
+        case .bagFilled, .cartFilled, .storeFilled: true
+        case .bag, .cart, .store: false
+        }
+    }
+
+    var title: String { family.title }
+
+    /// SF Symbol for bag options (nil for Polaris asset glyphs).
+    var systemSymbolName: String? {
+        switch self {
+        case .bag: "bag"
+        case .bagFilled: "bag.fill"
+        case .cart, .cartFilled, .store, .storeFilled: nil
+        }
+    }
+
+    /// Asset catalog imageset name for Polaris glyphs (nil for SF Symbol bag).
+    var assetName: String? {
+        switch self {
+        case .bag, .bagFilled: nil
+        case .cart: "CartIcon"
+        case .cartFilled: "CartFilledIcon"
+        case .store: "StoreIcon"
+        case .storeFilled: "StoreFilledIcon"
+        }
+    }
+
+    static func preference(family: Family, filled: Bool) -> MenuBarIconPreference {
+        switch (family, filled) {
+        case (.bag, false): .bag
+        case (.bag, true): .bagFilled
+        case (.cart, false): .cart
+        case (.cart, true): .cartFilled
+        case (.store, false): .store
+        case (.store, true): .storeFilled
+        }
+    }
+}
+
 /// App-wide light/dark preference for the menu bar panel and Settings window.
 enum AppearancePreference: String, Codable, CaseIterable, Identifiable, Hashable {
     case light
@@ -160,6 +239,8 @@ struct AppSettings: Codable, Equatable {
     var appearancePreference: AppearancePreference = .system
     /// Auto / Light / Dark Dock icon (cmux-style). Auto uses Icon Composer chrome.
     var appIconPreference: AppIconPreference = .system
+    /// Glyph shown in the menu bar status item (Polaris bag / cart / store).
+    var menuBarIconPreference: MenuBarIconPreference = .bag
     /// When true, the menu bar widget uses opaque chrome instead of Liquid Glass vibrancy.
     var opaqueMenuBarWidget: Bool = false
     var globalHotkey: KeyCombo = .default
@@ -191,6 +272,7 @@ struct AppSettings: Codable, Equatable {
         showInDock: Bool = false,
         appearancePreference: AppearancePreference = .system,
         appIconPreference: AppIconPreference = .system,
+        menuBarIconPreference: MenuBarIconPreference = .bag,
         opaqueMenuBarWidget: Bool = false,
         globalHotkey: KeyCombo = .default,
         openAdminHotkey: KeyCombo = .openAdminDefault,
@@ -210,6 +292,7 @@ struct AppSettings: Codable, Equatable {
         self.showInDock = showInDock
         self.appearancePreference = appearancePreference
         self.appIconPreference = appIconPreference
+        self.menuBarIconPreference = menuBarIconPreference
         self.opaqueMenuBarWidget = opaqueMenuBarWidget
         self.globalHotkey = globalHotkey
         self.openAdminHotkey = openAdminHotkey
@@ -232,6 +315,7 @@ struct AppSettings: Codable, Equatable {
         showInDock = try c.decodeIfPresent(Bool.self, forKey: .showInDock) ?? false
         appearancePreference = try c.decodeIfPresent(AppearancePreference.self, forKey: .appearancePreference) ?? .system
         appIconPreference = try c.decodeIfPresent(AppIconPreference.self, forKey: .appIconPreference) ?? .system
+        menuBarIconPreference = try c.decodeIfPresent(MenuBarIconPreference.self, forKey: .menuBarIconPreference) ?? .bag
         opaqueMenuBarWidget = try c.decodeIfPresent(Bool.self, forKey: .opaqueMenuBarWidget) ?? false
         globalHotkey = try c.decodeIfPresent(KeyCombo.self, forKey: .globalHotkey) ?? .default
         openAdminHotkey = try c.decodeIfPresent(KeyCombo.self, forKey: .openAdminHotkey) ?? .openAdminDefault
