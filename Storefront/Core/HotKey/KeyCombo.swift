@@ -182,19 +182,26 @@ struct KeyCombo: Codable, Equatable {
 struct KeyComboView: View {
     let combo: KeyCombo
     var font: Font = .system(size: 11, weight: .medium)
+    /// Shared glyph box so SF Symbols and text keys share one height (no keycap jump).
+    var glyphHeight: CGFloat = 12
 
     var body: some View {
         HStack(spacing: 2) {
             ForEach(combo.modifierSymbolNames, id: \.self) { name in
                 Image(systemName: name)
+                    .frame(height: glyphHeight)
             }
             switch combo.keyGlyph {
             case .symbol(let name):
                 Image(systemName: name)
+                    .frame(height: glyphHeight)
             case .text(let text):
                 Text(text)
+                    .frame(height: glyphHeight)
             }
         }
         .font(font)
+        .lineLimit(1)
+        .frame(height: glyphHeight)
     }
 }

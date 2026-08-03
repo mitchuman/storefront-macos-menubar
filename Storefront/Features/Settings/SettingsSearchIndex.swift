@@ -30,6 +30,7 @@ enum SettingsSearchIndex {
 
         // Stores
         hit("stores.add", "Add Store", "Stores", .stores, ["new store", "create", "add store", "+"]),
+        hit("stores.importExport", "Import & Export", "Stores", .stores, ["csv", "import", "export", "backup"]),
         hit("stores.import", "Import CSV", "Stores", .stores, ["csv", "import"]),
         hit("stores.export", "Export CSV", "Stores", .stores, ["csv", "export"]),
         hit("stores.deleteAll", "Delete All", "Stores", .stores, ["remove", "clear"]),
@@ -88,6 +89,7 @@ enum SettingsSearchIndex {
         // About
         hit("about.version", "Version", "About", .about, ["build", "release"]),
         hit("about.repo", "Repository", "About", .about, ["github", "source"]),
+        hit("about.website", "Website", "About", .about, ["homepage", "site", "docs", "documentation", "help", "guide"]),
         hit("about.dev", "Developed by", "About", .about, ["nuotsu", "author"]),
         hit("about.updates", "Check for Updates", "About", .about, ["sparkle", "update"]),
         hit("about.feedback", "Send Feedback", "About", .about, ["contact", "support", "feedback"]),

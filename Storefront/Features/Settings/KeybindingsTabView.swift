@@ -105,6 +105,8 @@ struct KeybindingsTabView: View {
                 ForEach(groups, id: \.title) { group in
                     groupCard(group)
                 }
+
+                SettingsDocsFooter()
             }
             .padding(18)
         }
@@ -243,10 +245,11 @@ struct KeybindingsTabView: View {
     }
 
     private func keyBadge(_ combo: KeyCombo) -> some View {
-        KeyComboView(combo: combo, font: .system(size: 11, weight: .medium))
+        KeyComboView(combo: combo, font: .system(size: 11, weight: .medium), glyphHeight: 12)
             .foregroundStyle(Theme.textMeta40)
             .padding(.horizontal, 7)
             .padding(.vertical, 3)
+            .frame(minHeight: 22)
             .background(Color.adaptive(light: .black.opacity(0.06), dark: .white.opacity(0.06)))
             .clipShape(RoundedRectangle(cornerRadius: 5))
             .overlay(RoundedRectangle(cornerRadius: 5).strokeBorder(Theme.borderColor.opacity(0.7), lineWidth: 1))
@@ -256,8 +259,10 @@ struct KeybindingsTabView: View {
         Text(label)
             .font(.system(size: 11, weight: .medium))
             .foregroundStyle(Theme.textMeta40)
+            .frame(height: 12)
             .padding(.horizontal, 7)
             .padding(.vertical, 3)
+            .frame(minHeight: 22)
             .background(Color.adaptive(light: .black.opacity(0.06), dark: .white.opacity(0.06)))
             .clipShape(RoundedRectangle(cornerRadius: 5))
             .overlay(RoundedRectangle(cornerRadius: 5).strokeBorder(Theme.borderColor.opacity(0.7), lineWidth: 1))

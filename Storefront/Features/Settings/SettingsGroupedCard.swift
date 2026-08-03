@@ -71,9 +71,10 @@ struct SettingsGroupedRow<Trailing: View>: View {
                     .font(.system(size: 12.5))
                     .foregroundStyle(Theme.textPrimary)
                 if let subtitle {
-                    Text(subtitle)
+                    Text(Self.attributedSubtitle(subtitle))
                         .font(.system(size: 11))
                         .foregroundStyle(Theme.textSecondary)
+                        .tint(Color.accentColor)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
@@ -83,6 +84,37 @@ struct SettingsGroupedRow<Trailing: View>: View {
         }
         .padding(.horizontal, SettingsRowMetrics.horizontalPadding)
         .padding(.vertical, 9)
+    }
+
+    private static func attributedSubtitle(_ string: String) -> AttributedString {
+        (try? AttributedString(
+            markdown: string,
+            options: AttributedString.MarkdownParsingOptions(
+                interpretedSyntax: .inlineOnlyPreservingWhitespace
+            )
+        )) ?? AttributedString(string)
+    }
+}
+
+/// Footer subtext linking to the public docs — use at the bottom of each Settings pane.
+struct SettingsDocsFooter: View {
+    var body: some View {
+        Text(Self.attributedLabel)
+            .font(.system(size: 11))
+            .foregroundStyle(Theme.textSecondary)
+            .tint(Color.accentColor)
+            .multilineTextAlignment(.center)
+            .frame(maxWidth: .infinity, alignment: .center)
+            .padding(.top, 4)
+    }
+
+    private static var attributedLabel: AttributedString {
+        (try? AttributedString(
+            markdown: "Learn more in the [docs](https://storefront.nuotsu.dev/docs).",
+            options: AttributedString.MarkdownParsingOptions(
+                interpretedSyntax: .inlineOnlyPreservingWhitespace
+            )
+        )) ?? AttributedString("Learn more in the docs.")
     }
 }
 

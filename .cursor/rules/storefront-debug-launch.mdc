@@ -5,7 +5,9 @@ alwaysApply: true
 
 # Storefront Debug app launch
 
-When building and launching the Storefront macOS Debug app for local testing:
+After each edit that affects the macOS app (UI, settings, Swift sources, etc.), rebuild and relaunch the Debug app without waiting to be asked.
+
+When building and launching:
 
 1. Quit any existing local Storefront instances first (`pkill -x Storefront`), so you are not testing a stale process.
 2. Build, then `open` the Debug app.

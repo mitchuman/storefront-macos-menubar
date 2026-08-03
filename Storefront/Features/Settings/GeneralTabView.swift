@@ -71,37 +71,8 @@ struct GeneralTabView: View {
                 }
 
                 SettingsGroupedCard {
-                    SettingsGroupedRow("Appearance", alignment: .top) {
-                        AppearanceThumbnailPicker(
-                            selection: Binding(
-                                get: { appState.settings.appearancePreference },
-                                set: { appState.setAppearancePreference($0) }
-                            )
-                        )
-                    }
-                    .padding(.vertical, 6)
-
-                    SettingsGroupedDivider()
-
-                    SettingsGroupedRow(
-                        "Widget background",
-                        subtitle: "Choose your preferred look for the menu bar widget.",
-                        alignment: .top
-                    ) {
-                        PanelBackgroundThumbnailPicker(
-                            opaque: Binding(
-                                get: { appState.settings.opaqueMenuBarWidget },
-                                set: { appState.setOpaqueMenuBarWidget($0) }
-                            )
-                        )
-                    }
-                    .padding(.vertical, 6)
-                }
-
-                SettingsGroupedCard {
                     SettingsGroupedRow(
                         "Menu bar icon",
-                        subtitle: "Shown next to Control Center.",
                         alignment: .top
                     ) {
                         MenuBarIconPreferencePicker(
@@ -119,7 +90,6 @@ struct GeneralTabView: View {
 
                     SettingsGroupedRow(
                         "App Icon",
-                        subtitle: "Dock and About. Auto follows system Light/Dark.",
                         alignment: .top
                     ) {
                         AppIconThumbnailPicker(
@@ -133,6 +103,35 @@ struct GeneralTabView: View {
                     }
                     .padding(.vertical, 6)
                 }
+
+                SettingsGroupedCard {
+                    SettingsGroupedRow("Appearance", alignment: .top) {
+                        AppearanceThumbnailPicker(
+                            selection: Binding(
+                                get: { appState.settings.appearancePreference },
+                                set: { appState.setAppearancePreference($0) }
+                            )
+                        )
+                    }
+                    .padding(.vertical, 6)
+
+                    SettingsGroupedDivider()
+
+                    SettingsGroupedRow(
+                        "Widget background",
+                        alignment: .top
+                    ) {
+                        PanelBackgroundThumbnailPicker(
+                            opaque: Binding(
+                                get: { appState.settings.opaqueMenuBarWidget },
+                                set: { appState.setOpaqueMenuBarWidget($0) }
+                            )
+                        )
+                    }
+                    .padding(.vertical, 6)
+                }
+
+                SettingsDocsFooter()
             }
             .padding(18)
             .frame(maxWidth: .infinity, alignment: .topLeading)

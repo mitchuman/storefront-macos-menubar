@@ -4,6 +4,8 @@ import AppKit
 struct AboutTabView: View {
     private static let nuotsuURL = URL(string: "https://nuotsu.dev")!
     private static let repoURL = URL(string: "https://github.com/nuotsu/storefront-macos-menubar")!
+    private static let siteURL = URL(string: "https://storefront.nuotsu.dev")!
+    private static let docsURL = URL(string: "https://storefront.nuotsu.dev/docs")!
     private static let feedbackURL = URL(string: "https://storefront.nuotsu.dev/contact?source=settings-about")!
 
     var body: some View {
@@ -43,26 +45,32 @@ struct AboutTabView: View {
                     }
                     .padding(.vertical, 0)
 
+                    LabeledContent("Website") {
+                        HStack(spacing: 6) {
+                            Link("Homepage", destination: Self.siteURL)
+                            Text("·")
+                                .foregroundStyle(Theme.textMeta40)
+                            Link("Docs", destination: Self.docsURL)
+                        }
+                    }
+                    .padding(.vertical, 0)
+
                     LabeledContent("Developed by") {
                         Link("nuotsu", destination: Self.nuotsuURL)
                     }
                     .padding(.vertical, 0)
                 }
 
-                VStack(spacing: 8) {
-                    HStack {
-                        Spacer(minLength: 0)
-                        Button("Check for Updates…") {
-                            AppDelegate.shared?.checkForUpdates(nil)
-                        }
-                        Spacer(minLength: 0)
+                HStack(spacing: 6) {
+                    Button {
+                        AppDelegate.shared?.checkForUpdates(nil)
+                    } label: {
+                        Label("Check for Updates", systemImage: "arrow.triangle.2.circlepath")
                     }
-                    HStack {
-                        Spacer(minLength: 0)
-                        Button("Send Feedback") {
-                            NSWorkspace.shared.open(Self.feedbackURL)
-                        }
-                        Spacer(minLength: 0)
+                    Button {
+                        NSWorkspace.shared.open(Self.feedbackURL)
+                    } label: {
+                        Label("Send Feedback", systemImage: "envelope")
                     }
                 }
                 .frame(maxWidth: .infinity)

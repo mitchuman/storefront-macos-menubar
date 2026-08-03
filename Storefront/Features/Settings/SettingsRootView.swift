@@ -3,9 +3,10 @@ import SwiftUI
 
 enum SettingsWindowMetrics {
     static let minWidth: CGFloat = 640
-    static let minHeight: CGFloat = 420
+    static let minHeight: CGFloat = 480
     static let idealWidth: CGFloat = 780
-    static let idealHeight: CGFloat = 580
+    /// Tall enough for Stores (list + favicon/CSV rows) without feeling cramped.
+    static let idealHeight: CGFloat = 780
 }
 
 /// Native `NavigationSplitView` settings shell — system Liquid Glass sidebar,

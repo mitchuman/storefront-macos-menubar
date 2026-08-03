@@ -183,6 +183,8 @@ struct SectionsTabView: View {
                 .background(Theme.settingsCardFill)
                 .clipShape(RoundedRectangle(cornerRadius: 9))
                 .overlay(RoundedRectangle(cornerRadius: 9).strokeBorder(Theme.borderColor, lineWidth: 1))
+
+                SettingsDocsFooter()
             }
             .padding(18)
             .frame(maxWidth: .infinity, alignment: .topLeading)

@@ -37,15 +37,6 @@ struct StoresTabView: View {
                         .font(.system(size: 11))
                         .foregroundStyle(Theme.textSecondary)
                     Spacer(minLength: 8)
-                    if isRefreshingFavicons {
-                        ProgressView()
-                            .controlSize(.small)
-                    }
-                    Button(isRefreshingFavicons ? "Refreshing…" : "Refresh favicons", action: refreshFavicons)
-                        .buttonStyle(.plain)
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(Color.accentColor)
-                        .disabled(isRefreshingFavicons || appState.stores.isEmpty)
                     Button(allVisible ? "Hide All" : "Show All", action: toggleAllVisibility)
                         .buttonStyle(.plain)
                         .font(.system(size: 11, weight: .medium))
@@ -79,38 +70,70 @@ struct StoresTabView: View {
                         SettingsGroupedDivider(leadingInset: SettingsRowMetrics.afterReorderSeparatorLeading)
                     }
 
-                    Button(action: beginAdding) {
-                        HStack(spacing: Column.spacing) {
-                            Image(systemName: "plus")
-                                .font(.system(size: 12, weight: .semibold))
-                                .frame(width: Column.order, alignment: .leading)
-                            Text("Add Store")
-                                .font(.system(size: 12.5))
-                            Spacer(minLength: 0)
+                    HStack(spacing: 14) {
+                        Button(action: beginAdding) {
+                            HStack(spacing: Column.spacing) {
+                                Image(systemName: "plus")
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .frame(width: Column.order, alignment: .leading)
+                                Text("Add Store")
+                                    .font(.system(size: 12.5))
+                            }
+                            .foregroundStyle(Color.accentColor)
+                            .contentShape(Rectangle())
                         }
-                        .foregroundStyle(Color.accentColor)
-                        .padding(.horizontal, SettingsRowMetrics.horizontalPadding)
-                        .padding(.vertical, 9)
-                        .contentShape(Rectangle())
+                        .buttonStyle(.plain)
+
+                        Spacer(minLength: 0)
+
+                        Button(action: refreshFavicons) {
+                            HStack(spacing: 6) {
+                                ZStack {
+                                    if isRefreshingFavicons {
+                                        ProgressView()
+                                            .controlSize(.small)
+                                    } else {
+                                        Image(systemName: "arrow.clockwise")
+                                            .font(.system(size: 12, weight: .semibold))
+                                    }
+                                }
+                                .frame(width: 14, height: 14)
+                                Text(isRefreshingFavicons ? "Refreshing…" : "Refresh favicons")
+                                    .font(.system(size: 12.5))
+                            }
+                            .foregroundStyle(Color.accentColor)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(isRefreshingFavicons || appState.stores.isEmpty)
                     }
-                    .buttonStyle(.plain)
+                    .padding(.horizontal, SettingsRowMetrics.horizontalPadding)
+                    .padding(.vertical, 9)
                 }
                 .background(Theme.settingsCardFill)
                 .clipShape(RoundedRectangle(cornerRadius: 9))
                 .overlay(RoundedRectangle(cornerRadius: 9).strokeBorder(Theme.borderColor, lineWidth: 1))
 
-                HStack(spacing: 14) {
-                    SettingsTextLink("Import CSV", action: importCSV)
-                    SettingsTextLink("Export CSV", action: exportCSV)
-                    Spacer()
-                    SettingsTextLink(
-                        "Delete All",
-                        isEnabled: !appState.stores.isEmpty,
-                        isDestructive: true
+                SettingsGroupedCard {
+                    SettingsGroupedRow(
+                        "Import & Export",
+                        subtitle: "Backup or move your store list."
                     ) {
-                        isConfirmingDeleteAll = true
+                        HStack(spacing: 14) {
+                            SettingsTextLink("Import", action: importCSV)
+                            SettingsTextLink("Export", action: exportCSV)
+                            SettingsTextLink(
+                                "Delete All",
+                                isEnabled: !appState.stores.isEmpty,
+                                isDestructive: true
+                            ) {
+                                isConfirmingDeleteAll = true
+                            }
+                        }
                     }
                 }
+
+                SettingsDocsFooter()
             }
             .padding(18)
             .frame(maxWidth: .infinity, alignment: .topLeading)

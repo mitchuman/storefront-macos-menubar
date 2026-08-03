@@ -50,6 +50,15 @@ struct HowToUseTabView: View {
                         combos: [appState.settings.globalHotkey]
                     ),
                     ShortcutBullet(
+                        id: "jump",
+                        label: "Jump to a store",
+                        combos: [
+                            KeyCombo(keyCode: UInt32(kVK_ANSI_1), modifierFlags: UInt32(cmdKey)),
+                            KeyCombo(keyCode: UInt32(kVK_ANSI_9), modifierFlags: UInt32(cmdKey)),
+                        ],
+                        separator: "-"
+                    ),
+                    ShortcutBullet(
                         id: "stores",
                         label: "Move through stores",
                         combos: [
@@ -78,15 +87,6 @@ struct HowToUseTabView: View {
                         label: "Open the focused link",
                         combos: [KeyCombo(keyCode: UInt32(kVK_Return), modifierFlags: 0)]
                     ),
-                    ShortcutBullet(
-                        id: "jump",
-                        label: "Jump to a store",
-                        combos: [
-                            KeyCombo(keyCode: UInt32(kVK_ANSI_1), modifierFlags: UInt32(cmdKey)),
-                            KeyCombo(keyCode: UInt32(kVK_ANSI_9), modifierFlags: UInt32(cmdKey)),
-                        ],
-                        separator: "-"
-                    ),
                 ],
                 actionTitle: "Open Keybindings",
                 actionTab: .keybindings
@@ -100,12 +100,15 @@ struct HowToUseTabView: View {
                 Text("Get from an empty install to jumping into Shopify admin in three steps.")
                     .font(.system(size: 12))
                     .foregroundStyle(Theme.textSecondary)
+                    .lineSpacing(3)
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.horizontal, 2)
 
                 ForEach(steps) { step in
                     stepCard(step)
                 }
+
+                SettingsDocsFooter()
             }
             .padding(18)
         }
@@ -123,7 +126,7 @@ struct HowToUseTabView: View {
 
             VStack(alignment: .leading, spacing: 0) {
                 Text(step.title)
-                    .font(.system(size: 15, weight: .regular))
+                    .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(Theme.textPrimary)
                     .padding(.horizontal, 11)
                     .padding(.top, 12)
@@ -132,6 +135,7 @@ struct HowToUseTabView: View {
                 Text(step.body)
                     .font(.system(size: 12.5))
                     .foregroundStyle(Theme.textSecondary)
+                    .lineSpacing(4)
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.horizontal, 11)
                     .padding(.bottom, step.bullets.isEmpty ? (step.actionTab == nil ? 12 : 8) : 8)
@@ -171,8 +175,10 @@ struct HowToUseTabView: View {
                 }
 
                 if let actionTitle = step.actionTitle, let actionTab = step.actionTab {
-                    Button(actionTitle) {
+                    Button {
                         appState.selectedSettingsTab = actionTab
+                    } label: {
+                        Label(actionTitle, systemImage: actionTab.systemImage)
                     }
                     .buttonStyle(.link)
                     .font(.system(size: 12.5))
@@ -191,10 +197,11 @@ struct HowToUseTabView: View {
     }
 
     private func keyBadge(_ combo: KeyCombo) -> some View {
-        KeyComboView(combo: combo, font: .system(size: 11, weight: .medium))
+        KeyComboView(combo: combo, font: .system(size: 11, weight: .medium), glyphHeight: 12)
             .foregroundStyle(Theme.textMeta40)
             .padding(.horizontal, 7)
             .padding(.vertical, 3)
+            .frame(minHeight: 22)
             .background(Color.adaptive(light: .white, dark: .white.opacity(0.12)))
             .clipShape(RoundedRectangle(cornerRadius: 5))
             .overlay(RoundedRectangle(cornerRadius: 5).strokeBorder(Theme.borderColor.opacity(0.7), lineWidth: 1))
@@ -204,8 +211,10 @@ struct HowToUseTabView: View {
         Text(label)
             .font(.system(size: 11, weight: .medium))
             .foregroundStyle(Theme.textMeta40)
+            .frame(height: 12)
             .padding(.horizontal, 7)
             .padding(.vertical, 3)
+            .frame(minHeight: 22)
             .background(Color.adaptive(light: .white, dark: .white.opacity(0.12)))
             .clipShape(RoundedRectangle(cornerRadius: 5))
             .overlay(RoundedRectangle(cornerRadius: 5).strokeBorder(Theme.borderColor.opacity(0.7), lineWidth: 1))
