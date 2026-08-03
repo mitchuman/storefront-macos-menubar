@@ -230,8 +230,11 @@ struct PanelView: View {
             }
             return .handled
         case .leftArrow:
-            guard appState.focusArea == .cards else { return .ignored }
-            appState.moveCardFocus(offset: -1)
+            if appState.focusArea == .rail {
+                appState.enterCards()
+            } else {
+                appState.moveCardFocus(offset: -1)
+            }
             return .handled
         case .rightArrow:
             if appState.focusArea == .rail {

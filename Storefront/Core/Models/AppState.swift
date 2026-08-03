@@ -184,7 +184,8 @@ final class AppState: ObservableObject {
         let stores = filteredStores
         guard index >= 1, index <= stores.count else { return }
         select(stores[index - 1])
-        focusArea = .rail
+        // Focus the first card/link so ←/→ work immediately after a ⌘N jump.
+        enterCards()
     }
 
     func enterCards() {
