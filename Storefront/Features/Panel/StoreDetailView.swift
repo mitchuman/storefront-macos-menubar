@@ -478,14 +478,13 @@ private struct CardLinkRow: View {
                             .foregroundStyle(Theme.textMeta30)
                             .allowsHitTesting(false)
                     }
-                    TextField("", text: searchQuery)
-                        .textFieldStyle(.plain)
-                        .font(.system(size: 11.5))
-                        .lineLimit(1)
+                    CaretTintedTextField(
+                        text: searchQuery,
+                        caretColor: NSColor(hex: store.colorHex),
+                        onSubmit: submitSearch
+                    )
                         .focused(focusedRowSearchID, equals: row.id)
                         .focusEffectDisabled()
-                        .background(TextFieldAppKitTuning(insertionPointColor: NSColor(store.color)))
-                        .onSubmit { submitSearch() }
                         .onExitCommand {
                             appState.expandedSearchRowIDs[store.id]?.remove(row.id)
                             if focusedRowSearchID.wrappedValue == row.id {
