@@ -24,6 +24,20 @@
       "sourceType": "github",
       "skillPath": "skills/new-module/SKILL.md",
       "computedHash": "6ecad49864c393db41cce25f579e27ad346f26d407601dd96c71c2af54384620"
+    },
+    "next-cache-components-adoption": {
+      "source": "vercel/next.js",
+      "ref": "canary",
+      "sourceType": "github",
+      "skillPath": "skills/next-cache-components-adoption/SKILL.md",
+      "computedHash": "28dbee9d2c2773fca3447de97f5b36b60be9398b7d4e914c79ca92b7d004ca21"
+    },
+    "next-dev-loop": {
+      "source": "vercel/next.js",
+      "ref": "canary",
+      "sourceType": "github",
+      "skillPath": "skills/next-dev-loop/SKILL.md",
+      "computedHash": "1fb1b47ed7186737df086aa198f86961f72691539f1c4507f60bbedf60a128be"
     }
   }
 }
