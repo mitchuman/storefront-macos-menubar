@@ -1638,6 +1638,23 @@ export type SanityAssistSchemaTypeField = {
 	>
 }
 
+export type MediaFolderReference = {
+	_ref: string
+	_type: 'reference'
+	_weak?: boolean
+	[internalGroqTypeReferenceTo]?: 'media.folder'
+}
+
+export type MediaFolder = {
+	_id: string
+	_type: 'media.folder'
+	_createdAt: string
+	_updatedAt: string
+	_rev: string
+	name?: string
+	parent?: MediaFolderReference
+}
+
 export type MediaTag = {
 	_id: string
 	_type: 'media.tag'
@@ -1814,6 +1831,8 @@ export type AllSanitySchemaTypes =
 	| SanityAssistInstructionFieldRef
 	| SanityAssistInstruction
 	| SanityAssistSchemaTypeField
+	| MediaFolderReference
+	| MediaFolder
 	| MediaTag
 	| SanityImagePaletteSwatch
 	| SanityImagePalette
@@ -6522,7 +6541,7 @@ export type BLOG_POST_LIST_QUERY_RESULT = Array<{
 	slug: unknown
 }>
 
-// Source: src/modules/search-module/store.ts
+// Source: src/modules/search-module/action.ts
 // Variable: SEARCH_QUERY
 // Query: *[	_type in $scope	&& defined(metadata.slug.current)	&& metadata.noIndex != true	&& !(metadata.slug.current in ['404'])	&& @ match text::query($queryMatch)]{	_id,	_type,	title,	'slug': select(		_type == 'blog.post' => $blogDir + metadata.slug.current,		metadata.slug.current == 'index' => '/',		'/' + metadata.slug.current	)}
 export type SEARCH_QUERY_RESULT = Array<

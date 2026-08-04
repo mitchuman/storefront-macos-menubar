@@ -1,5 +1,6 @@
 import { escapeHTML, toHTML } from '@portabletext/to-html'
 import { groq } from 'next-sanity'
+import { connection } from 'next/server'
 import { ROUTES } from '@/lib/env'
 import { getBlockText } from '@/lib/utils'
 import { urlFor } from '@/sanity/lib/image'
@@ -9,6 +10,9 @@ import type { AccordionList, BLOG_RSS_QUERY_RESULT } from '@/sanity/types'
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL
 
 export async function GET() {
+	// TODO: Cache Components adoption. Added to unblock the build: remove this connection() to re-trigger the error and review the fix options.
+	await connection()
+
 	const { blog, posts } = await sanityFetchLive<BLOG_RSS_QUERY_RESULT>({
 		query: BLOG_RSS_QUERY,
 		params: {
