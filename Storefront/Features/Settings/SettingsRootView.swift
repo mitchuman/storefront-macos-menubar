@@ -191,6 +191,18 @@ private struct SettingsToolbarConfigurator: NSViewRepresentable {
         var cachedTitlebarRoot: NSView?
         var paneTitle: String = ""
 
+        /// Whether `track` would actually do anything. `updateNSView` runs on every
+        /// SwiftUI update of the Settings tree, so this avoids scheduling a main-queue
+        /// hop when nothing it looks at has changed. Deliberately conservative: while
+        /// the chrome has not been applied yet, or the view has no window, it always
+        /// says yes — that is the case the deferred `track` exists to handle.
+        func needsTracking(window: NSWindow?, paneTitle: String, overflowBurstToken: UInt) -> Bool {
+            window !== trackedWindow
+                || !didApplyChrome
+                || self.paneTitle != paneTitle
+                || overflowBurstToken != lastBurstToken
+        }
+
         func track(_ window: NSWindow?, paneTitle: String, overflowBurstToken: UInt) {
             self.paneTitle = paneTitle
             let windowChanged = window !== trackedWindow
@@ -563,6 +575,12 @@ private struct SettingsToolbarConfigurator: NSViewRepresentable {
     }
 
     func updateNSView(_ nsView: NSView, context: Context) {
+        guard context.coordinator.needsTracking(
+            window: nsView.window,
+            paneTitle: paneTitle,
+            overflowBurstToken: overflowBurstToken
+        ) else { return }
+
         DispatchQueue.main.async {
             context.coordinator.track(
                 nsView.window,

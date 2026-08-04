@@ -28,7 +28,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var popover: NSPopover?
     /// Borderless movable panel used when the menu bar icon is hidden (no popover beak).
     private var floatingPanel: StorefrontFloatingPanel?
-    private var floatingPanelHosting: NSHostingController<AnyView>?
+    private var floatingPanelHosting: NSViewController?
     private var floatingClickOutsideMonitor: Any?
     private var floatingGlobalClickOutsideMonitor: Any?
     /// Suppresses click-outside dismiss briefly (⌘-click keep-open → browser activation).
@@ -110,7 +110,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         // Force visible for our named item before creating it.
         defaults.set(true, forKey: "NSStatusItem Visible \(Self.statusItemAutosaveName)")
-        defaults.synchronize()
     }
 
     func ensureStatusItem() {
@@ -404,8 +403,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         panel.titlebarAppearsTransparent = true
         panel.acceptsMouseMovedEvents = true
 
+        // Not type-erased through AnyView — that would hide the panel's real view type
+        // from SwiftUI's structural diffing at the hosting root.
         let hosting = NSHostingController(
-            rootView: AnyView(PanelView().environmentObject(appState))
+            rootView: PanelView().environmentObject(appState)
         )
         hosting.view.wantsLayer = true
         hosting.view.focusRingType = .none
