@@ -164,7 +164,7 @@ final class AppState: ObservableObject {
     var filteredStores: [Store] {
         let stores = visibleStores
         guard !query.isEmpty else { return stores }
-        return stores.filter { $0.displayName.localizedCaseInsensitiveContains(query) }
+        return stores.filter { $0.matchesSearchQuery(query) }
     }
 
     /// All enabled sections, in display order — the exact list `StoreDetailView` renders,

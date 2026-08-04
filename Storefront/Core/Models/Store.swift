@@ -60,6 +60,33 @@ struct Store: Identifiable, Codable, Equatable {
         return String(letters).uppercased()
     }
 
+    /// Whether this store should appear for a rail search query: display-name substring
+    /// match, or word-initial abbreviation (e.g. `BFG` → "Blue Falcon Golf").
+    func matchesSearchQuery(_ query: String) -> Bool {
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return true }
+        if displayName.localizedCaseInsensitiveContains(trimmed) { return true }
+        let abbreviation = Self.searchAbbreviation(from: displayName)
+        return abbreviation.localizedCaseInsensitiveContains(trimmed)
+    }
+
+    /// First alphanumeric character of each token in `name`, joined (e.g. "Blue-Falcon Golf" → "BFG").
+    private static func searchAbbreviation(from name: String) -> String {
+        var result = ""
+        var inToken = false
+        for character in name {
+            if character.isLetter || character.isNumber {
+                if !inToken {
+                    result.append(character)
+                    inToken = true
+                }
+            } else {
+                inToken = false
+            }
+        }
+        return result
+    }
+
     /// The store "handle" used in admin.shopify.com URLs, i.e. the domain minus ".myshopify.com".
     static func handle(fromDomain domain: String) -> String {
         domain.replacingOccurrences(of: ".myshopify.com", with: "")
