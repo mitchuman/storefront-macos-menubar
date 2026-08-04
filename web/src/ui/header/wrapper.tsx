@@ -1,11 +1,10 @@
 'use client'
 
 import { usePathname } from 'next/navigation'
-import { useEffect, useRef } from 'react'
+import { Suspense, useEffect, useRef, type ComponentProps } from 'react'
 
-export default function (props: React.ComponentProps<'header'>) {
+export default function ({ children, ...props }: ComponentProps<'header'>) {
 	const ref = useRef<HTMLDivElement>(null)
-	const pathname = usePathname()
 
 	// set --header-height
 	useEffect(() => {
@@ -24,17 +23,34 @@ export default function (props: React.ComponentProps<'header'>) {
 		return () => window.removeEventListener('resize', setHeight)
 	}, [])
 
-	// close menus after navigation
+	return (
+		<header ref={ref} role="banner" {...props}>
+			{children}
+			{/* usePathname suspends on dynamic routes — isolate so the header shell can prerender */}
+			<Suspense fallback={null}>
+				<CloseMenusOnNavigate containerRef={ref} />
+			</Suspense>
+		</header>
+	)
+}
+
+function CloseMenusOnNavigate({
+	containerRef,
+}: {
+	containerRef: React.RefObject<HTMLDivElement | null>
+}) {
+	const pathname = usePathname()
+
 	useEffect(() => {
 		if (typeof document === 'undefined') return
 		const toggle = document.querySelector('#header-open') as HTMLInputElement
 		if (toggle) toggle.checked = false
 
-		if (!ref.current) return
-		ref.current.querySelectorAll('details').forEach((element) => {
+		if (!containerRef.current) return
+		containerRef.current.querySelectorAll('details').forEach((element) => {
 			if (element.open) element.open = false
 		})
-	}, [pathname])
+	}, [pathname, containerRef])
 
-	return <header ref={ref} role="banner" {...props} />
+	return null
 }
