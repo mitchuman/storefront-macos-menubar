@@ -2,6 +2,7 @@ import SwiftUI
 
 struct StoreRailView: View {
     @EnvironmentObject var appState: AppState
+    @EnvironmentObject var safeTriangle: SafeTriangleController
     @FocusState.Binding var searchFocused: Bool
 
     var body: some View {
@@ -29,11 +30,18 @@ struct StoreRailView: View {
             Divider().overlay(Theme.hairline)
 
             ScrollView {
+                let stores = appState.filteredStores
                 VStack(alignment: .leading, spacing: 0) {
-                    ForEach(Array(appState.filteredStores.enumerated()), id: \.element.id) { index, store in
-                        StoreRowView(store: store, shortcutIndex: index + 1, isSelected: store.id == appState.selectedStoreID) {
+                    ForEach(Array(stores.enumerated()), id: \.element.id) { index, store in
+                        StoreRowView(
+                            store: store,
+                            shortcutIndex: index + 1,
+                            isSelected: store.id == appState.selectedStoreID,
+                            isSuppressed: safeTriangle.suppressedRowID == store.id
+                        ) {
                             appState.toggleFavorite(store)
                         }
+                        .equatable()
                     }
                 }
             }
@@ -189,15 +197,21 @@ private struct LegendLinkRow: View {
     }
 }
 
-private struct StoreRowView: View {
-    @EnvironmentObject var safeTriangle: SafeTriangleController
+private struct StoreRowView: View, Equatable {
     let store: Store
     let shortcutIndex: Int
     let isSelected: Bool
+    let isSuppressed: Bool
     let onToggleFavorite: () -> Void
     @State private var isHovering = false
 
-    private var isSuppressed: Bool { safeTriangle.suppressedRowID == store.id }
+    static func == (lhs: StoreRowView, rhs: StoreRowView) -> Bool {
+        lhs.store == rhs.store
+            && lhs.shortcutIndex == rhs.shortcutIndex
+            && lhs.isSelected == rhs.isSelected
+            && lhs.isSuppressed == rhs.isSuppressed
+    }
+
     /// Hover state used for visual affordances only — false while the safe triangle is
     /// suppressing this row, so it shows no highlight at all mid-transit.
     private var effectiveHovering: Bool { isHovering && !isSuppressed }
@@ -220,12 +234,10 @@ private struct StoreRowView: View {
         hasBadge ? Self.badgeWidth + Self.badgeGap : Self.edgeGap
     }
 
-    /// How much room the name needs to reserve while the star is showing, on top of
-    /// what the badge slot already reserves natively — small, since in the has-badge
-    /// case that native reservation already covers most of it.
+    /// Always reserve star room so hover/select opacity alone never reflows the name
+    /// (and never re-emits row-frame preferences from a layout shift).
     private var nameTrailingReserve: CGFloat {
-        guard showStar else { return 0 }
-        return hasBadge ? 4 : Self.starWidth + Self.edgeGap
+        hasBadge ? 4 : Self.starWidth + Self.edgeGap
     }
 
     var body: some View {
@@ -237,10 +249,6 @@ private struct StoreRowView: View {
                     .foregroundStyle(isSelected ? Theme.textPrimary : Theme.textBody)
                     .lineLimit(1)
                     .truncationMode(.tail)
-                    // Only reserved while the star is actually shown, so the name can use
-                    // that width the rest of the time — the star itself sits in a fixed
-                    // overlay (below) rather than this HStack's flow, so toggling this
-                    // padding never shifts the badge that follows.
                     .padding(.trailing, nameTrailingReserve)
                 Spacer(minLength: 4)
                 shortcutBadge
@@ -250,6 +258,8 @@ private struct StoreRowView: View {
             StarButton(isFavorite: store.isFavorite, isRowHovering: effectiveHovering, action: onToggleFavorite)
                 .padding(.trailing, starTrailingOffset)
                 .opacity(showStar ? 1 : 0)
+                // Keep the star hittable only while visible — opacity alone still receives taps.
+                .allowsHitTesting(showStar)
         }
         .padding(.leading, 15)
         .padding(.trailing, 9)

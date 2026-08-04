@@ -43,7 +43,7 @@ struct PanelView: View {
     /// The right panel's frame is fully determined by fixed layout constants (not
     /// measured dynamically) — a `GeometryReader` here proved unreliable, since its
     /// preference never committed a non-zero value through the conditionally-built
-    /// (`if store != nil { … } else { … }`, `.id(store.id)`-churning) content above it.
+    /// (`if store != nil { … } else { … }`) content above it.
     private var rightPanelFrame: CGRect {
         let originX = Theme.railInset + Theme.railWidth + Theme.railGap
         return CGRect(x: originX, y: 0, width: Theme.panelSize.width - originX, height: Theme.panelSize.height)
@@ -56,12 +56,13 @@ struct PanelView: View {
                 .padding(.vertical, Theme.railInset)
 
             if let store = appState.selectedStore {
+                // Keep identity across hover-select so the detail column updates in place
+                // instead of tearing down cards/favicons on every rail scrub.
                 StoreDetailView(
                     store: store,
                     focusedRowSearchID: $focusedRowSearchID,
                     onToggleLinkSearchKey: { performToggleLinkSearch() }
                 )
-                    .id(store.id)
             } else {
                 emptyState
             }
@@ -104,9 +105,11 @@ struct PanelView: View {
         }
         .onChange(of: appState.selectedStoreID) { _, newValue in
             safeTriangle.updateSelectedRowID(newValue)
-            // Hover / ⌘N / arrow selection should leave the rail search so panel
-            // shortcuts (arrows, A/O, etc.) aren't swallowed by the TextField.
-            moveKeyboardFocusToPanel()
+            // Only steal focus when a TextField would swallow panel shortcuts —
+            // skip the churn on every hover-select while the panel is already focused.
+            if searchFocused || focusedRowSearchID != nil {
+                moveKeyboardFocusToPanel()
+            }
         }
         .onChange(of: focusedRowSearchID) { oldValue, newValue in
             // A row's search field just lost real keyboard focus (Escape, submit, or

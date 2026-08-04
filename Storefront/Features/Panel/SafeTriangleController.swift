@@ -69,7 +69,7 @@ final class SafeTriangleController: ObservableObject {
             apex = current
             isProtecting = true
             protectionDeadline = Date().addingTimeInterval(Self.timeout)
-            suppressedRowID = hoveredRowID
+            setSuppressedRowID(hoveredRowID)
             return
         }
 
@@ -83,7 +83,7 @@ final class SafeTriangleController: ObservableObject {
             return
         }
 
-        suppressedRowID = hoveredRowID
+        setSuppressedRowID(hoveredRowID)
     }
 
     private var isTimedOut: Bool {
@@ -95,7 +95,14 @@ final class SafeTriangleController: ObservableObject {
         isProtecting = false
         apex = nil
         protectionDeadline = nil
-        suppressedRowID = nil
+        setSuppressedRowID(nil)
+    }
+
+    /// Avoid `@Published` noise when the suppressed row hasn't changed — every rail row
+    /// observes this controller, so redundant assigns would refresh the whole list.
+    private func setSuppressedRowID(_ id: Store.ID?) {
+        guard suppressedRowID != id else { return }
+        suppressedRowID = id
     }
 
     /// Standard sign-based point-in-triangle test.

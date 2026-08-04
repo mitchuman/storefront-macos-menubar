@@ -180,6 +180,14 @@ private struct CopyableHandleView: View {
         .animation(.easeOut(duration: 0.15), value: didCopy)
         .animation(.easeOut(duration: 0.12), value: hoveringHandle)
         .animation(.easeOut(duration: 0.12), value: hoveringSuffix)
+        // Detail keeps identity across store switches — clear ephemeral copy UI.
+        .onChange(of: domain) { _, _ in
+            hideCheckmarkTask?.cancel()
+            hideCheckmarkTask = nil
+            didCopy = false
+            hoveringHandle = false
+            hoveringSuffix = false
+        }
         .onDisappear {
             hideCheckmarkTask?.cancel()
             hideCheckmarkTask = nil
@@ -365,8 +373,7 @@ private struct CardLinkRow: View {
 
     /// Lives in `AppState` (not local `@State`) so the ⌃S keyboard shortcut can toggle a
     /// row's search regardless of which `CardLinkRow` instance it belongs to, and so
-    /// switching stores and back doesn't lose it (`StoreDetailView` is fully recreated
-    /// per store via `.id(store.id)`, which would otherwise reset local `@State` to blank).
+    /// switching stores and back doesn't lose it (detail keeps identity across stores).
     private var isSearchExpanded: Bool { appState.expandedSearchRowIDs[store.id]?.contains(row.id) ?? false }
 
     private var searchQuery: Binding<String> {
