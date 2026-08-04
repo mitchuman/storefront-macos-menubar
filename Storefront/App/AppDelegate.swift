@@ -60,7 +60,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         pop.contentSize = Theme.panelSize
         pop.delegate = self
         let hosting = NSHostingController(
-            rootView: PanelView().environmentObject(appState)
+            rootView: PanelView().environment(appState)
         )
         hosting.view.wantsLayer = true
         hosting.view.focusRingType = .none
@@ -406,7 +406,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Not type-erased through AnyView — that would hide the panel's real view type
         // from SwiftUI's structural diffing at the hosting root.
         let hosting = NSHostingController(
-            rootView: PanelView().environmentObject(appState)
+            rootView: PanelView().environment(appState)
         )
         hosting.view.wantsLayer = true
         hosting.view.focusRingType = .none
@@ -637,7 +637,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             AppIconPreference.apply(self.appState.settings.appIconPreference)
             guard self.appState.settings.appearancePreference == .system else { return }
             self.applyAppearancePreference(.system)
-            self.appState.objectWillChange.send()
+            self.appState.noteSystemAppearanceChanged()
         }
     }
 

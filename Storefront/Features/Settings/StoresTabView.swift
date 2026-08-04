@@ -6,7 +6,7 @@ import OSLog
 private let logger = Logger(subsystem: "com.humanmarketing.storefront", category: "csv")
 
 struct StoresTabView: View {
-    @EnvironmentObject var appState: AppState
+    @Environment(AppState.self) private var appState
     @State private var isAddingStore = false
     @State private var editingStore: Store?
     @State private var storePendingDeletion: Store?

@@ -3,7 +3,7 @@ import SwiftUI
 
 /// Short first-run guide for Settings — three steps to get productive.
 struct HowToUseTabView: View {
-    @EnvironmentObject var appState: AppState
+    @Environment(AppState.self) private var appState
 
     private struct ShortcutBullet: Identifiable {
         let id: String

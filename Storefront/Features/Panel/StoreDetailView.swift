@@ -18,7 +18,7 @@ func openStoreLink(_ url: URL, keepOpen: Bool? = nil) {
 }
 
 struct StoreDetailView: View {
-    @EnvironmentObject var appState: AppState
+    @Environment(AppState.self) private var appState
     let store: Store
     var focusedRowSearchID: FocusState<String?>.Binding
     /// Invoked when ⌃S is pressed while a row search field holds focus (TextField can
@@ -369,7 +369,7 @@ struct SectionCardView: View {
     var focusedRowIndex: Int = 0
     var focusedRowSearchID: FocusState<String?>.Binding
     var onToggleLinkSearchKey: () -> Bool = { false }
-    @EnvironmentObject var appState: AppState
+    @Environment(AppState.self) private var appState
 
     private var rows: [LinkRow] { StaticLinkCatalog.rows(for: section) }
     private var isOpaque: Bool { appState.settings.opaqueMenuBarWidget }
@@ -452,7 +452,7 @@ private struct CardLinkRow: View {
     var isActive: Bool = false
     var focusedRowSearchID: FocusState<String?>.Binding
     var onToggleLinkSearchKey: () -> Bool = { false }
-    @EnvironmentObject var appState: AppState
+    @Environment(AppState.self) private var appState
     /// True while the pointer is inside this row — used to activate after hover is
     /// re-armed following a keyboard scroll (`.onHover` does not re-fire for a
     /// stationary cursor).

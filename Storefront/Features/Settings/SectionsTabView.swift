@@ -12,7 +12,7 @@ private let logger = Logger(subsystem: "com.humanmarketing.storefront", category
 /// Uses `ScrollView` (not `List`) so Tahoe’s titleband scroll-edge doesn’t collapse the
 /// Settings `NavigationSplitView` under the traffic lights.
 struct SectionsTabView: View {
-    @EnvironmentObject var appState: AppState
+    @Environment(AppState.self) private var appState
     @State private var csvErrorMessage: String?
 
     @State private var isPresentingSaveSheet = false
@@ -85,6 +85,10 @@ struct SectionsTabView: View {
     }
 
     var body: some View {
+        // `@Observable` has no projected value, so the drag-reorder binding below goes
+        // through a local @Bindable rather than `$appState` directly.
+        @Bindable var appState = appState
+
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 SettingsGroupedCard {

@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct StoreRailView: View {
-    @EnvironmentObject var appState: AppState
+    @Environment(AppState.self) private var appState
     @EnvironmentObject var safeTriangle: SafeTriangleController
     @FocusState.Binding var searchFocused: Bool
 

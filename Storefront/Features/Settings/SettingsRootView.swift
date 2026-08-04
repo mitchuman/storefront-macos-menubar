@@ -12,7 +12,7 @@ enum SettingsWindowMetrics {
 /// Native `NavigationSplitView` settings shell — system Liquid Glass sidebar,
 /// traffic lights, and sidebar toggle. Search lives in the sidebar header.
 struct SettingsRootView: View {
-    @EnvironmentObject var appState: AppState
+    @Environment(AppState.self) private var appState
     @State private var columnVisibility = NavigationSplitViewVisibility.all
     @State private var searchText = ""
     /// Bumped when the sidebar opens/closes so toolbar polish can run a short
@@ -21,6 +21,14 @@ struct SettingsRootView: View {
 
     private var isSearching: Bool {
         !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    /// `.system` resolves against `NSApp.effectiveAppearance` at call time, so nothing
+    /// stored changes when macOS flips Light↔Dark. Reading the revision registers the
+    /// dependency that makes this re-evaluate on a system flip.
+    private var resolvedColorScheme: ColorScheme {
+        _ = appState.systemAppearanceRevision
+        return appState.settings.appearancePreference.colorScheme
     }
 
     private var searchHits: [SettingsSearchHit] {
@@ -50,7 +58,7 @@ struct SettingsRootView: View {
             minHeight: SettingsWindowMetrics.minHeight,
             idealHeight: SettingsWindowMetrics.idealHeight
         )
-        .preferredColorScheme(appState.settings.appearancePreference.colorScheme)
+        .preferredColorScheme(resolvedColorScheme)
         .id(appState.appearanceRevision)
         .background(
             SettingsToolbarConfigurator(
@@ -69,6 +77,10 @@ struct SettingsRootView: View {
 
     @ViewBuilder
     private var sidebar: some View {
+        // `@Observable` has no projected value, so the selection binding goes through
+        // a local @Bindable rather than `$appState` directly.
+        @Bindable var appState = appState
+
         Group {
             if isSearching {
                 // One `searchHits` evaluation per body — it re-runs the whole index

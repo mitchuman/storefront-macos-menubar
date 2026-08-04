@@ -1,3 +1,4 @@
+import Observation
 import SwiftUI
 import ServiceManagement
 
@@ -43,39 +44,52 @@ enum SettingsTab: String, Hashable, CaseIterable, Identifiable {
     }
 }
 
+/// `@Observable` rather than `ObservableObject`: this one object backs both the panel
+/// and the whole Settings tree, and holds per-keystroke state (`query`, `searchQueries`).
+/// With `objectWillChange` semantics a single character typed into the rail invalidated
+/// every view that held it — the rail, all 11 section cards and ~30 link rows. Observation
+/// tracks reads per property, so only the views that actually read what changed re-run.
+@Observable
 @MainActor
-final class AppState: ObservableObject {
-    @Published var stores: [Store]
-    @Published var selectedStoreID: Store.ID?
-    @Published var query: String = ""
-    @Published var settings: AppSettings
-    @Published var focusArea: PanelFocusArea = .rail
-    @Published var focusedSectionIndex: Int = 0
-    @Published var focusedRowIndex: Int = 0
+final class AppState {
+    var stores: [Store]
+    var selectedStoreID: Store.ID?
+    var query: String = ""
+    var settings: AppSettings
+    var focusArea: PanelFocusArea = .rail
+    var focusedSectionIndex: Int = 0
+    var focusedRowIndex: Int = 0
     /// Bumped only by keyboard card navigation so the detail column scrolls for arrows,
     /// not when hover/click updates the focused section.
-    @Published private(set) var cardScrollGeneration: UInt = 0
+    private(set) var cardScrollGeneration: UInt = 0
     /// After a keyboard-driven scroll, card-link hover activation stays off until the
     /// pointer actually moves — so a stationary mouse that lands on a link mid-scroll
     /// does not steal the active row.
-    @Published private(set) var cardLinkHoverArmed = true
-    @Published var selectedSettingsTab: SettingsTab = .general
+    private(set) var cardLinkHoverArmed = true
+    var selectedSettingsTab: SettingsTab = .general
     /// Sparkle found an OTA update — panel rail shows an Update button while true.
-    @Published var updateAvailable = false
-    /// Bumped when appearance changes so Settings can remount and pick up fresh
-    /// dynamic colors (Dark → System was leaving cards/sidebar stuck dark).
-    @Published private(set) var appearanceRevision: UInt = 0
+    var updateAvailable = false
+    /// Bumped when the *stored* appearance preference changes so Settings can remount and
+    /// pick up fresh dynamic colors (Dark → System was leaving cards/sidebar stuck dark).
+    private(set) var appearanceRevision: UInt = 0
+    /// Bumped when the *system* appearance flips. Distinct from `appearanceRevision`,
+    /// which drives a `.id()` remount of the whole Settings window — far too heavy to do
+    /// on every OS theme change. Nothing stored changes on a system flip, but
+    /// `AppearancePreference.colorScheme` resolves `.system` against
+    /// `NSApp.effectiveAppearance` at call time, so views that apply
+    /// `.preferredColorScheme` need an explicit signal to re-evaluate.
+    private(set) var systemAppearanceRevision: UInt = 0
     /// Row IDs whose inline search field is currently expanded, per store — shared here
     /// (rather than local view state) so a keyboard shortcut can toggle a row's search
     /// regardless of which `CardLinkRow` instance it belongs to, and keyed per store so
     /// switching stores doesn't show/hide an unrelated store's search boxes.
-    @Published var expandedSearchRowIDs: [Store.ID: Set<String>] = [:]
+    var expandedSearchRowIDs: [Store.ID: Set<String>] = [:]
     /// Typed-but-not-yet-cleared search text per store/row, so switching stores and back
     /// (which tears down and recreates `CardLinkRow`, discarding any local `@State`)
     /// doesn't lose what the user typed.
-    @Published var searchQueries: [Store.ID: [String: String]] = [:]
+    var searchQueries: [Store.ID: [String: String]] = [:]
 
-    private let persistence: PersistenceStore
+    @ObservationIgnored private let persistence: PersistenceStore
 
     init(persistence: PersistenceStore = .shared) {
         self.persistence = persistence
@@ -119,6 +133,11 @@ final class AppState: ObservableObject {
         AppearancePreference.apply(preference)
         appearanceRevision &+= 1
         save()
+    }
+
+    /// Call when macOS itself flips Light↔Dark. See `systemAppearanceRevision`.
+    func noteSystemAppearanceChanged() {
+        systemAppearanceRevision &+= 1
     }
 
     func setAppIconPreference(_ preference: AppIconPreference) {
