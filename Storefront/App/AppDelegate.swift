@@ -437,17 +437,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         // AppKit origin is bottom-left; SwiftUI offset y is measured from the top.
-        var frame = NSRect(
+        let frame = NSRect(
             x: anchor.x - anchorOffset.x,
             y: anchor.y - (size.height - anchorOffset.y),
             width: size.width,
             height: size.height
         )
-
-        guard let visible = screen?.visibleFrame else { return frame }
-        frame.origin.x = min(max(frame.origin.x, visible.minX), visible.maxX - frame.width)
-        frame.origin.y = min(max(frame.origin.y, visible.minY), visible.maxY - frame.height)
-        return frame
+        return frame.clamped(toVisibleFrameOf: screen)
     }
 
     private func startFloatingClickOutsideMonitor() {
@@ -662,6 +658,55 @@ extension AppDelegate: NSPopoverDelegate {}
 private final class StorefrontFloatingPanel: NSPanel {
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { true }
+
+    /// Borderless windows skip AppKit’s automatic `constrainFrameRect` during drag,
+    /// so every frame change must clamp here for a hard on-screen stop.
+    override func setFrameOrigin(_ point: NSPoint) {
+        var proposed = frame
+        proposed.origin = point
+        super.setFrameOrigin(Self.clampedFrame(proposed).origin)
+    }
+
+    override func setFrame(_ frameRect: NSRect, display flag: Bool) {
+        super.setFrame(Self.clampedFrame(frameRect), display: flag)
+    }
+
+    override func setFrame(_ frameRect: NSRect, display displayFlag: Bool, animate animateFlag: Bool) {
+        super.setFrame(Self.clampedFrame(frameRect), display: displayFlag, animate: animateFlag)
+    }
+
+    override func constrainFrameRect(_ frameRect: NSRect, to screen: NSScreen?) -> NSRect {
+        frameRect.clamped(toVisibleFrameOf: screen ?? Self.preferredScreen(for: frameRect))
+    }
+
+    private static func clampedFrame(_ frameRect: NSRect) -> NSRect {
+        frameRect.clamped(toVisibleFrameOf: preferredScreen(for: frameRect))
+    }
+
+    /// Prefer the screen under the pointer so the panel can cross monitors;
+    /// otherwise the screen with the largest intersection with the proposed frame.
+    private static func preferredScreen(for frame: NSRect) -> NSScreen? {
+        let mouse = NSEvent.mouseLocation
+        if let underMouse = NSScreen.screens.first(where: { NSMouseInRect(mouse, $0.frame, false) }) {
+            return underMouse
+        }
+        return NSScreen.screens.max(by: {
+            $0.visibleFrame.intersection(frame).area < $1.visibleFrame.intersection(frame).area
+        }) ?? NSScreen.main
+    }
+}
+
+private extension NSRect {
+    /// Clamps origin so the full rect stays inside `screen.visibleFrame`.
+    func clamped(toVisibleFrameOf screen: NSScreen?) -> NSRect {
+        guard let visible = screen?.visibleFrame else { return self }
+        var frame = self
+        frame.origin.x = min(max(frame.origin.x, visible.minX), visible.maxX - frame.width)
+        frame.origin.y = min(max(frame.origin.y, visible.minY), visible.maxY - frame.height)
+        return frame
+    }
+
+    var area: CGFloat { max(0, width) * max(0, height) }
 }
 
 // Gentle scheduled reminders: defer Sparkle's auto alert and surface the rail Update button.
