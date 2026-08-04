@@ -1,10 +1,10 @@
 import { PortableText } from 'next-sanity'
 import { cn } from '@/lib/utils'
+import CustomHTML from '@/modules/custom-html'
 import { getSite } from '@/sanity/lib/queries'
 import type { Cta } from '@/sanity/types'
 import CTAList from '@/ui/cta-list'
 import Logo from '@/ui/logo'
-import CustomHTML from '@/modules/custom-html'
 import css from './header.module.css'
 import MobileToggle from './mobile-toggle'
 import Navigation from './navigation'
@@ -40,7 +40,7 @@ export default async function () {
 
 					<CTAList
 						ctas={site?.ctas as Cta[]}
-						className="max-sm:w-full max-sm:*:w-full text-sm"
+						className="text-sm max-sm:w-full max-sm:*:w-full"
 					/>
 				</div>
 			</div>

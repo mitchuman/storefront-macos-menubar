@@ -1,7 +1,10 @@
+import AppKit
+import Carbon.HIToolbox
 import SwiftUI
 
 /// Click-to-record control for editable keyboard shortcuts. Captures the next key +
-/// modifiers via `.onKeyPress`, stores a Carbon-style `KeyCombo`, and updates the binding.
+/// modifiers via a local `NSEvent` monitor (not `@FocusState` — plain buttons don't
+/// keep keyboard focus after click on macOS, which snapped recording back to idle).
 struct HotKeyRecorderView: View {
     enum Style {
         case field
@@ -11,11 +14,20 @@ struct HotKeyRecorderView: View {
     @Binding var combo: KeyCombo
     var style: Style = .field
     @State private var isRecording = false
-    @FocusState private var isFocused: Bool
+    /// Owns NSEvent monitors so closures don't capture a stale `View` value.
+    @StateObject private var session = RecordingSession()
+    /// After click-away cancel, the same click can still fire this Button — ignore it.
+    @State private var suppressRestartUntil: Date?
 
     var body: some View {
         Button {
-            beginRecording()
+            if isRecording {
+                stopRecording()
+            } else if let until = suppressRestartUntil, Date() < until {
+                return
+            } else {
+                beginRecording()
+            }
         } label: {
             Group {
                 if isRecording {
@@ -40,41 +52,31 @@ struct HotKeyRecorderView: View {
         .buttonStyle(.plain)
         .help(style == .compact ? "Click to re-record this shortcut" : "")
         .accessibilityHint(style == .compact ? "Click to re-record this shortcut" : "")
-        .focusable()
-        .focused($isFocused)
-        .onChange(of: isFocused) { _, focused in
-            // Losing focus (clicking elsewhere) cancels an in-progress recording.
-            if !focused { isRecording = false }
-        }
-        .onKeyPress { keyPress in
-            guard isRecording, isFocused else { return .ignored }
-            // Esc cancels without changing the combo.
-            if keyPress.key == .escape {
-                isRecording = false
-                isFocused = false
-                return .handled
-            }
-            guard let keyCode = KeyCombo.keyCode(for: keyPress.key) else { return .ignored }
-            combo = KeyCombo.from(
-                keyCode: UInt32(keyCode),
-                commandDown: keyPress.modifiers.contains(.command),
-                optionDown: keyPress.modifiers.contains(.option),
-                controlDown: keyPress.modifiers.contains(.control),
-                shiftDown: keyPress.modifiers.contains(.shift)
-            )
-            isRecording = false
-            isFocused = false
-            return .handled
-        }
+        .onDisappear { stopRecording() }
     }
 
     private func beginRecording() {
         isRecording = true
-        // Focus after the button action + label update so the first keystroke is
-        // delivered to `.onKeyPress` without requiring a second click.
-        DispatchQueue.main.async {
-            isFocused = true
+        session.start(
+            onCombo: { newCombo in
+                combo = newCombo
+                stopRecording()
+            },
+            onCancel: {
+                stopRecording()
+            },
+            onClickAway: {
+                stopRecording(suppressRestart: true)
+            }
+        )
+    }
+
+    private func stopRecording(suppressRestart: Bool = false) {
+        if suppressRestart {
+            suppressRestartUntil = Date().addingTimeInterval(0.2)
         }
+        isRecording = false
+        session.stop()
     }
 
     private var recordingFont: Font {
@@ -108,6 +110,79 @@ struct HotKeyRecorderView: View {
         case .field: Theme.settingsCardFill
         // Editable legend chips read as interactive (white); fixed chips stay greyed.
         case .compact: Color.adaptive(light: .white, dark: .white.opacity(0.14))
+        }
+    }
+}
+
+/// Holds local event monitors for one recording session.
+private final class RecordingSession: ObservableObject {
+    private var keyMonitor: Any?
+    private var mouseMonitor: Any?
+
+    func start(
+        onCombo: @escaping (KeyCombo) -> Void,
+        onCancel: @escaping () -> Void,
+        onClickAway: @escaping () -> Void
+    ) {
+        stop()
+
+        keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            if event.keyCode == UInt16(kVK_Escape) {
+                onCancel()
+                return nil
+            }
+            if Self.isModifierKeyCode(event.keyCode) {
+                return nil
+            }
+            onCombo(
+                KeyCombo.from(
+                    keyCode: UInt32(event.keyCode),
+                    commandDown: event.modifierFlags.contains(.command),
+                    optionDown: event.modifierFlags.contains(.option),
+                    controlDown: event.modifierFlags.contains(.control),
+                    shiftDown: event.modifierFlags.contains(.shift)
+                )
+            )
+            return nil
+        }
+
+        // Install after the initiating click finishes so it doesn't immediately cancel.
+        DispatchQueue.main.async { [weak self] in
+            guard let self, self.keyMonitor != nil else { return }
+            self.mouseMonitor = NSEvent.addLocalMonitorForEvents(
+                matching: [.leftMouseDown, .rightMouseDown]
+            ) { event in
+                onClickAway()
+                return event
+            }
+        }
+    }
+
+    func stop() {
+        if let keyMonitor {
+            NSEvent.removeMonitor(keyMonitor)
+            self.keyMonitor = nil
+        }
+        if let mouseMonitor {
+            NSEvent.removeMonitor(mouseMonitor)
+            self.mouseMonitor = nil
+        }
+    }
+
+    deinit {
+        stop()
+    }
+
+    private static func isModifierKeyCode(_ keyCode: UInt16) -> Bool {
+        switch Int(keyCode) {
+        case kVK_Shift, kVK_RightShift,
+             kVK_Control, kVK_RightControl,
+             kVK_Option, kVK_RightOption,
+             kVK_Command, kVK_RightCommand,
+             kVK_Function:
+            return true
+        default:
+            return false
         }
     }
 }

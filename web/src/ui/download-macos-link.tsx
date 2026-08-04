@@ -1,5 +1,5 @@
 import type { LinkProps } from 'next/link'
-import { getLatestMacosRelease } from '@/lib/download-macos'
+import { getLatestMacosRelease } from '@/lib/get-latest-macos-release'
 import DownloadMacosLinkClient from './download-macos-link-client'
 
 export default async function (

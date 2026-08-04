@@ -4,6 +4,8 @@ import { ROUTES } from './src/lib/env'
 import { client } from './src/sanity/lib/client'
 
 const nextConfig: NextConfig = {
+	cacheComponents: true,
+
 	reactCompiler: true,
 
 	// Required for PostHog API endpoints that use trailing slashes (e.g. /e/)
@@ -36,7 +38,7 @@ const nextConfig: NextConfig = {
 	turbopack: {},
 
 	async redirects() {
-		return await client.fetch(
+		const sanityRedirects = await client.fetch(
 			groq`*[_type == 'redirect']{
 				source,
 				'destination': select(
@@ -54,6 +56,11 @@ const nextConfig: NextConfig = {
 			}`,
 			{ blogDir: `/${ROUTES.blog}/` },
 		)
+
+		return [
+			{ source: '/index', destination: '/', permanent: true },
+			...sanityRedirects,
+		]
 	},
 }
 

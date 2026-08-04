@@ -3,8 +3,6 @@ import { groq } from 'next-sanity'
 import { ROUTES } from '@/lib/env'
 import { sanityFetchLive } from '@/sanity/lib/live'
 
-export const dynamic = 'force-dynamic'
-
 export default async function (): Promise<MetadataRoute.Sitemap> {
 	const data = await sanityFetchLive<{
 		pages: MetadataRoute.Sitemap

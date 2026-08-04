@@ -1,5 +1,4 @@
-'use server'
-
+import 'server-only'
 // Querying with "sanityFetch" will keep content automatically updated
 // Before using it, import and render "<SanityLive />" in your layout, see
 // https://github.com/sanity-io/next-sanity#live-content-api for more information.
@@ -14,16 +13,24 @@ export const { sanityFetch, SanityLive } = defineLive({
 	client: client.withConfig({ apiVersion }),
 	serverToken: token,
 	browserToken: token,
+	// Under `cacheComponents` there is no cookie/draftMode auto-resolution, so an
+	// omitted `perspective` or `stega` would silently serve published content
+	strict: true,
 })
 
 export async function sanityFetchLive<T>(
-	args: Parameters<typeof sanityFetch>[0],
+	args: Omit<Parameters<typeof sanityFetch>[0], 'perspective' | 'stega'>,
 ) {
-	const preview = dev || (await draftMode()).isEnabled
+	'use cache'
+
+	// Readable inside a cache boundary: draft requests bypass cache entries
+	// entirely, so they re-execute against the drafts perspective every time
+	const isDraftMode = (await draftMode()).isEnabled
 
 	const { data } = await sanityFetch({
-		perspective: preview ? 'drafts' : 'published',
 		...args,
+		perspective: dev || isDraftMode ? 'drafts' : 'published',
+		stega: isDraftMode,
 	})
 
 	return data as T
