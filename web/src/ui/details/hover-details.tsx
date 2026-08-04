@@ -1,7 +1,12 @@
 'use client'
 
 import { usePathname } from 'next/navigation'
-import { useEffect, useState, type ComponentProps } from 'react'
+import {
+	Suspense,
+	useEffect,
+	useState,
+	type ComponentProps,
+} from 'react'
 import { useIsDesktop } from '@/hooks/useMatchMedia'
 import { cn } from '@/lib/utils'
 import css from './hover-details.module.css'
@@ -15,6 +20,7 @@ export default function ({
 	closeAfterNavigate,
 	delay,
 	className,
+	children,
 	...props
 }: {
 	safeAreaOnHover?: boolean
@@ -41,12 +47,6 @@ export default function ({
 			}
 		: {}
 
-	// Close after navigation
-	const pathname = usePathname()
-	useEffect(() => {
-		if (closeAfterNavigate) setOpen(false)
-	}, [pathname])
-
 	return (
 		<details
 			className={cn(safeAreaOnHover && css.safearea, className)}
@@ -54,6 +54,25 @@ export default function ({
 			key={String(open)}
 			{...events}
 			{...props}
-		/>
+		>
+			{closeAfterNavigate && (
+				<Suspense fallback={null}>
+					<CloseOnNavigate setOpen={setOpen} />
+				</Suspense>
+			)}
+			{children}
+		</details>
 	)
+}
+
+function CloseOnNavigate({
+	setOpen,
+}: {
+	setOpen: (open: boolean) => void
+}) {
+	const pathname = usePathname()
+	useEffect(() => {
+		setOpen(false)
+	}, [pathname, setOpen])
+	return null
 }

@@ -1,14 +1,11 @@
 // import { Geist } from 'next/font/google'
 import { NuqsAdapter } from 'nuqs/adapters/next/app'
+import { Suspense } from 'react'
 import { preconnect } from 'react-dom'
 import Footer from '@/ui/footer'
 import Header from '@/ui/header'
 import VisualEditing from '@/ui/visual-editing'
 import '@/app.css'
-
-// TODO: Cache Components adoption. Refactor this route so this opt-out can be removed.
-// See: https://nextjs.org/docs/app/guides/migrating-to-cache-components
-export const instant = false
 
 // const fontSans = Geist({
 // 	subsets: ['latin'],
@@ -29,7 +26,10 @@ export default async function RootLayout({
 					<main>{children}</main>
 					<Footer />
 
-					<VisualEditing />
+					{/* draftMode() is request-time — isolate so the layout shell can prerender */}
+					<Suspense fallback={null}>
+						<VisualEditing />
+					</Suspense>
 				</body>
 			</NuqsAdapter>
 		</html>
