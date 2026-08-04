@@ -2,8 +2,8 @@
 
 import posthog from 'posthog-js'
 import { cn } from '@/lib/utils'
-import type { BlogCategory } from '@/sanity/types'
 import { useBlogIndexStore } from '@/modules/blog-index/store'
+import type { BlogCategory } from '@/sanity/types'
 
 export default function ({
 	category,

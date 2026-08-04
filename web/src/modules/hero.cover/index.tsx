@@ -52,7 +52,10 @@ export default function ({
 			)}
 
 			<div
-				className={cn('section max-w-2xl relative', image?.asset && opacity > 0.5 && 'text-background')}
+				className={cn(
+					'section relative max-w-2xl',
+					image?.asset && opacity > 0.5 && 'text-background',
+				)}
 			>
 				<header className="prose">
 					<Eyebrow value={eyebrow} />

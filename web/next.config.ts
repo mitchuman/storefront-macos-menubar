@@ -4,6 +4,8 @@ import { ROUTES } from './src/lib/env'
 import { client } from './src/sanity/lib/client'
 
 const nextConfig: NextConfig = {
+	cacheComponents: true,
+
 	reactCompiler: true,
 
 	// Required for PostHog API endpoints that use trailing slashes (e.g. /e/)

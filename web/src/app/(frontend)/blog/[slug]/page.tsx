@@ -4,7 +4,6 @@ import { notFound } from 'next/navigation'
 import { ROUTES } from '@/lib/env'
 import { resolveOgImage } from '@/lib/og'
 import ModulesResolver from '@/modules'
-import { client } from '@/sanity/lib/client'
 import { sanityFetchLive } from '@/sanity/lib/live'
 import {
 	BLOG_POST_FRAGMENT_QUERY,
@@ -13,6 +12,10 @@ import {
 	MODULES_QUERY,
 } from '@/sanity/lib/queries'
 import type { BLOG_POST_QUERY_RESULT } from '@/sanity/types'
+
+// TODO: Cache Components adoption. Refactor this route so this opt-out can be removed.
+// See: https://nextjs.org/docs/app/guides/migrating-to-cache-components
+export const instant = false
 
 type Props = PageProps<'/blog/[slug]'>
 
@@ -59,13 +62,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 	}
 }
 
-export async function generateStaticParams() {
-	return await client.fetch<{ slug: string }[]>(
-		groq`*[_type == 'blog.post' && defined(metadata.slug.current)]{
-			'slug': '/' + metadata.slug.current
-		}`,
-	)
-}
+// No generateStaticParams: the dataset has no posts yet, and Cache Components
+// rejects an empty result. Post slugs are runtime data — Next prerenders the
+// shell and writes each post to disk after its first request.
+// https://nextjs.org/docs/app/api-reference/file-conventions/dynamic-routes#with-cache-components
 
 async function getPost(slug: string) {
 	return await sanityFetchLive<BLOG_POST_QUERY_RESULT>({

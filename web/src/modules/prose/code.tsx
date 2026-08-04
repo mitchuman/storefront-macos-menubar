@@ -1,4 +1,5 @@
 import { stegaClean } from 'next-sanity'
+import { cacheLife } from 'next/cache'
 import type { ComponentProps } from 'react'
 import { bundledThemes, codeToHtml, splitLines } from 'shiki'
 import { cn } from '@/lib/utils'
@@ -16,20 +17,11 @@ export default async function ({
 } & ComponentProps<'article'>) {
 	if (!value?.code) return null
 
-	const html = await codeToHtml(stegaClean(value.code), {
-		lang: value.language as any,
+	const html = await highlight({
+		code: stegaClean(value.code),
+		lang: value.language,
 		theme,
-		decorations: value.highlightedLines
-			?.map((row) => ({
-				row,
-				characters: stegaClean(splitLines(value.code!)[row - 1]?.[0])?.length,
-			}))
-			?.filter(({ characters }) => characters > 0)
-			?.map(({ row, characters }) => ({
-				start: { line: row - 1, character: 0 },
-				end: { line: row - 1, character: characters },
-				properties: { class: 'highlight' },
-			})),
+		highlightedLines: value.highlightedLines,
 	})
 
 	const [path, filename] = value.filename?.includes('/')
@@ -68,4 +60,40 @@ export default async function ({
 			/>
 		</article>
 	)
+}
+
+/**
+ * Cached because Shiki reads `Date.now()` internally, which a prerender can't
+ * bake in. Highlighting is a pure function of its input, so `cacheLife('max')`
+ * is honest and keeps the result in the static shell.
+ */
+async function highlight({
+	code,
+	lang,
+	theme,
+	highlightedLines,
+}: {
+	code: string
+	lang?: string
+	theme: keyof typeof bundledThemes
+	highlightedLines?: number[]
+}) {
+	'use cache'
+	cacheLife('max')
+
+	return await codeToHtml(code, {
+		lang: lang as any,
+		theme,
+		decorations: highlightedLines
+			?.map((row) => ({
+				row,
+				characters: splitLines(code)[row - 1]?.[0]?.length,
+			}))
+			?.filter(({ characters }) => characters > 0)
+			?.map(({ row, characters }) => ({
+				start: { line: row - 1, character: 0 },
+				end: { line: row - 1, character: characters },
+				properties: { class: 'highlight' },
+			})),
+	})
 }
