@@ -83,6 +83,16 @@ struct KeyCombo: Codable, Equatable {
         alphanumericDisplayStrings[Int(keyCode)] ?? namedKeyDisplayStrings[Int(keyCode)] ?? "Key\(keyCode)"
     }
 
+    /// Letter to hint in a label when this combo is a bare letter key; `nil` when the
+    /// combo has modifiers or isn't a letter (digits, Escape, arrows, etc.).
+    var mnemonicLetter: Character? {
+        guard modifierFlags == 0,
+              let letter = Self.alphanumericKeyCodes.first(where: { $0.value == Int(keyCode) })?.key,
+              letter.isLetter
+        else { return nil }
+        return letter
+    }
+
     /// This combo's active modifiers as SF Symbol names, in the conventional Mac ordering
     /// (⌃⌥⇧⌘) — used by `KeyComboView` instead of the Unicode modifier characters.
     var modifierSymbolNames: [String] {

@@ -99,7 +99,13 @@ struct StoreDetailView: View {
                 .padding(.top, 3)
             HStack(spacing: 6) {
                 if let adminURL = store.adminURL {
-                    HeaderActionButton(title: "Admin", iconName: "HomeIcon", background: store.color, foreground: store.accentTextColor) {
+                    HeaderActionButton(
+                        title: "Admin",
+                        iconName: "HomeIcon",
+                        background: store.color,
+                        foreground: store.accentTextColor,
+                        shortcutLetter: appState.settings.openAdminHotkey.mnemonicLetter
+                    ) {
                         openStoreLink(adminURL)
                     }
                 }
@@ -108,7 +114,8 @@ struct StoreDetailView: View {
                         title: "Online Store",
                         iconName: "StoreIcon",
                         background: store.color.pillBackground(colorScheme: colorScheme),
-                        foreground: store.color.pillTextColor(colorScheme: colorScheme)
+                        foreground: store.color.pillTextColor(colorScheme: colorScheme),
+                        shortcutLetter: appState.settings.openOnlineStoreHotkey.mnemonicLetter
                     ) {
                         openStoreLink(shopURL)
                     }
@@ -228,6 +235,29 @@ private struct TightDashUnderline: View {
     }
 }
 
+/// Compact dotted underline — round dots, not dashes.
+private struct TightDotUnderline: View {
+    let color: Color
+
+    var body: some View {
+        GeometryReader { geo in
+            // Inset so round caps sit inside the letter’s advance, not past its edges.
+            let inset: CGFloat = 0.75
+            let width = max(0, geo.size.width - inset * 2)
+            Path { path in
+                path.move(to: CGPoint(x: inset, y: 0.5))
+                path.addLine(to: CGPoint(x: inset + width, y: 0.5))
+            }
+            // Near-zero dash + round caps → true dots rather than short dashes.
+            .stroke(color, style: StrokeStyle(lineWidth: 1.25, lineCap: .round, dash: [0.01, 2.25]))
+        }
+        .frame(height: 1)
+        // Sit just under the glyph (overlay `.bottom` already clears the baseline box).
+        .offset(y: -1)
+        .allowsHitTesting(false)
+    }
+}
+
 /// A plain, chrome-free tappable pill. Avoids `Button`/`Link`'s system hover/press
 /// styling, which on recent macOS versions can subtly resize the control on hover.
 private struct HeaderActionButton: View {
@@ -235,6 +265,9 @@ private struct HeaderActionButton: View {
     let iconName: String
     let background: Color
     let foreground: Color
+    /// When set to a letter that appears in `title`, that first match gets a dotted
+    /// underline as a mnemonic for the panel shortcut.
+    var shortcutLetter: Character? = nil
     let action: () -> Void
 
     private var shape: RoundedRectangle { RoundedRectangle(cornerRadius: 6) }
@@ -250,6 +283,34 @@ private struct HeaderActionButton: View {
         )
     }
 
+    /// Splits `title` around the first case-insensitive match of `shortcutLetter`.
+    private var mnemonicParts: (before: String, letter: String, after: String)? {
+        guard let shortcutLetter,
+              let index = title.firstIndex(where: { $0.lowercased() == String(shortcutLetter).lowercased() })
+        else { return nil }
+        return (
+            String(title[..<index]),
+            String(title[index]),
+            String(title[title.index(after: index)...])
+        )
+    }
+
+    @ViewBuilder
+    private var titledText: some View {
+        if let parts = mnemonicParts {
+            HStack(spacing: 0) {
+                Text(parts.before)
+                Text(parts.letter)
+                    .overlay(alignment: .bottom) {
+                        TightDotUnderline(color: foreground)
+                    }
+                Text(parts.after)
+            }
+        } else {
+            Text(title)
+        }
+    }
+
     var body: some View {
         HStack(spacing: 5) {
             Image(iconName)
@@ -257,7 +318,7 @@ private struct HeaderActionButton: View {
                 .resizable()
                 .scaledToFit()
                 .frame(width: 13, height: 13)
-            Text(title)
+            titledText
                 .font(.system(size: 11, weight: .medium))
         }
             .foregroundStyle(foreground)
