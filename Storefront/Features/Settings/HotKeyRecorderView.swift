@@ -6,13 +6,7 @@ import SwiftUI
 /// modifiers via a local `NSEvent` monitor (not `@FocusState` — plain buttons don't
 /// keep keyboard focus after click on macOS, which snapped recording back to idle).
 struct HotKeyRecorderView: View {
-    enum Style {
-        case field
-        case compact
-    }
-
     @Binding var combo: KeyCombo
-    var style: Style = .field
     @State private var isRecording = false
     /// Owns NSEvent monitors so closures don't capture a stale `View` value.
     @StateObject private var session = RecordingSession()
@@ -32,26 +26,25 @@ struct HotKeyRecorderView: View {
             Group {
                 if isRecording {
                     Text("Record keys…")
-                        .font(recordingFont)
+                        .font(.system(size: 11, weight: .medium))
                 } else {
-                    KeyComboView(combo: combo, font: idleFont)
+                    KeyComboView(combo: combo, font: .system(size: 11, weight: .medium))
                 }
             }
             .foregroundStyle(isRecording ? Theme.recordingText : Theme.textPrimary)
-            .padding(.horizontal, horizontalPadding)
-            .padding(.vertical, verticalPadding)
-            .frame(minWidth: style == .field ? 110 : nil)
+            .padding(.horizontal, 7)
+            .padding(.vertical, 3)
             .background(backgroundColor)
-            .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
+            .clipShape(RoundedRectangle(cornerRadius: 5))
             .overlay(
-                RoundedRectangle(cornerRadius: cornerRadius)
+                RoundedRectangle(cornerRadius: 5)
                     .strokeBorder(isRecording ? Theme.errorDot : Theme.borderColor, lineWidth: 1)
             )
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .help(style == .compact ? "Click to re-record this shortcut" : "")
-        .accessibilityHint(style == .compact ? "Click to re-record this shortcut" : "")
+        .help("Click to re-record this shortcut")
+        .accessibilityHint("Click to re-record this shortcut")
         .onDisappear { stopRecording() }
     }
 
@@ -79,38 +72,9 @@ struct HotKeyRecorderView: View {
         session.stop()
     }
 
-    private var recordingFont: Font {
-        switch style {
-        case .field: .mono(12, weight: .medium)
-        case .compact: .system(size: 11, weight: .medium)
-        }
-    }
-
-    private var idleFont: Font {
-        switch style {
-        case .field: .system(size: 12, weight: .medium)
-        case .compact: .system(size: 11, weight: .medium)
-        }
-    }
-
-    private var horizontalPadding: CGFloat {
-        style == .field ? 10 : 7
-    }
-
-    private var verticalPadding: CGFloat {
-        style == .field ? 6 : 3
-    }
-
-    private var cornerRadius: CGFloat {
-        style == .field ? 6 : 5
-    }
-
+    /// Editable legend chips read as interactive (white); fixed chips stay greyed.
     private var backgroundColor: Color {
-        switch style {
-        case .field: Theme.settingsCardFill
-        // Editable legend chips read as interactive (white); fixed chips stay greyed.
-        case .compact: Color.adaptive(light: .white, dark: .white.opacity(0.14))
-        }
+        Color.adaptive(light: .white, dark: .white.opacity(0.14))
     }
 }
 

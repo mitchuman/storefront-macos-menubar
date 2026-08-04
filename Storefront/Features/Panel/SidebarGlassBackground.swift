@@ -21,10 +21,6 @@ struct SidebarGlassBackground: NSViewRepresentable {
     var glassStyle: GlassStyle = .regular
     var tintColor: NSColor? = nil
 
-    static var liquidGlassAvailable: Bool {
-        NSClassFromString("NSGlassEffectView") != nil
-    }
-
     func makeNSView(context: Context) -> PassthroughContainerView {
         let container = PassthroughContainerView()
         container.autoresizingMask = [.width, .height]

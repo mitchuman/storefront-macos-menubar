@@ -1,5 +1,4 @@
 import SwiftUI
-import Combine
 import ServiceManagement
 
 /// Which part of the panel keyboard navigation currently targets — the store rail
@@ -381,41 +380,6 @@ final class AppState: ObservableObject {
         return added
     }
 
-    /// "Section,Title,Enabled" — one row per section, in panel order.
-    func sectionsCSV() -> String {
-        var lines = ["Section,Title,Enabled"]
-        for section in settings.sectionOrder {
-            let enabled = settings.enabledSections.contains(section) ? "true" : "false"
-            lines.append("\(section.rawValue),\(CSV.escape(section.title)),\(enabled)")
-        }
-        return lines.joined(separator: "\n")
-    }
-
-    /// Replaces section order and enabled state from a CSV. Unknown IDs are skipped;
-    /// any sections missing from the file are appended (still enabled) at the end.
-    /// Returns the number of recognized section rows applied.
-    @discardableResult
-    func importSectionsCSV(_ contents: String) -> Int {
-        let rows = CSV.parse(contents)
-        guard !rows.isEmpty else { return 0 }
-
-        let dataRows: [[String]]
-        let first = rows[0].map { $0.trimmingCharacters(in: .whitespaces).lowercased() }
-        if first.first == "section" || first.first == "id" {
-            dataRows = Array(rows.dropFirst())
-        } else {
-            dataRows = rows
-        }
-
-        guard let layout = Self.parseSectionLayoutRows(dataRows) else { return 0 }
-        settings.sectionOrder = layout.order
-        settings.enabledSections = layout.enabled
-        settings.prefersCustomSectionPreset = false
-        settings.preferredSavedSectionPresetID = nil
-        save()
-        return layout.applied
-    }
-
     /// "Preset,Section,Title,Enabled" — one row per section per saved preset (built-ins omitted).
     func sectionPresetsCSV() -> String {
         var lines = ["Preset,Section,Title,Enabled"]
@@ -570,17 +534,4 @@ final class AppState: ObservableObject {
         selectedStoreID = nil
         save()
     }
-
-    func moveStore(fromOffsets: IndexSet, toOffset: Int) {
-        var ordered = stores.sorted { $0.sortOrder < $1.sortOrder }
-        ordered.move(fromOffsets: fromOffsets, toOffset: toOffset)
-        for (index, var store) in ordered.enumerated() {
-            store.sortOrder = index
-            if let idx = stores.firstIndex(where: { $0.id == store.id }) {
-                stores[idx] = store
-            }
-        }
-        save()
-    }
-
 }

@@ -152,30 +152,11 @@ struct SettingsTextLink: View {
 }
 
 extension View {
-    /// Soft progressive blur at the top scroll edge (Tahoe+). No-op below macOS 26.
-    /// Same helper Settings → Keybindings uses under the window titleband.
-    @ViewBuilder
-    func topScrollEdgeBlur() -> some View {
-        if #available(macOS 26.0, *) {
-            self.scrollEdgeEffectStyle(.soft, for: .top)
-        } else {
-            self
-        }
-    }
-
     /// Soft progressive blur under the Settings titleband (Tahoe+). No-op below macOS 26.
     @ViewBuilder
     func settingsTopScrollEdgeBlur() -> some View {
-        topScrollEdgeBlur()
-    }
-
-    /// Prevents a nested `List`/`ScrollView` from owning the window titleband scroll-edge
-    /// (Tahoe+). Needed when chrome sits above the scroller — otherwise the split view
-    /// collapses under the titlebar and the whole Settings window jumps up.
-    @ViewBuilder
-    func settingsDisableScrollEdgeEffect() -> some View {
         if #available(macOS 26.0, *) {
-            self.scrollEdgeEffectHidden(true, for: .all)
+            self.scrollEdgeEffectStyle(.soft, for: .top)
         } else {
             self
         }

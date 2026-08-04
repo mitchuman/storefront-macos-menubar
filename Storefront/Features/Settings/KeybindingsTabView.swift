@@ -193,8 +193,7 @@ struct KeybindingsTabView: View {
             combo: Binding(
                 get: { currentCombo(id) },
                 set: { applyEditable(id, $0) }
-            ),
-            style: .compact
+            )
         )
     }
 
