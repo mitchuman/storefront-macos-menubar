@@ -38,7 +38,7 @@ const nextConfig: NextConfig = {
 	turbopack: {},
 
 	async redirects() {
-		return await client.fetch(
+		const sanityRedirects = await client.fetch(
 			groq`*[_type == 'redirect']{
 				source,
 				'destination': select(
@@ -56,6 +56,11 @@ const nextConfig: NextConfig = {
 			}`,
 			{ blogDir: `/${ROUTES.blog}/` },
 		)
+
+		return [
+			{ source: '/index', destination: '/', permanent: true },
+			...sanityRedirects,
+		]
 	},
 }
 
