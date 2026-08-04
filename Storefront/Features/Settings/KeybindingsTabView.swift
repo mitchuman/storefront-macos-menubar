@@ -25,6 +25,9 @@ struct KeybindingsTabView: View {
         var editable: EditableID? = nil
         /// Freeform badge labels when the chord isn't a pure `KeyCombo` (e.g. "⌘-click").
         var customBadges: [String] = []
+        /// When set, conflict checks treat every ⌘N in the range as claimed (the UI may
+        /// only show the endpoints, e.g. "⌘1 - ⌘9").
+        var commandDigitRange: ClosedRange<Int>? = nil
     }
 
     private struct Group {
@@ -55,7 +58,8 @@ struct KeybindingsTabView: View {
                         KeyCombo(keyCode: UInt32(kVK_ANSI_9), modifierFlags: UInt32(cmdKey)),
                     ],
                     description: "Jump to a specific store",
-                    separator: "-"
+                    separator: "-",
+                    commandDigitRange: 1...9
                 ),
                 Shortcut(combos: [KeyCombo(keyCode: UInt32(kVK_RightArrow), modifierFlags: 0)], description: "Enter the section-card grid"),
                 Shortcut(
@@ -150,10 +154,11 @@ struct KeybindingsTabView: View {
                             }
                         }
 
-                        if shortcut.editable == .globalHotkey, let globalHotkeyError {
-                            Text(globalHotkeyError)
+                        if let warning = rowWarning(for: shortcut) {
+                            Text(warning)
                                 .font(.system(size: 10.5))
                                 .foregroundStyle(Theme.errorDot)
+                                .frame(maxWidth: .infinity, alignment: .leading)
                         }
                     }
                     .padding(.horizontal, 11)
@@ -242,6 +247,58 @@ struct KeybindingsTabView: View {
             appState.settings.openCreateLinkHotkey = newCombo
             appState.save()
         }
+    }
+
+    /// Register failure takes priority; otherwise flag chords claimed by another row.
+    private func rowWarning(for shortcut: Shortcut) -> String? {
+        if shortcut.editable == .globalHotkey, let globalHotkeyError {
+            return globalHotkeyError
+        }
+        guard let id = shortcut.editable else { return nil }
+        return conflictWarning(for: id)
+    }
+
+    private func conflictWarning(for id: EditableID) -> String? {
+        let mine = currentCombo(id)
+        let names = claimedCombos(excluding: id)
+            .filter { $0.combo == mine }
+            .map(\.description)
+        let unique = Array(Set(names)).sorted()
+        guard !unique.isEmpty else { return nil }
+        switch unique.count {
+        case 1:
+            return "Conflicts with “\(unique[0])”."
+        case 2:
+            return "Conflicts with “\(unique[0])” and “\(unique[1])”."
+        default:
+            let rest = unique.count - 2
+            return "Conflicts with “\(unique[0])”, “\(unique[1])”, and \(rest) more."
+        }
+    }
+
+    /// Every chord the legend claims, for duplicate detection. `excluding` skips that
+    /// editable row's own combo so a shortcut doesn't warn about itself.
+    private func claimedCombos(excluding: EditableID) -> [(combo: KeyCombo, description: String)] {
+        var claims: [(KeyCombo, String)] = []
+        for group in groups {
+            for shortcut in group.shortcuts {
+                if shortcut.editable == excluding { continue }
+                if let range = shortcut.commandDigitRange {
+                    for digit in range {
+                        guard let code = KeyCombo.alphanumericKeyCodes[Character("\(digit)")] else { continue }
+                        claims.append((
+                            KeyCombo(keyCode: UInt32(code), modifierFlags: UInt32(cmdKey)),
+                            shortcut.description
+                        ))
+                    }
+                } else {
+                    for combo in shortcut.combos {
+                        claims.append((combo, shortcut.description))
+                    }
+                }
+            }
+        }
+        return claims
     }
 
     private func keyBadge(_ combo: KeyCombo) -> some View {
