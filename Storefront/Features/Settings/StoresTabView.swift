@@ -31,6 +31,11 @@ struct StoresTabView: View {
 
     var body: some View {
         ScrollView {
+            // Sorted once per body — `orderedStores` re-sorts on every access, and the
+            // row loop below reads it for each row's drop delegate and last-row check.
+            let ordered = orderedStores
+            let orderedIDs = ordered.map(\.id)
+
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
                     Text("Drag rows to reorder. Hidden stores stay out of the panel.")
@@ -44,8 +49,8 @@ struct StoresTabView: View {
                 }
 
                 VStack(spacing: 0) {
-                    ForEach(orderedStores) { store in
-                        storeRow(store: store)
+                    ForEach(ordered) { store in
+                        storeRow(store: store, isLast: store.id == ordered.last?.id)
                             .onDrag {
                                 draggingStoreID = store.id
                                 return NSItemProvider(object: store.id.uuidString as NSString)
@@ -54,7 +59,7 @@ struct StoresTabView: View {
                                 of: [.text],
                                 delegate: StoreReorderDropDelegate(
                                     targetID: store.id,
-                                    orderedIDs: orderedStores.map(\.id),
+                                    orderedIDs: orderedIDs,
                                     draggingStoreID: $draggingStoreID,
                                     onMove: { from, to in
                                         reorderStores(from: from, to: to, save: false)
@@ -66,7 +71,7 @@ struct StoresTabView: View {
                             )
                     }
 
-                    if !orderedStores.isEmpty {
+                    if !ordered.isEmpty {
                         SettingsGroupedDivider(leadingInset: SettingsRowMetrics.afterReorderSeparatorLeading)
                     }
 
@@ -195,7 +200,7 @@ struct StoresTabView: View {
         appState.save()
     }
 
-    private func storeRow(store: Store) -> some View {
+    private func storeRow(store: Store, isLast: Bool) -> some View {
         VStack(spacing: 0) {
             HStack(spacing: Column.spacing) {
                 Image(systemName: "line.3.horizontal")
@@ -256,7 +261,7 @@ struct StoresTabView: View {
             .padding(.vertical, 9)
             .opacity(draggingStoreID == store.id ? 0.45 : 1)
 
-            if store.id != orderedStores.last?.id {
+            if !isLast {
                 SettingsGroupedDivider(leadingInset: SettingsRowMetrics.afterReorderSeparatorLeading)
             }
         }

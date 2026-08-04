@@ -188,7 +188,18 @@ struct LinkRow: Identifiable {
 
 /// The fixed catalog of admin deep links shown per section.
 enum StaticLinkCatalog {
+    /// The catalog never changes, but `rows(for:)` sits in very hot paths — once per
+    /// section card per panel render, and once per hover event just to bounds-check a
+    /// row index. Build every section's array once and hand back the shared copy.
+    private static let rowsBySection: [SectionID: [LinkRow]] = Dictionary(
+        uniqueKeysWithValues: SectionID.allCases.map { ($0, buildRows(for: $0)) }
+    )
+
     static func rows(for section: SectionID) -> [LinkRow] {
+        rowsBySection[section] ?? []
+    }
+
+    private static func buildRows(for section: SectionID) -> [LinkRow] {
         switch section {
         case .products:
             return [

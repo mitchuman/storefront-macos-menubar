@@ -11,7 +11,8 @@ struct StoreRailView: View {
                 .padding(.bottom, 7)
 
             HStack(spacing: 6) {
-                Text("\(appState.visibleStores.count) Stores")
+                // Count only — `visibleStores` would also sort, which nothing here needs.
+                Text("\(appState.stores.lazy.filter(\.isVisible).count) Stores")
                     .font(.system(size: 11, weight: .regular))
                     .foregroundStyle(Theme.textMeta36)
                 Spacer(minLength: 4)

@@ -28,36 +28,62 @@ struct StoreDetailView: View {
 
     var enabledSections: [SectionID] { appState.enabledSections }
 
-    /// Sections chunked into pairs so each row can be a `GridRow` — `Grid` (unlike
+    /// A section paired with its index in `enabledSections`, so the card grid never has
+    /// to scan back for it. `AppState.enabledSections` allocates a fresh filtered array
+    /// on every access, so the whole grid is derived from one read per body.
+    private struct SectionSlot: Identifiable, Hashable {
+        let index: Int
+        let section: SectionID
+        var id: SectionID { section }
+    }
+
+    /// Slots chunked into pairs so each row can be a `GridRow` — `Grid` (unlike
     /// `LazyVGrid`) equalizes height across a row instead of letting each column
     /// stack independently, which is what kept the two columns from lining up.
-    private var sectionRows: [[SectionID]] {
-        stride(from: 0, to: enabledSections.count, by: 2).map {
-            Array(enabledSections[$0..<min($0 + 2, enabledSections.count)])
+    private struct SectionGridRow: Identifiable {
+        let id: Int
+        let slots: [SectionSlot]
+    }
+
+    private func sectionRows(for sections: [SectionID]) -> [SectionGridRow] {
+        stride(from: 0, to: sections.count, by: 2).enumerated().map { rowIndex, start in
+            SectionGridRow(
+                id: rowIndex,
+                slots: (start..<min(start + 2, sections.count)).map {
+                    SectionSlot(index: $0, section: sections[$0])
+                }
+            )
         }
     }
 
     var body: some View {
+        let sections = enabledSections
+        let focusedSectionIndex = appState.focusArea == .cards ? appState.focusedSectionIndex : -1
+
         // Same recipe as Settings → Keybindings: soft `scrollEdgeEffectStyle` under a
         // top bar. `safeAreaBar` is the popover stand-in for the Settings titleband
         // that the system progressive blur attaches to.
         ScrollViewReader { scrollProxy in
             ScrollView {
                 Grid(horizontalSpacing: 8, verticalSpacing: 8) {
-                    ForEach(sectionRows, id: \.self) { row in
+                    ForEach(sectionRows(for: sections)) { row in
                         GridRow {
-                            ForEach(row, id: \.self) { section in
+                            ForEach(row.slots) { slot in
+                                let isFocused = slot.index == focusedSectionIndex
                                 SectionCardView(
-                                    section: section,
+                                    section: slot.section,
                                     store: store,
-                                    isFocused: appState.focusArea == .cards && appState.focusedSectionIndex == (enabledSections.firstIndex(of: section) ?? -1),
-                                    focusedRowIndex: appState.focusedRowIndex,
+                                    isFocused: isFocused,
+                                    // Only the focused card cares about the row index —
+                                    // pinning the rest to -1 keeps an arrow-key row move
+                                    // from changing a parameter on every other card.
+                                    focusedRowIndex: isFocused ? appState.focusedRowIndex : -1,
                                     focusedRowSearchID: focusedRowSearchID,
                                     onToggleLinkSearchKey: onToggleLinkSearchKey
                                 )
-                                .id(section)
+                                .id(slot.section)
                             }
-                            if row.count == 1 {
+                            if row.slots.count == 1 {
                                 Color.clear
                             }
                         }

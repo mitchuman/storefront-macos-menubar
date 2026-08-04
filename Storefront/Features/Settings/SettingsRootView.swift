@@ -71,32 +71,10 @@ struct SettingsRootView: View {
     private var sidebar: some View {
         Group {
             if isSearching {
-                // Separate list without selection binding — avoids duplicate-tag
-                // crashes when multiple hits map to the same SettingsTab.
-                List {
-                    if searchHits.isEmpty {
-                        Text("No Results")
-                            .foregroundStyle(.secondary)
-                    } else {
-                        ForEach(searchHits) { hit in
-                            Button {
-                                appState.selectedSettingsTab = hit.tab
-                                searchText = ""
-                            } label: {
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(hit.title)
-                                        .foregroundStyle(.primary)
-                                    Text(hit.subtitle)
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                }
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .contentShape(Rectangle())
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                }
+                // One `searchHits` evaluation per body — it re-runs the whole index
+                // filter, and reading the computed property twice ran it on every
+                // keystroke twice over.
+                searchList(searchHits)
             } else {
                 List(SettingsTab.allCases, selection: $appState.selectedSettingsTab) { tab in
                     Label(tab.title, systemImage: tab.systemImage)
@@ -109,6 +87,35 @@ struct SettingsRootView: View {
         // with progressive blur instead of painting on top.
         .detailHeaderSafeAreaBar {
             sidebarSearchField
+        }
+    }
+
+    /// Separate list without a selection binding — avoids duplicate-tag crashes when
+    /// multiple hits map to the same `SettingsTab`.
+    private func searchList(_ hits: [SettingsSearchHit]) -> some View {
+        List {
+            if hits.isEmpty {
+                Text("No Results")
+                    .foregroundStyle(.secondary)
+            } else {
+                ForEach(hits) { hit in
+                    Button {
+                        appState.selectedSettingsTab = hit.tab
+                        searchText = ""
+                    } label: {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(hit.title)
+                                .foregroundStyle(.primary)
+                            Text(hit.subtitle)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
         }
     }
 

@@ -7,13 +7,16 @@ struct SettingsSearchHit: Identifiable, Hashable {
     let subtitle: String
     let tab: SettingsTab
     let keywords: [String]
+    /// Title, subtitle and keywords pre-lowered at construction. The static index is a
+    /// `static let`, so these are built once per process instead of re-lowering every
+    /// field of all ~68 entries on each keystroke. Kept as separate strings rather than
+    /// one joined string so a query can't match across a field boundary.
+    let haystack: [String]
 
-    func matches(_ query: String) -> Bool {
-        let q = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        guard !q.isEmpty else { return true }
-        if title.lowercased().contains(q) { return true }
-        if subtitle.lowercased().contains(q) { return true }
-        return keywords.contains { $0.lowercased().contains(q) }
+    /// `query` must already be trimmed and lowercased — see `SettingsSearchIndex.hits`.
+    func matches(loweredQuery query: String) -> Bool {
+        guard !query.isEmpty else { return true }
+        return haystack.contains { $0.contains(query) }
     }
 }
 
@@ -96,34 +99,22 @@ enum SettingsSearchIndex {
     ]
 
     static func hits(query: String, storeNames: [String], sectionTitles: [String]) -> [SettingsSearchHit] {
-        let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        var all = staticHits
+        let q = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        // Bail before building anything — an empty query shows no hits at all.
+        guard !q.isEmpty else { return [] }
+
+        var matched = staticHits.filter { $0.matches(loweredQuery: q) }
 
         for name in storeNames where !name.isEmpty {
-            all.append(
-                hit(
-                    "store.\(name)",
-                    name,
-                    "Stores",
-                    .stores,
-                    ["store", "shop"]
-                )
-            )
+            let storeHit = hit("store.\(name)", name, "Stores", .stores, ["store", "shop"])
+            if storeHit.matches(loweredQuery: q) { matched.append(storeHit) }
         }
         for title in sectionTitles {
-            all.append(
-                hit(
-                    "section.\(title)",
-                    title,
-                    "Sections",
-                    .sections,
-                    ["section", "admin", "card"]
-                )
-            )
+            let sectionHit = hit("section.\(title)", title, "Sections", .sections, ["section", "admin", "card"])
+            if sectionHit.matches(loweredQuery: q) { matched.append(sectionHit) }
         }
 
-        guard !q.isEmpty else { return [] }
-        return all.filter { $0.matches(q) }
+        return matched
     }
 
     private static func hit(
@@ -133,6 +124,13 @@ enum SettingsSearchIndex {
         _ tab: SettingsTab,
         _ keywords: [String]
     ) -> SettingsSearchHit {
-        SettingsSearchHit(id: id, title: title, subtitle: subtitle, tab: tab, keywords: keywords)
+        SettingsSearchHit(
+            id: id,
+            title: title,
+            subtitle: subtitle,
+            tab: tab,
+            keywords: keywords,
+            haystack: ([title, subtitle] + keywords).map { $0.lowercased() }
+        )
     }
 }
