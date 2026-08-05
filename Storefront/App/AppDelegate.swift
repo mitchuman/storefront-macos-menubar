@@ -435,6 +435,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(openItem)
         menu.addItem(settingsTabItem(title: "How to use", tab: .howToUse))
 
+        let feedbackItem = NSMenuItem(title: "Send Feedback", action: #selector(sendFeedback(_:)), keyEquivalent: "")
+        feedbackItem.target = self
+        menu.addItem(feedbackItem)
+
         menu.addItem(.separator())
 
         // Top-level peers (same group) — not nested under Settings.
@@ -451,9 +455,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         updateItem.target = self
         menu.addItem(updateItem)
 
-        let feedbackItem = NSMenuItem(title: "Send Feedback", action: #selector(sendFeedback(_:)), keyEquivalent: "")
-        feedbackItem.target = self
-        menu.addItem(feedbackItem)
+        let shortVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "—"
+        let versionItem = NSMenuItem(title: "Current version: v\(shortVersion)", action: nil, keyEquivalent: "")
+        versionItem.isEnabled = false
+        menu.addItem(versionItem)
 
         menu.addItem(.separator())
 
