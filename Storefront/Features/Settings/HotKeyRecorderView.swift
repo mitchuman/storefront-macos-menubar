@@ -6,6 +6,11 @@ import SwiftUI
 /// modifiers via a local `NSEvent` monitor (not `@FocusState` — plain buttons don't
 /// keep keyboard focus after click on macOS, which snapped recording back to idle).
 struct HotKeyRecorderView: View {
+    /// Shared with `KeyComboView` so the recording prompt and the keycaps occupy the
+    /// same box — see the note in `body`.
+    private static let labelFont = Font.system(size: 11, weight: .medium)
+    private static let glyphHeight: CGFloat = 12
+
     @Binding var combo: KeyCombo
     @State private var isRecording = false
     /// Owns NSEvent monitors so closures don't capture a stale `View` value.
@@ -26,9 +31,14 @@ struct HotKeyRecorderView: View {
             Group {
                 if isRecording {
                     Text("Record keys…")
-                        .font(.system(size: 11, weight: .medium))
+                        .font(Self.labelFont)
+                        // `KeyComboView` pins itself to a 12pt glyph box; without the
+                        // same box here a bare `Text`'s taller line height made the chip
+                        // grow vertically the moment recording started. Width is free to
+                        // change with the content — only the height has to hold still.
+                        .frame(height: Self.glyphHeight)
                 } else {
-                    KeyComboView(combo: combo, font: .system(size: 11, weight: .medium))
+                    KeyComboView(combo: combo, font: Self.labelFont, glyphHeight: Self.glyphHeight)
                 }
             }
             .foregroundStyle(isRecording ? Theme.recordingText : Theme.textPrimary)
