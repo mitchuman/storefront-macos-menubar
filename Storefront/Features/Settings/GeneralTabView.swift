@@ -37,15 +37,12 @@ struct GeneralTabView: View {
 
                     SettingsGroupedDivider()
 
-                    SettingsGroupedRow(
-                        "Open under mouse",
-                        subtitle: "Disable to open below the menu bar icon."
-                    ) {
+                    SettingsGroupedRow("Starred stores in menu bar") {
                         Toggle(
                             "",
                             isOn: Binding(
-                                get: { appState.settings.openUnderMouse },
-                                set: { appState.setOpenUnderMouse($0) }
+                                get: { appState.settings.showStarredStoresInMenuBar },
+                                set: { appState.setShowStarredStoresInMenuBar($0) }
                             )
                         )
                         .labelsHidden()
@@ -57,14 +54,14 @@ struct GeneralTabView: View {
                     SettingsGroupedDivider()
 
                     SettingsGroupedRow(
-                        "Starred stores in menu bar",
-                        subtitle: "Show favicons for starred stores beside the menu bar icon."
+                        "Open under mouse",
+                        subtitle: "Disable to open below the menu bar icon."
                     ) {
                         Toggle(
                             "",
                             isOn: Binding(
-                                get: { appState.settings.showStarredStoresInMenuBar },
-                                set: { appState.setShowStarredStoresInMenuBar($0) }
+                                get: { appState.settings.openUnderMouse },
+                                set: { appState.setOpenUnderMouse($0) }
                             )
                         )
                         .labelsHidden()
