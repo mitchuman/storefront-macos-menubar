@@ -112,6 +112,13 @@ sign_app() {
     "$app"
 }
 
+# --- Thin embedded frameworks before signing -----------------------------------------
+# Sparkle ships universal; this app is arm64-only. Must run before sign_app, since lipo
+# rewrites the Mach-O files and invalidates any existing signature.
+if [[ -x "$ROOT/scripts/thin-frameworks.sh" ]]; then
+  "$ROOT/scripts/thin-frameworks.sh" "$APP_PATH"
+fi
+
 sign_app "$APP_PATH" "$IDENTITY"
 
 # --- Verify Developer ID (not ad-hoc) ----------------------------------------------

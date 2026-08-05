@@ -3,3 +3,16 @@
 
 CODE_SIGN_STYLE = Manual
 CODE_SIGN_IDENTITY = Developer ID Application
+
+// STRIP_INSTALLED_PRODUCT is already YES, but stripping only runs when
+// DEPLOYMENT_POSTPROCESSING is on — which it isn't for a plain `build` action.
+// Without this the shipped binary carries its full symbol table: __TEXT was ~1.0 MB
+// against a ~2.7 MB __LINKEDIT. DEBUG_INFORMATION_FORMAT is dwarf-with-dsym, so the
+// .dSYM keeps everything needed to symbolicate crash reports — archive it per release.
+DEPLOYMENT_POSTPROCESSING = YES
+
+// XcodeGen doesn't set this, so the project was not picking up Xcode's usual default.
+DEAD_CODE_STRIPPING = YES
+
+// Favor size over decode speed in Assets.car.
+ASSETCATALOG_COMPILER_OPTIMIZATION = space
