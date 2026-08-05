@@ -164,12 +164,18 @@ extension Color {
         return (lighter + 0.05) / (darker + 0.05)
     }
 
+    /// Approximate panel surface for a11y contrast checks. Cards are vibrancy-backed so
+    /// the true backdrop isn't knowable; these match the constants historically used by
+    /// `pillBackground`.
+    static func panelBackdrop(colorScheme: ColorScheme) -> Color {
+        colorScheme == .dark ? Color(white: 0.16) : Color(white: 0.97)
+    }
+
     /// This color's own tinted-pill background (this color at `alpha` over the panel's
     /// light/dark backdrop) — used for accent "chip" style buttons like the "+" create
     /// actions and, per this color, the text color to draw on top of it.
     func pillBackground(colorScheme: ColorScheme, alpha: Double = 0.12) -> Color {
-        let backdrop: Color = colorScheme == .dark ? Color(white: 0.16) : Color(white: 0.97)
-        return composited(over: backdrop, alpha: alpha)
+        composited(over: Self.panelBackdrop(colorScheme: colorScheme), alpha: alpha)
     }
 
     /// Text color for this color's own tinted pill background — falls back to black
@@ -179,6 +185,13 @@ extension Color {
         let fallback: Color = colorScheme == .dark ? .white : .black
         let background = pillBackground(colorScheme: colorScheme, alpha: alpha)
         return contrastRatio(with: background) >= 3 ? self : fallback
+    }
+
+    /// Whether this color reads clearly enough against the panel surface to be used as a
+    /// tint on it (e.g. a caret) — a dark navy in dark mode or a pale yellow in light mode
+    /// does not.
+    func contrastsWithPanelSurface(colorScheme: ColorScheme, minimumRatio: Double = 3) -> Bool {
+        contrastRatio(with: Self.panelBackdrop(colorScheme: colorScheme)) >= minimumRatio
     }
 }
 

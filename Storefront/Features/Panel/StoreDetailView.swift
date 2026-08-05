@@ -453,6 +453,7 @@ private struct CardLinkRow: View {
     var focusedRowSearchID: FocusState<String?>.Binding
     var onToggleLinkSearchKey: () -> Bool = { false }
     @Environment(AppState.self) private var appState
+    @Environment(\.colorScheme) private var colorScheme
     /// True while the pointer is inside this row — used to activate after hover is
     /// re-armed following a keyboard scroll (`.onHover` does not re-fire for a
     /// stationary cursor).
@@ -468,6 +469,14 @@ private struct CardLinkRow: View {
             get: { appState.searchQueries[store.id]?[row.id] ?? "" },
             set: { appState.searchQueries[store.id, default: [:]][row.id] = $0 }
         )
+    }
+
+    /// Store accent when it passes a 3:1 check against the panel surface; otherwise the
+    /// native macOS caret color (dark navy on dark mode, pale yellow on light mode, etc.).
+    private var searchCaretColor: NSColor {
+        store.color.contrastsWithPanelSurface(colorScheme: colorScheme)
+            ? NSColor(hex: store.colorHex)
+            : .controlAccentColor
     }
 
     private var hasTrailingActions: Bool { row.createAction != nil || row.supportsSearch }
@@ -567,7 +576,7 @@ private struct CardLinkRow: View {
                     }
                     CaretTintedTextField(
                         text: searchQuery,
-                        caretColor: NSColor(hex: store.colorHex),
+                        caretColor: searchCaretColor,
                         onSubmit: submitSearch
                     )
                         .focused(focusedRowSearchID, equals: row.id)
