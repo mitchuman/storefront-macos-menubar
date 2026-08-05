@@ -24,8 +24,8 @@ Release progress:
 - [ ] 1. Gather commits + current version
 - [ ] 2. Draft notes + docs copy + proposed version (STOP for approval)
 - [ ] 3. Bump version files + xcodegen
-- [ ] 4. Release build → notarize DMG → generate appcast
-- [ ] 5. Commit, push, tag, gh release
+- [ ] 4. Release build → notarize DMG → generate appcast → archive dSYM
+- [ ] 5. Commit, push, tag, gh release (DMG + appcast + dSYM)
 - [ ] 6. Update Sanity versions + docs copy + verify live site
 ```
 
@@ -98,12 +98,15 @@ Present to the user:
 2. Run `xcodegen generate`.
 3. Commit message style: `Ship Storefront vX.Y.Z.` with one short body sentence on why (include the bump). Prefer committing the version bump together with any last polish already in the working tree that belongs in this release; do not commit unrelated dirty files.
 
-## Step 4 — Build, notarize, appcast
+## Step 4 — Build, notarize, appcast, dSYM
 
 1. Release build (see [reference.md](reference.md)).
 2. Verify the built app plist shows the new version/build.
 3. `./scripts/release-dmg.sh build/Build/Products/Release/Storefront.app`
 4. Locate `generate_appcast` under `build/SourcePackages/artifacts/sparkle/`, stage `dist/Storefront.dmg` into `dist/appcast-staging/`, run it, copy `appcast.xml` to `dist/appcast.xml`. Confirm `sparkle:shortVersionString` and `sparkle:version` match the release.
+5. **Archive the `.dSYM`.** Zip `build/Build/Products/Release/Storefront.app.dSYM` to `dist/Storefront-X.Y.Z.dSYM.zip` and confirm `dwarfdump --uuid` matches the shipped binary. The Release config strips the binary (`DEPLOYMENT_POSTPROCESSING = YES` in `Config/Release.xcconfig`), so this is the only thing that can symbolicate a crash report from this build — and it otherwise lives only in gitignored derived data.
+
+Sanity-check the artifacts before publishing: DMG around 5 MB (not 9.5), `lipo -archs` on the app binary and `Sparkle.framework` both `arm64`, and the DMG mounts.
 
 ## Step 5 — GitHub release
 
@@ -111,9 +114,9 @@ Repo: `nuotsu/storefront-macos-menubar`
 
 1. `git push -u origin HEAD`
 2. Annotated tag `vX.Y.Z`, push the tag
-3. `gh release create vX.Y.Z dist/Storefront.dmg dist/appcast.xml --title "Storefront vX.Y.Z" --notes "…"` using the **approved** notes
+3. `gh release create vX.Y.Z dist/Storefront.dmg dist/appcast.xml dist/Storefront-X.Y.Z.dSYM.zip --title "Storefront vX.Y.Z" --notes "…"` using the **approved** notes
 
-Never force-push tags. Never `--no-verify`.
+All three assets ship every release. Never force-push tags. Never `--no-verify`.
 
 ## Step 6 — Sanity versions + Docs copy
 

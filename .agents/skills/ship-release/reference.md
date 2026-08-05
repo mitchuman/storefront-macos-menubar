@@ -75,7 +75,35 @@ cp dist/appcast-staging/appcast.xml dist/appcast.xml
 cat dist/appcast.xml
 ```
 
-Confirm `sparkle:shortVersionString` and `sparkle:version` match the release. Enclosure URL may point at `…/releases/latest/download/Storefront.dmg` (intentional).
+Confirm `sparkle:shortVersionString` and `sparkle:version` match the release. Enclosure URL may point at `…/releases/latest/download/Storefront.dmg` (intentional). `generate_appcast` also emits `sparkle:hardwareRequirements` `arm64` from the thinned bundle — expected, and it keeps Sparkle from offering the build to Intel Macs.
+
+## Archive the dSYM
+
+The Release binary ships stripped, so the `.dSYM` is the only way to symbolicate a crash report from a released build. Derived data is gitignored, so it must leave the machine as a release asset.
+
+```bash
+VER=X.Y.Z
+ditto -c -k --keepParent \
+  build/Build/Products/Release/Storefront.app.dSYM \
+  "dist/Storefront-$VER.dSYM.zip"
+
+# UUIDs must match
+dwarfdump --uuid build/Build/Products/Release/Storefront.app.dSYM
+dwarfdump --uuid build/Build/Products/Release/Storefront.app/Contents/MacOS/Storefront
+```
+
+## Artifact sanity checks
+
+```bash
+ls -lh dist/Storefront.dmg                                    # ~5 MB, not ~9.5
+lipo -archs build/Build/Products/Release/Storefront.app/Contents/MacOS/Storefront   # arm64
+
+MP=$(hdiutil attach dist/Storefront.dmg -nobrowse -readonly | grep -o '/Volumes/.*' | head -1)
+lipo -archs "$MP/Storefront.app/Contents/MacOS/Storefront"
+find "$MP/Storefront.app/Contents/Frameworks" -name Sparkle -type f -exec lipo -archs {} \;
+/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$MP/Storefront.app/Contents/Info.plist"
+hdiutil detach "$MP" -quiet
+```
 
 ## Commit, tag, release
 
@@ -96,6 +124,7 @@ git push origin vX.Y.Z
 gh release create vX.Y.Z \
   dist/Storefront.dmg \
   dist/appcast.xml \
+  dist/Storefront-X.Y.Z.dSYM.zip \
   --title "Storefront vX.Y.Z" \
   --notes "$(cat <<'EOF'
 ## What's new
