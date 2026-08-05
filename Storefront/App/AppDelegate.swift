@@ -1,6 +1,7 @@
 import AppKit
 import SwiftUI
 import Sparkle
+import Combine
 
 extension Notification.Name {
     /// Posted by AppDelegate (and the panel rail) to open Settings — `PanelView`
@@ -23,8 +24,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Control Center's `NSStatusItem Visible Item-0`…`Item-11` (all set to 0 on this Mac),
     /// which hides the icon as if the user had ⌘-dragged it out of the menu bar.
     private static let statusItemAutosaveName = "com.humanmarketing.storefront.bag"
+    /// Earlier builds gave every starred store its own status item; those defaults keys
+    /// linger after the switch to a single grouped item.
+    private static let legacyFavoriteAutosavePrefix = "com.humanmarketing.storefront.favorite."
+    private static let statusItemPreferredPosition: Double = 48
 
     private var statusItem: NSStatusItem?
+    /// Draws the glyph + starred-store favicons inside the one status item, so the whole
+    /// group ⌘-drags as a unit.
+    private var menuBarContentView: MenuBarContentView?
+    private var faviconRevisionCancellable: AnyCancellable?
     private var popover: NSPopover?
     /// Borderless movable panel used when the menu bar icon is hidden (no popover beak).
     private var floatingPanel: StorefrontFloatingPanel?
@@ -54,6 +63,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if appState.settings.showInMenuBar {
             ensureStatusItem()
         }
+
+        observeFaviconRevisions()
 
         let pop = NSPopover()
         pop.behavior = .transient
@@ -114,54 +125,67 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         for key in keys {
             defaults.removeObject(forKey: key)
         }
+        for key in defaults.dictionaryRepresentation().keys
+        where key.contains(Self.legacyFavoriteAutosavePrefix) {
+            defaults.removeObject(forKey: key)
+        }
         // Force visible for our named item before creating it.
         defaults.set(true, forKey: "NSStatusItem Visible \(Self.statusItemAutosaveName)")
     }
 
     func ensureStatusItem() {
-        if statusItem != nil {
+        if statusItem == nil {
+            let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+            item.autosaveName = Self.statusItemAutosaveName
+            item.isVisible = true
+
+            if let button = item.button {
+                // The glyph and favicons are drawn by `MenuBarContentView`; the button
+                // itself stays empty so it can host them as one draggable unit.
+                button.image = nil
+                button.title = ""
+                button.imagePosition = .imageOnly
+                button.toolTip = "Storefront"
+                button.target = self
+                button.action = #selector(statusItemClicked(_:))
+                button.sendAction(on: [.leftMouseUp, .rightMouseUp])
+
+                let content = MenuBarContentView(frame: button.bounds)
+                content.autoresizingMask = [.width, .height]
+                button.addSubview(content)
+                menuBarContentView = content
+            }
+
+            statusItem = item
+            applyMenuBarIcon()
+            UserDefaults.standard.set(true, forKey: "NSStatusItem Visible \(Self.statusItemAutosaveName)")
+            // Prefer a right-side slot (low value) so the icon isn't the first one
+            // swallowed by the notch / application menu overflow on dual displays.
+            if UserDefaults.standard.object(forKey: "NSStatusItem Preferred Position \(Self.statusItemAutosaveName)") == nil {
+                UserDefaults.standard.set(
+                    Self.statusItemPreferredPosition,
+                    forKey: "NSStatusItem Preferred Position \(Self.statusItemAutosaveName)"
+                )
+            }
+
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
+                self?.warnIfMenuBarPermissionMissing()
+            }
+        } else {
             statusItem?.isVisible = true
-            return
         }
 
-        let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        item.autosaveName = Self.statusItemAutosaveName
-        item.isVisible = true
-
-        if let button = item.button {
-            button.imagePosition = .imageOnly
-            button.toolTip = "Storefront"
-            button.target = self
-            button.action = #selector(statusItemClicked(_:))
-            button.sendAction(on: [.leftMouseUp, .rightMouseUp])
-        }
-
-        statusItem = item
-        applyMenuBarIcon()
-        UserDefaults.standard.set(true, forKey: "NSStatusItem Visible \(Self.statusItemAutosaveName)")
-        // Prefer a right-side slot (low value) so the icon isn't the first one
-        // swallowed by the notch / application menu overflow on dual displays.
-        if UserDefaults.standard.object(forKey: "NSStatusItem Preferred Position \(Self.statusItemAutosaveName)") == nil {
-            UserDefaults.standard.set(Double(48), forKey: "NSStatusItem Preferred Position \(Self.statusItemAutosaveName)")
-        }
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
-            self?.warnIfMenuBarPermissionMissing()
-        }
+        syncMenuBarFavorites()
     }
 
     /// Updates the status item glyph from `menuBarIconPreference`.
     func applyMenuBarIcon() {
-        guard let button = statusItem?.button else { return }
+        guard let content = menuBarContentView else { return }
         let preference = appState.settings.menuBarIconPreference
-        if let image = Self.menuBarStatusImage(for: preference) {
-            button.image = image
-            button.title = ""
-        } else {
-            button.image = nil
-            // Text fallback so something still shows if the asset fails to load.
-            button.title = "SF"
-        }
+        content.glyphImage = Self.menuBarStatusImage(for: preference)
+        // Text fallback so something still shows if the asset fails to load.
+        content.glyphFallbackTitle = content.glyphImage == nil ? "SF" : nil
+        updateStatusItemLength()
     }
 
     /// Template menu-bar glyph sized to match typical status-item SF Symbols.
@@ -241,16 +265,163 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if let statusItem {
             NSStatusBar.system.removeStatusItem(statusItem)
         }
+        menuBarContentView = nil
         self.statusItem = nil
     }
 
-    @objc private func statusItemClicked(_ sender: AnyObject?) {
+    // MARK: - Starred store favicons
+
+    /// Redraws the grouped favicon strip for visible starred stores.
+    func syncMenuBarFavorites() {
+        guard let content = menuBarContentView, appState.settings.showInMenuBar else { return }
+        let stores = appState.settings.showStarredStoresInMenuBar
+            ? appState.menuBarFavoriteStores
+            : []
+        content.favorites = stores.map { store in
+            MenuBarContentView.Favorite(
+                id: store.id,
+                title: store.displayName,
+                image: Self.menuBarFavoriteImage(for: store)
+            )
+        }
+        updateStatusItemLength()
+    }
+
+    private func updateStatusItemLength() {
+        guard let statusItem, let content = menuBarContentView else { return }
+        statusItem.length = content.totalWidth
+    }
+
+    private func observeFaviconRevisions() {
+        faviconRevisionCancellable = FaviconStore.shared.$revision
+            .dropFirst()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.syncMenuBarFavorites()
+            }
+    }
+
+    /// Full-color menu-bar mark — cached favicon when available, else initials on the store accent.
+    private static func menuBarFavoriteImage(for store: Store) -> NSImage {
+        let dimension: CGFloat = 18
+        let size = NSSize(width: dimension, height: dimension)
+        let radius = dimension * 0.22
+        let image = NSImage(size: size, flipped: false) { bounds in
+            let path = NSBezierPath(roundedRect: bounds, xRadius: radius, yRadius: radius)
+            path.addClip()
+
+            if let favicon = FaviconStore.shared.image(for: store.id) {
+                let sourceSize = favicon.size
+                guard sourceSize.width > 0, sourceSize.height > 0 else {
+                    Self.drawInitialsFallback(for: store, in: bounds)
+                    return true
+                }
+                let scale = max(bounds.width / sourceSize.width, bounds.height / sourceSize.height)
+                let drawSize = NSSize(width: sourceSize.width * scale, height: sourceSize.height * scale)
+                let drawRect = NSRect(
+                    x: bounds.midX - drawSize.width / 2,
+                    y: bounds.midY - drawSize.height / 2,
+                    width: drawSize.width,
+                    height: drawSize.height
+                )
+                favicon.draw(
+                    in: drawRect,
+                    from: .zero,
+                    operation: .sourceOver,
+                    fraction: 1,
+                    respectFlipped: true,
+                    hints: [.interpolation: NSImageInterpolation.high]
+                )
+            } else {
+                Self.drawInitialsFallback(for: store, in: bounds)
+            }
+            return true
+        }
+        image.isTemplate = false
+        image.accessibilityDescription = store.displayName
+        return image
+    }
+
+    private static func drawInitialsFallback(for store: Store, in bounds: NSRect) {
+        let (r, g, b) = HexColor.components(store.colorHex)
+        NSColor(calibratedRed: r / 255, green: g / 255, blue: b / 255, alpha: 1).setFill()
+        bounds.fill()
+
+        let initials = store.initials as NSString
+        let fontSize = max(8, bounds.height * 0.42)
+        let font = NSFont.systemFont(ofSize: fontSize, weight: .semibold)
+        let luma = 0.299 * r + 0.587 * g + 0.114 * b
+        let textColor: NSColor = luma > 150 ? .black : .white
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: font,
+            .foregroundColor: textColor,
+        ]
+        let textSize = initials.size(withAttributes: attributes)
+        let point = NSPoint(
+            x: bounds.midX - textSize.width / 2,
+            y: bounds.midY - textSize.height / 2
+        )
+        initials.draw(at: point, withAttributes: attributes)
+    }
+
+    /// Always opens (or re-opens) the widget under `anchor` with `store` selected.
+    private func reopenPanel(selecting store: Store, anchorRect: NSRect, in button: NSStatusBarButton) {
+        appState.select(store)
+        let wasVisible = isPanelVisible
+        if wasVisible {
+            closePanel()
+        }
+        // After a close, wait a turn so the transient popover fully tears down before re-show.
+        let present = { [weak self] in
+            guard let self else { return }
+            self.preparePanelForShow()
+            self.showPopover(anchorRect: anchorRect, in: button)
+        }
+        if wasVisible {
+            DispatchQueue.main.async(execute: present)
+        } else {
+            present()
+        }
+    }
+
+    private func showPopover(anchorRect: NSRect, in button: NSStatusBarButton) {
+        guard let popover else {
+            showFloatingPanel()
+            return
+        }
+        // Optical nudge: glyphs often sit slightly right of midX; shift so the arrow lines up.
+        var anchor = anchorRect
+        anchor.origin.x += 1
+        popover.show(relativeTo: anchor, of: button, preferredEdge: .minY)
+        popover.contentViewController?.view.window?.becomeKey()
+    }
+
+    /// The glyph's own slot within the grouped item, so the beak points at the icon
+    /// rather than the middle of the icon-plus-favicons strip.
+    private func glyphAnchorRect(in button: NSStatusBarButton) -> NSRect {
+        menuBarContentView?.glyphFrame ?? button.bounds
+    }
+
+    @objc private func statusItemClicked(_ sender: NSStatusBarButton) {
         if NSApp.currentEvent?.type == .rightMouseUp {
             showStatusMenu()
-        } else {
-            // Icon click always anchors to the status item (beak), ignoring Open under mouse.
-            togglePanel(anchorToMenuBarIcon: true)
+            return
         }
+
+        // One button spans the glyph and every favicon — route by where it was clicked.
+        if let event = NSApp.currentEvent,
+           let content = menuBarContentView {
+            let point = sender.convert(event.locationInWindow, from: nil)
+            if let storeID = content.favoriteID(at: point),
+               let store = appState.stores.first(where: { $0.id == storeID }),
+               let rect = content.frame(forFavorite: storeID) {
+                reopenPanel(selecting: store, anchorRect: rect, in: sender)
+                return
+            }
+        }
+
+        // Icon click always anchors to the status item (beak), ignoring Open under mouse.
+        togglePanel(anchorToMenuBarIcon: true)
     }
 
     private func showStatusMenu() {
@@ -290,9 +461,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         quitItem.target = self
         menu.addItem(quitItem)
 
+        // The button's own highlight sits behind our custom drawing — mirror it so the
+        // glyph and favicon strip stay legible while the menu is up.
+        menuBarContentView?.isHighlighted = true
         statusItem?.menu = menu
         statusItem?.button?.performClick(nil)
         statusItem?.menu = nil
+        menuBarContentView?.isHighlighted = false
     }
 
     @objc private func openPanelFromMenu() {
@@ -338,13 +513,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let preferFloating = !anchorToMenuBarIcon
             && (appState.settings.openUnderMouse || statusItem?.button == nil)
 
-        if !preferFloating, let button = statusItem?.button, let popover {
-            // Optical nudge: status glyphs often sit slightly right of midX; shift
-            // the popover anchor 1pt so the arrow lines up with the icon.
-            var anchor = button.bounds
-            anchor.origin.x += 1
-            popover.show(relativeTo: anchor, of: button, preferredEdge: .minY)
-            popover.contentViewController?.view.window?.becomeKey()
+        if !preferFloating, let button = statusItem?.button {
+            showPopover(anchorRect: glyphAnchorRect(in: button), in: button)
         } else {
             showFloatingPanel()
         }
@@ -661,6 +831,212 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 }
 
 extension AppDelegate: NSPopoverDelegate {}
+
+/// Everything the status item shows: the Storefront glyph, then the starred stores'
+/// favicons on a subtle rounded plate. Living inside one `NSStatusItem` is what makes
+/// the whole set ⌘-drag together instead of scattering across the menu bar.
+private final class MenuBarContentView: NSView {
+    struct Favorite {
+        let id: UUID
+        let title: String
+        let image: NSImage
+    }
+
+    private enum Metrics {
+        static let glyphWidth: CGFloat = 22
+        static let glyphToGroupGap: CGFloat = 5
+        static let groupPadding: CGFloat = 3.5
+        static let iconSize: CGFloat = 16
+        static let iconSpacing: CGFloat = 4
+        static let groupCornerRadius: CGFloat = 6
+        static let trailingInset: CGFloat = 3
+    }
+
+    var glyphImage: NSImage? {
+        didSet { needsDisplay = true }
+    }
+
+    var glyphFallbackTitle: String? {
+        didSet { needsDisplay = true }
+    }
+
+    var favorites: [Favorite] = [] {
+        didSet {
+            needsDisplay = true
+            updateToolTipTracking()
+        }
+    }
+
+    /// Mirrors the host button's highlight (right-click menu) so drawing stays legible.
+    var isHighlighted = false {
+        didSet { needsDisplay = true }
+    }
+
+    private var trackingArea: NSTrackingArea?
+
+    /// Width the status item must reserve for the glyph plus the favicon plate.
+    var totalWidth: CGFloat {
+        guard !favorites.isEmpty else { return Metrics.glyphWidth }
+        return Metrics.glyphWidth + Metrics.glyphToGroupGap + groupWidth + Metrics.trailingInset
+    }
+
+    var glyphFrame: NSRect {
+        NSRect(x: 0, y: 0, width: Metrics.glyphWidth, height: bounds.height)
+    }
+
+    private var groupWidth: CGFloat {
+        guard !favorites.isEmpty else { return 0 }
+        let icons = CGFloat(favorites.count) * Metrics.iconSize
+        let gaps = CGFloat(favorites.count - 1) * Metrics.iconSpacing
+        return icons + gaps + Metrics.groupPadding * 2
+    }
+
+    private var groupFrame: NSRect? {
+        guard !favorites.isEmpty else { return nil }
+        let height = Metrics.iconSize + Metrics.groupPadding * 2
+        return NSRect(
+            x: Metrics.glyphWidth + Metrics.glyphToGroupGap,
+            y: (bounds.height - height) / 2,
+            width: groupWidth,
+            height: height
+        )
+    }
+
+    private func iconFrame(at index: Int) -> NSRect? {
+        guard let groupFrame else { return nil }
+        let x = groupFrame.minX + Metrics.groupPadding
+            + CGFloat(index) * (Metrics.iconSize + Metrics.iconSpacing)
+        return NSRect(
+            x: x,
+            y: bounds.midY - Metrics.iconSize / 2,
+            width: Metrics.iconSize,
+            height: Metrics.iconSize
+        )
+    }
+
+    /// Store whose favicon (or its share of the plate) contains `point`.
+    func favoriteID(at point: NSPoint) -> UUID? {
+        guard let groupFrame, groupFrame.contains(point) else { return nil }
+        for index in favorites.indices {
+            guard var frame = iconFrame(at: index) else { continue }
+            // Split the inter-icon spacing so the plate has no dead zones.
+            frame = frame.insetBy(dx: -Metrics.iconSpacing / 2, dy: 0)
+            if frame.minX <= point.x && point.x <= frame.maxX {
+                return favorites[index].id
+            }
+        }
+        return favorites.last?.id
+    }
+
+    func frame(forFavorite id: UUID) -> NSRect? {
+        guard let index = favorites.firstIndex(where: { $0.id == id }) else { return nil }
+        return iconFrame(at: index)
+    }
+
+    /// Clicks (and ⌘-drag) belong to the status item button underneath.
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        needsDisplay = true
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        let tint: NSColor = isHighlighted ? .selectedMenuItemTextColor : .labelColor
+        drawGlyph(tint: tint)
+
+        guard let groupFrame else { return }
+        let plate = NSBezierPath(
+            roundedRect: groupFrame,
+            xRadius: Metrics.groupCornerRadius,
+            yRadius: Metrics.groupCornerRadius
+        )
+        tint.withAlphaComponent(isHighlighted ? 0.22 : 0.12).setFill()
+        plate.fill()
+
+        for (index, favorite) in favorites.enumerated() {
+            guard let frame = iconFrame(at: index) else { continue }
+            favorite.image.draw(
+                in: frame,
+                from: .zero,
+                operation: .sourceOver,
+                fraction: 1,
+                respectFlipped: true,
+                hints: [.interpolation: NSImageInterpolation.high]
+            )
+        }
+    }
+
+    private func drawGlyph(tint: NSColor) {
+        if let glyphImage {
+            let size = glyphImage.size
+            let rect = NSRect(
+                x: glyphFrame.midX - size.width / 2,
+                y: bounds.midY - size.height / 2,
+                width: size.width,
+                height: size.height
+            )
+            glyphImage.draw(
+                in: rect,
+                from: .zero,
+                operation: .sourceOver,
+                fraction: 1,
+                respectFlipped: true,
+                hints: [.interpolation: NSImageInterpolation.high]
+            )
+            // Template glyphs carry no color of their own — tint them the way the
+            // status bar would have, so they still flip with the menu bar appearance.
+            if glyphImage.isTemplate {
+                tint.set()
+                rect.fill(using: .sourceAtop)
+            }
+        } else if let glyphFallbackTitle {
+            let attributes: [NSAttributedString.Key: Any] = [
+                .font: NSFont.systemFont(ofSize: 13, weight: .medium),
+                .foregroundColor: tint,
+            ]
+            let text = glyphFallbackTitle as NSString
+            let size = text.size(withAttributes: attributes)
+            text.draw(
+                at: NSPoint(x: glyphFrame.midX - size.width / 2, y: bounds.midY - size.height / 2),
+                withAttributes: attributes
+            )
+        }
+    }
+
+    // MARK: - Tooltips
+
+    /// The button owns hit testing, so per-favicon tooltips come from tracking the
+    /// pointer and retitling the button as it crosses each slot.
+    private func updateToolTipTracking() {
+        if let trackingArea {
+            removeTrackingArea(trackingArea)
+            self.trackingArea = nil
+        }
+        guard !favorites.isEmpty else { return }
+        let area = NSTrackingArea(
+            rect: bounds,
+            options: [.mouseMoved, .mouseEnteredAndExited, .activeAlways, .inVisibleRect],
+            owner: self,
+            userInfo: nil
+        )
+        addTrackingArea(area)
+        trackingArea = area
+    }
+
+    override func mouseMoved(with event: NSEvent) {
+        super.mouseMoved(with: event)
+        let point = convert(event.locationInWindow, from: nil)
+        let title = favoriteID(at: point)
+            .flatMap { id in favorites.first(where: { $0.id == id })?.title }
+        (superview as? NSButton)?.toolTip = title ?? "Storefront"
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        super.mouseExited(with: event)
+        (superview as? NSButton)?.toolTip = "Storefront"
+    }
+}
 
 /// Borderless `NSPanel` that can become key/main so SwiftUI receives clicks and Escape.
 private final class StorefrontFloatingPanel: NSPanel {

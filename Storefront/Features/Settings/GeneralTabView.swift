@@ -56,6 +56,25 @@ struct GeneralTabView: View {
 
                     SettingsGroupedDivider()
 
+                    SettingsGroupedRow(
+                        "Starred stores in menu bar",
+                        subtitle: "Show favicons for starred stores beside the menu bar icon."
+                    ) {
+                        Toggle(
+                            "",
+                            isOn: Binding(
+                                get: { appState.settings.showStarredStoresInMenuBar },
+                                set: { appState.setShowStarredStoresInMenuBar($0) }
+                            )
+                        )
+                        .labelsHidden()
+                        .toggleStyle(.switch)
+                        .controlSize(.small)
+                        .disabled(!appState.settings.showInMenuBar)
+                    }
+
+                    SettingsGroupedDivider()
+
                     SettingsGroupedRow("Show in Dock") {
                         Toggle(
                             "",

@@ -231,6 +231,9 @@ struct AppSettings: Codable, Equatable {
     /// attaching to the menu bar icon. Ignored (effectively always on) when the menu
     /// bar icon is hidden.
     var openUnderMouse: Bool = false
+    /// When true, visible starred stores appear as favicons beside the menu bar glyph.
+    /// No-op when the menu bar icon is hidden.
+    var showStarredStoresInMenuBar: Bool = true
     /// Light / Dark / System — drives panel + Settings appearance.
     var appearancePreference: AppearancePreference = .system
     /// Auto / Light / Dark Dock icon (cmux-style). Auto uses Icon Composer chrome.
@@ -272,6 +275,7 @@ extension AppSettings {
         showInMenuBar = try c.decodeIfPresent(Bool.self, forKey: .showInMenuBar) ?? true
         showInDock = try c.decodeIfPresent(Bool.self, forKey: .showInDock) ?? false
         openUnderMouse = try c.decodeIfPresent(Bool.self, forKey: .openUnderMouse) ?? false
+        showStarredStoresInMenuBar = try c.decodeIfPresent(Bool.self, forKey: .showStarredStoresInMenuBar) ?? true
         appearancePreference = try c.decodeIfPresent(AppearancePreference.self, forKey: .appearancePreference) ?? .system
         appIconPreference = try c.decodeIfPresent(AppIconPreference.self, forKey: .appIconPreference) ?? .system
         menuBarIconPreference = try c.decodeIfPresent(MenuBarIconPreference.self, forKey: .menuBarIconPreference) ?? .bag

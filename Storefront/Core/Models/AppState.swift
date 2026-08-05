@@ -165,6 +165,12 @@ final class AppState {
         saveSettings()
     }
 
+    func setShowStarredStoresInMenuBar(_ enabled: Bool) {
+        settings.showStarredStoresInMenuBar = enabled
+        saveSettings()
+        AppDelegate.shared?.syncMenuBarFavorites()
+    }
+
     /// Favorited stores first (starring moves a store to the top), each group
     /// otherwise in the user's chosen order.
     var visibleStores: [Store] {
@@ -172,6 +178,13 @@ final class AppState {
             if lhs.isFavorite != rhs.isFavorite { return lhs.isFavorite }
             return lhs.sortOrder < rhs.sortOrder
         }
+    }
+
+    /// Visible starred stores in rail order — drives the adjacent menu bar favicons.
+    var menuBarFavoriteStores: [Store] {
+        stores
+            .filter { $0.isVisible && $0.isFavorite }
+            .sorted { $0.sortOrder < $1.sortOrder }
     }
 
     var selectedStore: Store? {
@@ -339,6 +352,7 @@ final class AppState {
         pendingStoreSave?.cancel()
         pendingStoreSave = nil
         persistence.save(stores: stores)
+        AppDelegate.shared?.syncMenuBarFavorites()
     }
 
     func saveSettings() {
@@ -357,6 +371,7 @@ final class AppState {
             guard let self else { return }
             self.pendingStoreSave = nil
             self.persistence.save(stores: self.stores)
+            AppDelegate.shared?.syncMenuBarFavorites()
         }
     }
 
@@ -367,6 +382,7 @@ final class AppState {
         pendingStoreSave?.cancel()
         pendingStoreSave = nil
         persistence.save(stores: stores)
+        AppDelegate.shared?.syncMenuBarFavorites()
     }
 
     func addStore(domain: String, displayName: String, colorHex: String) {
