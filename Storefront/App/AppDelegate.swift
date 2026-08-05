@@ -28,7 +28,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var popover: NSPopover?
     /// Borderless movable panel used when the menu bar icon is hidden (no popover beak).
     private var floatingPanel: StorefrontFloatingPanel?
-    private var floatingPanelHosting: NSHostingController<AnyView>?
+    private var floatingPanelHosting: NSViewController?
     private var floatingClickOutsideMonitor: Any?
     private var floatingGlobalClickOutsideMonitor: Any?
     /// Suppresses click-outside dismiss briefly (⌘-click keep-open → browser activation).
@@ -60,7 +60,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         pop.contentSize = Theme.panelSize
         pop.delegate = self
         let hosting = NSHostingController(
-            rootView: PanelView().environmentObject(appState)
+            rootView: PanelView().environment(appState)
         )
         hosting.view.wantsLayer = true
         hosting.view.focusRingType = .none
@@ -93,6 +93,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         false
     }
 
+    /// Store writes made in the last moments before quit are debounced (see
+    /// `AppState.scheduleSaveStores`) — write them out or they're lost.
+    func applicationWillTerminate(_ notification: Notification) {
+        appState.flushPendingSaves()
+    }
+
     // MARK: - Status item
 
     /// Wipe any leftover "hidden by ⌘-drag" flags for our autosave name (and a few
@@ -110,7 +116,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         // Force visible for our named item before creating it.
         defaults.set(true, forKey: "NSStatusItem Visible \(Self.statusItemAutosaveName)")
-        defaults.synchronize()
     }
 
     func ensureStatusItem() {
@@ -206,7 +211,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             var settings = appState.settings
             settings.showInDock = true
             appState.settings = settings
-            appState.save()
+            appState.saveSettings()
             applyActivationPolicy()
         }
 
@@ -352,6 +357,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func closePanel() {
+        appState.flushPendingSaves()
         popover?.performClose(nil)
         hideFloatingPanel()
     }
@@ -404,8 +410,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         panel.titlebarAppearsTransparent = true
         panel.acceptsMouseMovedEvents = true
 
+        // Not type-erased through AnyView — that would hide the panel's real view type
+        // from SwiftUI's structural diffing at the hosting root.
         let hosting = NSHostingController(
-            rootView: AnyView(PanelView().environmentObject(appState))
+            rootView: PanelView().environment(appState)
         )
         hosting.view.wantsLayer = true
         hosting.view.focusRingType = .none
@@ -545,7 +553,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         var settings = appState.settings
         settings.showInMenuBar = enabled
         appState.settings = settings
-        appState.save()
+        appState.saveSettings()
         // Switching surfaces — close whichever panel is up so we don't leave a
         // floating window around after restoring the menu bar icon (or vice versa).
         closePanel()
@@ -562,7 +570,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         var settings = appState.settings
         settings.showInDock = enabled
         appState.settings = settings
-        appState.save()
+        appState.saveSettings()
         applyActivationPolicy()
         if enabled {
             NSApp.activate(ignoringOtherApps: true)
@@ -636,7 +644,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             AppIconPreference.apply(self.appState.settings.appIconPreference)
             guard self.appState.settings.appearancePreference == .system else { return }
             self.applyAppearancePreference(.system)
-            self.appState.objectWillChange.send()
+            self.appState.noteSystemAppearanceChanged()
         }
     }
 

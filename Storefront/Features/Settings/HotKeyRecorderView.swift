@@ -6,13 +6,12 @@ import SwiftUI
 /// modifiers via a local `NSEvent` monitor (not `@FocusState` — plain buttons don't
 /// keep keyboard focus after click on macOS, which snapped recording back to idle).
 struct HotKeyRecorderView: View {
-    enum Style {
-        case field
-        case compact
-    }
+    /// Shared with `KeyComboView` so the recording prompt and the keycaps occupy the
+    /// same box — see the note in `body`.
+    private static let labelFont = Font.system(size: 11, weight: .medium)
+    private static let glyphHeight: CGFloat = 12
 
     @Binding var combo: KeyCombo
-    var style: Style = .field
     @State private var isRecording = false
     /// Owns NSEvent monitors so closures don't capture a stale `View` value.
     @StateObject private var session = RecordingSession()
@@ -32,26 +31,30 @@ struct HotKeyRecorderView: View {
             Group {
                 if isRecording {
                     Text("Record keys…")
-                        .font(recordingFont)
+                        .font(Self.labelFont)
+                        // `KeyComboView` pins itself to a 12pt glyph box; without the
+                        // same box here a bare `Text`'s taller line height made the chip
+                        // grow vertically the moment recording started. Width is free to
+                        // change with the content — only the height has to hold still.
+                        .frame(height: Self.glyphHeight)
                 } else {
-                    KeyComboView(combo: combo, font: idleFont)
+                    KeyComboView(combo: combo, font: Self.labelFont, glyphHeight: Self.glyphHeight)
                 }
             }
             .foregroundStyle(isRecording ? Theme.recordingText : Theme.textPrimary)
-            .padding(.horizontal, horizontalPadding)
-            .padding(.vertical, verticalPadding)
-            .frame(minWidth: style == .field ? 110 : nil)
+            .padding(.horizontal, 7)
+            .padding(.vertical, 3)
             .background(backgroundColor)
-            .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
+            .clipShape(RoundedRectangle(cornerRadius: 5))
             .overlay(
-                RoundedRectangle(cornerRadius: cornerRadius)
+                RoundedRectangle(cornerRadius: 5)
                     .strokeBorder(isRecording ? Theme.errorDot : Theme.borderColor, lineWidth: 1)
             )
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .help(style == .compact ? "Click to re-record this shortcut" : "")
-        .accessibilityHint(style == .compact ? "Click to re-record this shortcut" : "")
+        .help("Click to re-record this shortcut")
+        .accessibilityHint("Click to re-record this shortcut")
         .onDisappear { stopRecording() }
     }
 
@@ -79,38 +82,9 @@ struct HotKeyRecorderView: View {
         session.stop()
     }
 
-    private var recordingFont: Font {
-        switch style {
-        case .field: .mono(12, weight: .medium)
-        case .compact: .system(size: 11, weight: .medium)
-        }
-    }
-
-    private var idleFont: Font {
-        switch style {
-        case .field: .system(size: 12, weight: .medium)
-        case .compact: .system(size: 11, weight: .medium)
-        }
-    }
-
-    private var horizontalPadding: CGFloat {
-        style == .field ? 10 : 7
-    }
-
-    private var verticalPadding: CGFloat {
-        style == .field ? 6 : 3
-    }
-
-    private var cornerRadius: CGFloat {
-        style == .field ? 6 : 5
-    }
-
+    /// Editable legend chips read as interactive (white); fixed chips stay greyed.
     private var backgroundColor: Color {
-        switch style {
-        case .field: Theme.settingsCardFill
-        // Editable legend chips read as interactive (white); fixed chips stay greyed.
-        case .compact: Color.adaptive(light: .white, dark: .white.opacity(0.14))
-        }
+        Color.adaptive(light: .white, dark: .white.opacity(0.14))
     }
 }
 

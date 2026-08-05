@@ -21,10 +21,6 @@ struct SidebarGlassBackground: NSViewRepresentable {
     var glassStyle: GlassStyle = .regular
     var tintColor: NSColor? = nil
 
-    static var liquidGlassAvailable: Bool {
-        NSClassFromString("NSGlassEffectView") != nil
-    }
-
     func makeNSView(context: Context) -> PassthroughContainerView {
         let container = PassthroughContainerView()
         container.autoresizingMask = [.width, .height]
@@ -52,21 +48,43 @@ struct SidebarGlassBackground: NSViewRepresentable {
         chrome.frame = container.bounds
         container.addSubview(chrome)
         container.chromeView = chrome
+        container.appliedCornerRadius = cornerRadius
+        container.appliedMaterial = material
+        container.appliedBlendingMode = blendingMode
         return container
     }
 
+    /// SwiftUI calls this on every reconciliation pass, and there are ~12 of these live
+    /// at once (the rail, every section card, the panel chrome). Re-applying blindly
+    /// forced a vibrancy redraw — and, on the glass path, a selector lookup plus an
+    /// `unsafeBitCast` trampoline — per view per render. Every value here is constant
+    /// per call site, so after the first pass this is a no-op.
     func updateNSView(_ container: PassthroughContainerView, context: Context) {
         guard let chrome = container.chromeView else { return }
-        chrome.frame = container.bounds
-        applyCornerRadius(to: chrome)
-        if chrome.className == "NSGlassEffectView" {
-            applyGlassConfiguration(to: chrome)
-        } else if let visualEffect = chrome as? NSVisualEffectView {
-            visualEffect.material = material
-            visualEffect.blendingMode = blendingMode
-            visualEffect.state = .active
-            visualEffect.needsDisplay = true
+        // `container.layout()` already keeps the chrome's frame in sync.
+
+        if container.appliedCornerRadius != cornerRadius {
+            container.appliedCornerRadius = cornerRadius
+            applyCornerRadius(to: chrome)
         }
+
+        if chrome.className == "NSGlassEffectView" {
+            // Tint and style are fixed for every call site; applying once is enough.
+            return
+        }
+
+        guard let visualEffect = chrome as? NSVisualEffectView else { return }
+        guard container.appliedMaterial != material
+            || container.appliedBlendingMode != blendingMode
+            || visualEffect.state != .active
+        else { return }
+
+        container.appliedMaterial = material
+        container.appliedBlendingMode = blendingMode
+        visualEffect.material = material
+        visualEffect.blendingMode = blendingMode
+        visualEffect.state = .active
+        visualEffect.needsDisplay = true
     }
 
     private func applyCornerRadius(to view: NSView) {
@@ -96,6 +114,11 @@ struct SidebarGlassBackground: NSViewRepresentable {
 /// Hosts glass / vibrancy chrome but never wins AppKit hit-testing.
 final class PassthroughContainerView: NSView {
     var chromeView: NSView?
+    /// Last values pushed onto `chromeView`, so `updateNSView` can skip re-applying
+    /// (and re-rendering) an unchanged configuration.
+    var appliedCornerRadius: CGFloat?
+    var appliedMaterial: NSVisualEffectView.Material?
+    var appliedBlendingMode: NSVisualEffectView.BlendingMode?
 
     override func hitTest(_ point: NSPoint) -> NSView? { nil }
 

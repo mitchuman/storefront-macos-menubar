@@ -1,5 +1,4 @@
 import Carbon.HIToolbox
-import AppKit
 import OSLog
 
 private let logger = Logger(subsystem: "com.humanmarketing.storefront", category: "hotkey")

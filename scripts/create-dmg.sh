@@ -65,6 +65,8 @@ echo "Packaging $APP_PATH -> $OUT_DMG"
 
 # Window 660x400; icons aligned to packaging/dmg/background.png arrow endpoints.
 # Applications (left) at 180,170; Storefront.app (right) at 480,170.
+# ULMO (lzma) instead of create-dmg's default UDZO (zlib) — noticeably smaller for the
+# same content. ULMO needs macOS 10.15+ to mount; the app itself requires 14.0.
 create-dmg \
   --volname "Storefront" \
   --background "$BACKGROUND" \
@@ -74,6 +76,7 @@ create-dmg \
   --icon "Storefront.app" 480 170 \
   --hide-extension "Storefront.app" \
   --app-drop-link 180 170 \
+  --format ULMO \
   "$OUT_DMG" \
   "$STAGE"
 

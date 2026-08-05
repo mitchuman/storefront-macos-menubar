@@ -1,13 +1,5 @@
 import AppKit
-import Foundation
 import SwiftUI
-
-struct LinkTemplate: Identifiable, Codable, Equatable {
-    var id: UUID = UUID()
-    var title: String
-    /// Path template relative to the store, e.g. "/apps/my-app". Supports "{shop}" substitution.
-    var pathTemplate: String
-}
 
 /// User-saved section layout (order + enabled set) for Settings → Sections presets.
 struct SavedSectionPreset: Identifiable, Codable, Equatable {
@@ -258,7 +250,6 @@ struct AppSettings: Codable, Equatable {
     var toggleLinkSearchHotkey: KeyCombo = .toggleLinkSearchDefault
     /// Panel-local: open the focused link's "New +" create URL.
     var openCreateLinkHotkey: KeyCombo = .openCreateLinkDefault
-    var customLinks: [LinkTemplate] = []
     /// Named user layouts available in the Sections presets picker (built-ins are not stored here).
     var savedSectionPresets: [SavedSectionPreset] = []
     /// When true, the Presets picker shows Custom even if the current layout still
@@ -268,50 +259,11 @@ struct AppSettings: Codable, Equatable {
     /// (layout matching alone would otherwise resolve to the built-in and hide Rename/Delete).
     var preferredSavedSectionPresetID: UUID? = nil
 
-    init(
-        sectionOrder: [SectionID] = SectionID.defaultOrder,
-        enabledSections: Set<SectionID> = Set(SectionID.allCases),
-        launchAtLogin: Bool = false,
-        showInMenuBar: Bool = true,
-        showInDock: Bool = false,
-        openUnderMouse: Bool = false,
-        appearancePreference: AppearancePreference = .system,
-        appIconPreference: AppIconPreference = .system,
-        menuBarIconPreference: MenuBarIconPreference = .bag,
-        opaqueMenuBarWidget: Bool = false,
-        globalHotkey: KeyCombo = .default,
-        openAdminHotkey: KeyCombo = .openAdminDefault,
-        openOnlineStoreHotkey: KeyCombo = .openOnlineStoreDefault,
-        focusSearchHotkey: KeyCombo = .focusSearchDefault,
-        toggleLinkSearchHotkey: KeyCombo = .toggleLinkSearchDefault,
-        openCreateLinkHotkey: KeyCombo = .openCreateLinkDefault,
-        customLinks: [LinkTemplate] = [],
-        savedSectionPresets: [SavedSectionPreset] = [],
-        prefersCustomSectionPreset: Bool = false,
-        preferredSavedSectionPresetID: UUID? = nil
-    ) {
-        self.sectionOrder = sectionOrder
-        self.enabledSections = enabledSections
-        self.launchAtLogin = launchAtLogin
-        self.showInMenuBar = showInMenuBar
-        self.showInDock = showInDock
-        self.openUnderMouse = openUnderMouse
-        self.appearancePreference = appearancePreference
-        self.appIconPreference = appIconPreference
-        self.menuBarIconPreference = menuBarIconPreference
-        self.opaqueMenuBarWidget = opaqueMenuBarWidget
-        self.globalHotkey = globalHotkey
-        self.openAdminHotkey = openAdminHotkey
-        self.openOnlineStoreHotkey = openOnlineStoreHotkey
-        self.focusSearchHotkey = focusSearchHotkey
-        self.toggleLinkSearchHotkey = toggleLinkSearchHotkey
-        self.openCreateLinkHotkey = openCreateLinkHotkey
-        self.customLinks = customLinks
-        self.savedSectionPresets = savedSectionPresets
-        self.prefersCustomSectionPreset = prefersCustomSectionPreset
-        self.preferredSavedSectionPresetID = preferredSavedSectionPresetID
-    }
+}
 
+// Declared in an extension, not the struct body, so Swift still synthesizes the
+// memberwise / no-argument init that `AppSettings()` relies on.
+extension AppSettings {
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         sectionOrder = try c.decodeIfPresent([SectionID].self, forKey: .sectionOrder) ?? SectionID.defaultOrder
@@ -330,7 +282,6 @@ struct AppSettings: Codable, Equatable {
         focusSearchHotkey = try c.decodeIfPresent(KeyCombo.self, forKey: .focusSearchHotkey) ?? .focusSearchDefault
         toggleLinkSearchHotkey = try c.decodeIfPresent(KeyCombo.self, forKey: .toggleLinkSearchHotkey) ?? .toggleLinkSearchDefault
         openCreateLinkHotkey = try c.decodeIfPresent(KeyCombo.self, forKey: .openCreateLinkHotkey) ?? .openCreateLinkDefault
-        customLinks = try c.decodeIfPresent([LinkTemplate].self, forKey: .customLinks) ?? []
         savedSectionPresets = try c.decodeIfPresent([SavedSectionPreset].self, forKey: .savedSectionPresets) ?? []
         prefersCustomSectionPreset = try c.decodeIfPresent(Bool.self, forKey: .prefersCustomSectionPreset) ?? false
         preferredSavedSectionPresetID = try c.decodeIfPresent(UUID.self, forKey: .preferredSavedSectionPresetID)

@@ -9,7 +9,7 @@ struct StorefrontApp: App {
         // sidebar, trailing-edge toggle, and scroll-edge title blur (cmux recipe).
         Window("Settings", id: "settings") {
             SettingsRootView()
-                .environmentObject(appDelegate.appState)
+                .environment(appDelegate.appState)
         }
         .windowResizability(.contentMinSize)
         .defaultSize(

@@ -20,6 +20,11 @@ settings:
     SWIFT_VERSION: "5.0"
     MACOSX_DEPLOYMENT_TARGET: "14.0"
     ENABLE_HARDENED_RUNTIME: YES
+    # Apple Silicon only, stated explicitly — releases through 0.0.8 already shipped
+    # an arm64-only binary, but only incidentally. scripts/thin-frameworks.sh strips
+    # the matching dead x86_64 slices out of Sparkle before signing.
+    ARCHS: arm64
+    ONLY_ACTIVE_ARCH: NO
 
 targets:
   Storefront:

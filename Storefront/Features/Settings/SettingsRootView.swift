@@ -12,7 +12,7 @@ enum SettingsWindowMetrics {
 /// Native `NavigationSplitView` settings shell — system Liquid Glass sidebar,
 /// traffic lights, and sidebar toggle. Search lives in the sidebar header.
 struct SettingsRootView: View {
-    @EnvironmentObject var appState: AppState
+    @Environment(AppState.self) private var appState
     @State private var columnVisibility = NavigationSplitViewVisibility.all
     @State private var searchText = ""
     /// Bumped when the sidebar opens/closes so toolbar polish can run a short
@@ -21,6 +21,14 @@ struct SettingsRootView: View {
 
     private var isSearching: Bool {
         !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    /// `.system` resolves against `NSApp.effectiveAppearance` at call time, so nothing
+    /// stored changes when macOS flips Light↔Dark. Reading the revision registers the
+    /// dependency that makes this re-evaluate on a system flip.
+    private var resolvedColorScheme: ColorScheme {
+        _ = appState.systemAppearanceRevision
+        return appState.settings.appearancePreference.colorScheme
     }
 
     private var searchHits: [SettingsSearchHit] {
@@ -50,7 +58,7 @@ struct SettingsRootView: View {
             minHeight: SettingsWindowMetrics.minHeight,
             idealHeight: SettingsWindowMetrics.idealHeight
         )
-        .preferredColorScheme(appState.settings.appearancePreference.colorScheme)
+        .preferredColorScheme(resolvedColorScheme)
         .id(appState.appearanceRevision)
         .background(
             SettingsToolbarConfigurator(
@@ -69,34 +77,16 @@ struct SettingsRootView: View {
 
     @ViewBuilder
     private var sidebar: some View {
+        // `@Observable` has no projected value, so the selection binding goes through
+        // a local @Bindable rather than `$appState` directly.
+        @Bindable var appState = appState
+
         Group {
             if isSearching {
-                // Separate list without selection binding — avoids duplicate-tag
-                // crashes when multiple hits map to the same SettingsTab.
-                List {
-                    if searchHits.isEmpty {
-                        Text("No Results")
-                            .foregroundStyle(.secondary)
-                    } else {
-                        ForEach(searchHits) { hit in
-                            Button {
-                                appState.selectedSettingsTab = hit.tab
-                                searchText = ""
-                            } label: {
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(hit.title)
-                                        .foregroundStyle(.primary)
-                                    Text(hit.subtitle)
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                }
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .contentShape(Rectangle())
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                }
+                // One `searchHits` evaluation per body — it re-runs the whole index
+                // filter, and reading the computed property twice ran it on every
+                // keystroke twice over.
+                searchList(searchHits)
             } else {
                 List(SettingsTab.allCases, selection: $appState.selectedSettingsTab) { tab in
                     Label(tab.title, systemImage: tab.systemImage)
@@ -109,6 +99,35 @@ struct SettingsRootView: View {
         // with progressive blur instead of painting on top.
         .detailHeaderSafeAreaBar {
             sidebarSearchField
+        }
+    }
+
+    /// Separate list without a selection binding — avoids duplicate-tag crashes when
+    /// multiple hits map to the same `SettingsTab`.
+    private func searchList(_ hits: [SettingsSearchHit]) -> some View {
+        List {
+            if hits.isEmpty {
+                Text("No Results")
+                    .foregroundStyle(.secondary)
+            } else {
+                ForEach(hits) { hit in
+                    Button {
+                        appState.selectedSettingsTab = hit.tab
+                        searchText = ""
+                    } label: {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(hit.title)
+                                .foregroundStyle(.primary)
+                            Text(hit.subtitle)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
         }
     }
 
@@ -183,6 +202,18 @@ private struct SettingsToolbarConfigurator: NSViewRepresentable {
         /// Strong cache of the titlebar/toolbar subtree; cleared when the window changes.
         var cachedTitlebarRoot: NSView?
         var paneTitle: String = ""
+
+        /// Whether `track` would actually do anything. `updateNSView` runs on every
+        /// SwiftUI update of the Settings tree, so this avoids scheduling a main-queue
+        /// hop when nothing it looks at has changed. Deliberately conservative: while
+        /// the chrome has not been applied yet, or the view has no window, it always
+        /// says yes — that is the case the deferred `track` exists to handle.
+        func needsTracking(window: NSWindow?, paneTitle: String, overflowBurstToken: UInt) -> Bool {
+            window !== trackedWindow
+                || !didApplyChrome
+                || self.paneTitle != paneTitle
+                || overflowBurstToken != lastBurstToken
+        }
 
         func track(_ window: NSWindow?, paneTitle: String, overflowBurstToken: UInt) {
             self.paneTitle = paneTitle
@@ -556,6 +587,12 @@ private struct SettingsToolbarConfigurator: NSViewRepresentable {
     }
 
     func updateNSView(_ nsView: NSView, context: Context) {
+        guard context.coordinator.needsTracking(
+            window: nsView.window,
+            paneTitle: paneTitle,
+            overflowBurstToken: overflowBurstToken
+        ) else { return }
+
         DispatchQueue.main.async {
             context.coordinator.track(
                 nsView.window,

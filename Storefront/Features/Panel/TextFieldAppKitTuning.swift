@@ -3,41 +3,33 @@ import AppKit
 
 /// Walks to the nearby `NSTextField` under a SwiftUI `TextField` and applies AppKit
 /// tuning that SwiftUI does not expose: no focus ring (avoids focus layout shift).
-/// Optional caret color is best-effort for SwiftUI-owned fields; prefer
-/// `CaretTintedTextField` when the caret must match a custom accent.
+/// Caret color is deliberately not handled here — use `CaretTintedTextField` when the
+/// caret must match a custom accent.
 struct TextFieldAppKitTuning: NSViewRepresentable {
-    var insertionPointColor: NSColor?
-
     func makeNSView(context: Context) -> TunerView {
         let view = TunerView()
         view.isHidden = true
-        view.insertionPointColor = insertionPointColor
         return view
     }
 
     func updateNSView(_ nsView: TunerView, context: Context) {
-        nsView.insertionPointColor = insertionPointColor
         nsView.applyTuning()
     }
 
     final class TunerView: NSView {
-        var insertionPointColor: NSColor?
-        private var observers: [NSObjectProtocol] = []
+        /// `updateNSView` fires on every panel re-render, and resolving the field means
+        /// walking up the superview chain and recursing through sibling subtrees. Hold
+        /// on to the field we found instead of re-walking for it each time.
+        private weak var tunedField: NSTextField?
 
         override func viewDidMoveToWindow() {
             super.viewDidMoveToWindow()
+            tunedField = nil
             applyTuning()
-            installObserversIfNeeded()
-        }
-
-        deinit {
-            for observer in observers {
-                NotificationCenter.default.removeObserver(observer)
-            }
         }
 
         func applyTuning() {
-            guard let field = Self.nearestTextField(from: self) else { return }
+            guard let field = resolvedField() else { return }
             field.focusRingType = .none
             field.isBordered = false
             field.isBezeled = false
@@ -46,59 +38,15 @@ struct TextFieldAppKitTuning: NSViewRepresentable {
                 editor.textContainerInset = .zero
                 editor.textContainer?.lineFragmentPadding = 0
             }
-            applyCaretColor(on: field)
-            scheduleCaretColor(on: field)
         }
 
-        private func installObserversIfNeeded() {
-            guard observers.isEmpty else { return }
-
-            observers.append(
-                NotificationCenter.default.addObserver(
-                    forName: NSControl.textDidBeginEditingNotification,
-                    object: nil,
-                    queue: .main
-                ) { [weak self] note in
-                    guard let self,
-                          let field = note.object as? NSTextField,
-                          Self.nearestTextField(from: self) === field
-                    else { return }
-                    self.applyCaretColor(on: field)
-                    self.scheduleCaretColor(on: field)
-                }
-            )
-
-            observers.append(
-                NotificationCenter.default.addObserver(
-                    forName: NSWindow.didBecomeKeyNotification,
-                    object: nil,
-                    queue: .main
-                ) { [weak self] note in
-                    guard let self,
-                          let window = note.object as? NSWindow,
-                          window === self.window,
-                          let field = Self.nearestTextField(from: self),
-                          window.firstResponder === field || window.firstResponder === field.currentEditor()
-                    else { return }
-                    self.applyCaretColor(on: field)
-                    self.scheduleCaretColor(on: field)
-                }
-            )
-        }
-
-        private func scheduleCaretColor(on field: NSTextField) {
-            DispatchQueue.main.async { [weak self] in
-                self?.applyCaretColor(on: field)
+        private func resolvedField() -> NSTextField? {
+            if let tunedField, let window, tunedField.window === window {
+                return tunedField
             }
-        }
-
-        private func applyCaretColor(on field: NSTextField) {
-            guard let insertionPointColor else { return }
-            let editor = (field.currentEditor() as? NSTextView)
-                ?? (field.window?.fieldEditor(false, for: field) as? NSTextView)
-            guard let editor else { return }
-            editor.insertionPointColor = insertionPointColor
-            editor.updateInsertionPointStateAndRestartTimer(true)
+            let field = Self.nearestTextField(from: self)
+            tunedField = field
+            return field
         }
 
         private static func nearestTextField(from view: NSView) -> NSTextField? {
@@ -244,13 +192,7 @@ final class CaretTintedNSTextField: NSTextField {
 extension NSColor {
     /// Opaque sRGB color from a `"rrggbb"` / `"#rrggbb"` hex string.
     convenience init(hex: String) {
-        var hexString = hex.trimmingCharacters(in: .whitespacesAndNewlines)
-        hexString = hexString.replacingOccurrences(of: "#", with: "")
-        var value: UInt64 = 0
-        Scanner(string: hexString).scanHexInt64(&value)
-        let r = CGFloat((value >> 16) & 0xFF) / 255
-        let g = CGFloat((value >> 8) & 0xFF) / 255
-        let b = CGFloat(value & 0xFF) / 255
-        self.init(srgbRed: r, green: g, blue: b, alpha: 1)
+        let (r, g, b) = HexColor.components(hex)
+        self.init(srgbRed: r / 255, green: g / 255, blue: b / 255, alpha: 1)
     }
 }

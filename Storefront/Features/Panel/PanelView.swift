@@ -2,7 +2,7 @@ import SwiftUI
 import AppKit
 
 struct PanelView: View {
-    @EnvironmentObject var appState: AppState
+    @Environment(AppState.self) private var appState
     @StateObject private var safeTriangle = SafeTriangleController()
     @FocusState private var searchFocused: Bool
     @FocusState private var focusedRowSearchID: String?
@@ -17,6 +17,14 @@ struct PanelView: View {
     /// Detached floating window (under mouse, or menu bar icon hidden).
     private var isFloatingPanel: Bool {
         !appState.settings.showInMenuBar || appState.settings.openUnderMouse
+    }
+
+    /// `.system` resolves against `NSApp.effectiveAppearance` at call time, so nothing
+    /// stored changes when macOS flips Light↔Dark. Reading the revision registers the
+    /// dependency that makes this re-evaluate on a system flip.
+    private var resolvedColorScheme: ColorScheme {
+        _ = appState.systemAppearanceRevision
+        return appState.settings.appearancePreference.colorScheme
     }
 
     private var panelCornerRadius: CGFloat {
@@ -85,7 +93,7 @@ struct PanelView: View {
         // rounded chrome since there is no popover arrow / system beak.
         .background { panelChromeBackground }
         .modifier(FloatingPanelChromeModifier(isFloating: isFloatingPanel, cornerRadius: panelCornerRadius))
-        .preferredColorScheme(appState.settings.appearancePreference.colorScheme)
+        .preferredColorScheme(resolvedColorScheme)
         .focusable()
         .focused($panelFocused)
         .focusEffectDisabled()
@@ -326,5 +334,5 @@ private struct FloatingPanelChromeModifier: ViewModifier {
 
 #Preview {
     PanelView()
-        .environmentObject(AppState())
+        .environment(AppState())
 }

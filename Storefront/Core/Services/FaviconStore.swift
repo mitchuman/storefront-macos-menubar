@@ -14,6 +14,11 @@ final class FaviconStore: ObservableObject {
     private let logger = Logger(subsystem: "com.humanmarketing.storefront", category: "favicon")
     private let directoryURL: URL
     private var memory: [UUID: NSImage] = [:]
+    /// Stores we've already looked up and found nothing on disk for. `image(for:)` is
+    /// called straight from `body`, so without this every store lacking a favicon does a
+    /// failed open() on the main thread on every render, in all three places it appears.
+    /// Invalidated wherever the on-disk state changes (`save`/`remove`/`removeAll`).
+    private var missing: Set<UUID> = []
     private var inFlight: Set<UUID> = []
 
     init(fileManager: FileManager = .default) {
@@ -28,15 +33,22 @@ final class FaviconStore: ObservableObject {
 
     func image(for storeID: UUID) -> NSImage? {
         if let cached = memory[storeID] { return cached }
+        if missing.contains(storeID) { return nil }
         guard let data = try? Data(contentsOf: fileURL(for: storeID)),
-              let image = NSImage(data: data) else { return nil }
+              let image = NSImage(data: data) else {
+            missing.insert(storeID)
+            return nil
+        }
         memory[storeID] = image
         return image
     }
 
     func hasCachedImage(for storeID: UUID) -> Bool {
         if memory[storeID] != nil { return true }
-        return FileManager.default.fileExists(atPath: fileURL(for: storeID).path)
+        if missing.contains(storeID) { return false }
+        if FileManager.default.fileExists(atPath: fileURL(for: storeID).path) { return true }
+        missing.insert(storeID)
+        return false
     }
 
     /// Fetches favicons for the given stores. Skips stores that already have a
@@ -81,12 +93,14 @@ final class FaviconStore: ObservableObject {
 
     func remove(storeID: UUID) {
         memory.removeValue(forKey: storeID)
+        missing.insert(storeID)
         try? FileManager.default.removeItem(at: fileURL(for: storeID))
         revision &+= 1
     }
 
     func removeAll() {
         memory.removeAll()
+        missing.removeAll()
         if let urls = try? FileManager.default.contentsOfDirectory(
             at: directoryURL,
             includingPropertiesForKeys: nil
@@ -102,6 +116,7 @@ final class FaviconStore: ObservableObject {
 
     private func save(_ image: NSImage, for storeID: UUID) {
         memory[storeID] = image
+        missing.remove(storeID)
         if let tiff = image.tiffRepresentation,
            let rep = NSBitmapImageRep(data: tiff),
            let png = rep.representation(using: .png, properties: [:]) {

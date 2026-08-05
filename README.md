@@ -42,11 +42,12 @@ Read the full guide: **[storefront.nuotsu.dev/docs](https://storefront.nuotsu.de
 
 ## Download
 
-**[Download the latest release](https://github.com/nuotsu/storefront-macos-menubar/releases/latest/download/Storefront.dmg)** (macOS 14+)
+**[Download the latest release](https://github.com/nuotsu/storefront-macos-menubar/releases/latest/download/Storefront.dmg)** (macOS 14+, Apple Silicon)
 
 ### Requirements
 
 - macOS 14.0+
+- Apple Silicon (arm64). Intel Macs are not supported.
 
 ## License
 

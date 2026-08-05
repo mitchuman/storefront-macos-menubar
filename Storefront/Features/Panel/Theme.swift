@@ -2,17 +2,10 @@ import SwiftUI
 import AppKit
 
 enum Theme {
-    static let accent = Color.adaptive(light: Color(hex: "1f6f4a"), dark: Color(hex: "4fbf8b"))
-    static let accentOnFill = Color.adaptive(light: .white, dark: Color(hex: "10261c"))
-    static let accentTintRow = Color.adaptive(light: Color(hex: "1f6f4a").opacity(0.09), dark: Color(hex: "4fbf8b").opacity(0.09))
-    static let accentTintBadge = Color.adaptive(light: Color(hex: "1f6f4a").opacity(0.12), dark: Color(hex: "4fbf8b").opacity(0.12))
     static let errorDot = Color(hex: "c0562c")
     /// Hotkey recorder “listening” label.
     static let recordingText = Color.adaptive(light: Color(hex: "d4785a"), dark: Color(hex: "e8a090"))
 
-    /// Legacy flat rail wash — prefer `SidebarGlassBackground` for the floating rail.
-    static let railBackground = Color.adaptive(light: .black.opacity(0.025), dark: .white.opacity(0.03))
-    static let footerBackground = Color.adaptive(light: .black.opacity(0.02), dark: .white.opacity(0.02))
     static let hoverFill = Color.adaptive(light: .black.opacity(0.045), dark: .white.opacity(0.07))
     static let controlFill = Color.adaptive(light: .black.opacity(0.07), dark: .white.opacity(0.1))
     static let searchFill = Color.adaptive(light: .black.opacity(0.055), dark: .white.opacity(0.08))
@@ -20,14 +13,13 @@ enum Theme {
     static let divider = Color.adaptive(light: .black.opacity(0.08), dark: .white.opacity(0.08))
     static let borderColor = Color.adaptive(light: .black.opacity(0.12), dark: .white.opacity(0.1))
 
-    /// Legacy flat card wash / border — prefer `SidebarGlassBackground` for panel section cards.
-    static let cardFill = Color.adaptive(light: .white.opacity(0.28), dark: .white.opacity(0.035))
+    /// Flat card border — the fill comes from `SidebarGlassBackground` for panel section cards.
     static let cardBorder = Color.adaptive(light: .black.opacity(0.08), dark: .white.opacity(0.07))
 
     /// Opaque card/list background for the Settings window (not the vibrancy-backed
-    /// panel — legacy `cardFill` above is too transparent against Settings' opaque window
-    /// background). `.controlBackgroundColor` is the system-adaptive content-area color
-    /// AppKit windows use, so it automatically flips with light/dark appearance.
+    /// panel, whose cards are drawn by `SidebarGlassBackground`).
+    /// `.controlBackgroundColor` is the system-adaptive content-area color AppKit
+    /// windows use, so it automatically flips with light/dark appearance.
     static let settingsCardFill = Color(nsColor: .controlBackgroundColor)
 
     /// Opaque menu bar widget body fill (Liquid Glass off).
@@ -44,8 +36,6 @@ enum Theme {
     static let textMeta36 = Color.adaptive(light: .black.opacity(0.36), dark: .white.opacity(0.36))
     static let textMeta30 = Color.adaptive(light: .black.opacity(0.3), dark: .white.opacity(0.35))
     static let textMeta25 = Color.adaptive(light: .black.opacity(0.25), dark: .white.opacity(0.3))
-
-    static let panelShadowColor = Color.adaptive(light: .black.opacity(0.2), dark: .black.opacity(0.42))
 
     static let panelSize = CGSize(width: 560, height: 520)
     static let railWidth: CGFloat = 186
@@ -79,8 +69,6 @@ enum Theme {
         let x = railInset + railWidth / 2
         return CGPoint(x: x, y: y)
     }
-
-    static var monoFont: Font.Design { .monospaced }
 }
 
 extension Font {

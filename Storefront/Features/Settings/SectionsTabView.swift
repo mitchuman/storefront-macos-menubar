@@ -3,8 +3,6 @@ import AppKit
 import UniformTypeIdentifiers
 import OSLog
 
-private let logger = Logger(subsystem: "com.humanmarketing.storefront", category: "csv")
-
 /// One global list — enable/disable and reorder apply to every store. (An earlier version
 /// let toggles override individual stores via a picker, but that only ever visibly
 /// affected whichever store happened to be selected, which read as broken.)
@@ -12,7 +10,7 @@ private let logger = Logger(subsystem: "com.humanmarketing.storefront", category
 /// Uses `ScrollView` (not `List`) so Tahoe’s titleband scroll-edge doesn’t collapse the
 /// Settings `NavigationSplitView` under the traffic lights.
 struct SectionsTabView: View {
-    @EnvironmentObject var appState: AppState
+    @Environment(AppState.self) private var appState
     @State private var csvErrorMessage: String?
 
     @State private var isPresentingSaveSheet = false
@@ -62,18 +60,18 @@ struct SectionsTabView: View {
                     appState.settings.preferredSavedSectionPresetID = nil
                     appState.settings.sectionOrder = layout.order
                     appState.settings.enabledSections = layout.enabled
-                    appState.save()
+                    appState.saveSettings()
                 case .saved(let id):
                     guard let saved = appState.settings.savedSectionPresets.first(where: { $0.id == id }) else { return }
                     appState.settings.prefersCustomSectionPreset = false
                     appState.settings.preferredSavedSectionPresetID = id
                     appState.settings.sectionOrder = saved.sectionOrder
                     appState.settings.enabledSections = saved.enabledSections
-                    appState.save()
+                    appState.saveSettings()
                 case .custom:
                     appState.settings.prefersCustomSectionPreset = true
                     appState.settings.preferredSavedSectionPresetID = nil
-                    appState.save()
+                    appState.saveSettings()
                 }
             }
         )
@@ -81,7 +79,7 @@ struct SectionsTabView: View {
 
     private func toggleAllEnabled() {
         appState.settings.enabledSections = allEnabled ? [] : Set(SectionID.allCases)
-        appState.save()
+        appState.saveSettings()
     }
 
     var body: some View {
@@ -171,18 +169,22 @@ struct SectionsTabView: View {
                             }
                             .onDrop(
                                 of: [.text],
-                                delegate: SectionReorderDropDelegate(
-                                    target: section,
-                                    sectionOrder: $appState.settings.sectionOrder,
-                                    draggingSection: $draggingSection,
-                                    onReorder: { appState.save() }
+                                delegate: ReorderDropDelegate(
+                                    targetID: section,
+                                    orderedIDs: appState.settings.sectionOrder,
+                                    draggingID: $draggingSection,
+                                    onMove: { from, to in
+                                        appState.settings.sectionOrder.move(
+                                            fromOffsets: IndexSet(integer: from),
+                                            toOffset: to
+                                        )
+                                    },
+                                    onDrop: { appState.saveSettings() }
                                 )
                             )
                     }
                 }
-                .background(Theme.settingsCardFill)
-                .clipShape(RoundedRectangle(cornerRadius: 9))
-                .overlay(RoundedRectangle(cornerRadius: 9).strokeBorder(Theme.borderColor, lineWidth: 1))
+                .settingsCardChrome()
 
                 SettingsDocsFooter()
             }
@@ -233,14 +235,7 @@ struct SectionsTabView: View {
                 Text("Remove this saved preset? Your current section layout is unchanged.")
             }
         }
-        .alert("Couldn't complete that", isPresented: Binding(
-            get: { csvErrorMessage != nil },
-            set: { if !$0 { csvErrorMessage = nil } }
-        )) {
-            Button("OK", role: .cancel) { csvErrorMessage = nil }
-        } message: {
-            Text(csvErrorMessage ?? "")
-        }
+        .csvErrorAlert($csvErrorMessage)
     }
 
     private func sectionRow(_ section: SectionID) -> some View {
@@ -345,7 +340,7 @@ struct SectionsTabView: View {
         // Prefer the saved preset even when its layout also matches a built-in.
         appState.settings.prefersCustomSectionPreset = false
         appState.settings.preferredSavedSectionPresetID = savedID
-        appState.save()
+        appState.saveSettings()
     }
 
     private func attemptRenamePreset(to rawName: String) {
@@ -360,7 +355,7 @@ struct SectionsTabView: View {
         }
         guard let index = appState.settings.savedSectionPresets.firstIndex(where: { $0.id == selected.id }) else { return }
         appState.settings.savedSectionPresets[index].name = name
-        appState.save()
+        appState.saveSettings()
         isPresentingRenameSheet = false
     }
 
@@ -370,7 +365,7 @@ struct SectionsTabView: View {
         if appState.settings.preferredSavedSectionPresetID == selected.id {
             appState.settings.preferredSavedSectionPresetID = nil
         }
-        appState.save()
+        appState.saveSettings()
     }
 
     private func bindingFor(section: SectionID) -> Binding<Bool> {
@@ -382,7 +377,7 @@ struct SectionsTabView: View {
                 } else {
                     appState.settings.enabledSections.remove(section)
                 }
-                appState.save()
+                appState.saveSettings()
             }
         )
     }
@@ -390,23 +385,17 @@ struct SectionsTabView: View {
     // MARK: - Preset library CSV
 
     private func exportPresetsCSV() {
-        let panel = NSSavePanel()
-        panel.nameFieldStringValue = "storefront-section-presets.csv"
-        panel.allowedContentTypes = [.commaSeparatedText]
-        guard panel.runModal() == .OK, let url = panel.url else { return }
+        guard let url = CSVFilePanel.exportURL(defaultName: "storefront-section-presets.csv") else { return }
         do {
             try appState.sectionPresetsCSV().write(to: url, atomically: true, encoding: .utf8)
         } catch {
-            logger.error("Presets CSV export failed: \(error.localizedDescription, privacy: .public)")
+            settingsCSVLogger.error("Presets CSV export failed: \(error.localizedDescription, privacy: .public)")
             csvErrorMessage = "Couldn't save the presets CSV: \(error.localizedDescription)"
         }
     }
 
     private func importPresetsCSV() {
-        let panel = NSOpenPanel()
-        panel.allowedContentTypes = [.commaSeparatedText]
-        panel.allowsMultipleSelection = false
-        guard panel.runModal() == .OK, let url = panel.url else { return }
+        guard let url = CSVFilePanel.importURL() else { return }
         do {
             let contents = try String(contentsOf: url, encoding: .utf8)
             let upserted = appState.importSectionPresetsCSV(contents)
@@ -414,7 +403,7 @@ struct SectionsTabView: View {
                 csvErrorMessage = "No presets found in that file. Expected a CSV with Preset, Section, and Enabled columns."
             }
         } catch {
-            logger.error("Presets CSV import failed: \(error.localizedDescription, privacy: .public)")
+            settingsCSVLogger.error("Presets CSV import failed: \(error.localizedDescription, privacy: .public)")
             csvErrorMessage = "Couldn't read that file — make sure it's a valid UTF-8 CSV."
         }
     }
@@ -422,38 +411,3 @@ struct SectionsTabView: View {
 
 // MARK: - Drag reorder
 
-private struct SectionReorderDropDelegate: DropDelegate {
-    let target: SectionID
-    @Binding var sectionOrder: [SectionID]
-    @Binding var draggingSection: SectionID?
-    let onReorder: () -> Void
-
-    func validateDrop(info: DropInfo) -> Bool {
-        draggingSection != nil
-    }
-
-    func dropEntered(info: DropInfo) {
-        guard let draggingSection,
-              draggingSection != target,
-              let from = sectionOrder.firstIndex(of: draggingSection),
-              let to = sectionOrder.firstIndex(of: target)
-        else { return }
-
-        withAnimation(.easeInOut(duration: 0.15)) {
-            sectionOrder.move(
-                fromOffsets: IndexSet(integer: from),
-                toOffset: to > from ? to + 1 : to
-            )
-        }
-    }
-
-    func performDrop(info: DropInfo) -> Bool {
-        draggingSection = nil
-        onReorder()
-        return true
-    }
-
-    func dropUpdated(info: DropInfo) -> DropProposal? {
-        DropProposal(operation: .move)
-    }
-}

@@ -1,5 +1,5 @@
+import Observation
 import SwiftUI
-import Combine
 import ServiceManagement
 
 /// Which part of the panel keyboard navigation currently targets — the store rail
@@ -44,39 +44,54 @@ enum SettingsTab: String, Hashable, CaseIterable, Identifiable {
     }
 }
 
+/// `@Observable` rather than `ObservableObject`: this one object backs both the panel
+/// and the whole Settings tree, and holds per-keystroke state (`query`, `searchQueries`).
+/// With `objectWillChange` semantics a single character typed into the rail invalidated
+/// every view that held it — the rail, all 11 section cards and ~30 link rows. Observation
+/// tracks reads per property, so only the views that actually read what changed re-run.
+@Observable
 @MainActor
-final class AppState: ObservableObject {
-    @Published var stores: [Store]
-    @Published var selectedStoreID: Store.ID?
-    @Published var query: String = ""
-    @Published var settings: AppSettings
-    @Published var focusArea: PanelFocusArea = .rail
-    @Published var focusedSectionIndex: Int = 0
-    @Published var focusedRowIndex: Int = 0
+final class AppState {
+    var stores: [Store]
+    var selectedStoreID: Store.ID?
+    var query: String = ""
+    var settings: AppSettings
+    var focusArea: PanelFocusArea = .rail
+    var focusedSectionIndex: Int = 0
+    var focusedRowIndex: Int = 0
     /// Bumped only by keyboard card navigation so the detail column scrolls for arrows,
     /// not when hover/click updates the focused section.
-    @Published private(set) var cardScrollGeneration: UInt = 0
+    private(set) var cardScrollGeneration: UInt = 0
     /// After a keyboard-driven scroll, card-link hover activation stays off until the
     /// pointer actually moves — so a stationary mouse that lands on a link mid-scroll
     /// does not steal the active row.
-    @Published private(set) var cardLinkHoverArmed = true
-    @Published var selectedSettingsTab: SettingsTab = .general
+    private(set) var cardLinkHoverArmed = true
+    var selectedSettingsTab: SettingsTab = .general
     /// Sparkle found an OTA update — panel rail shows an Update button while true.
-    @Published var updateAvailable = false
-    /// Bumped when appearance changes so Settings can remount and pick up fresh
-    /// dynamic colors (Dark → System was leaving cards/sidebar stuck dark).
-    @Published private(set) var appearanceRevision: UInt = 0
+    var updateAvailable = false
+    /// Bumped when the *stored* appearance preference changes so Settings can remount and
+    /// pick up fresh dynamic colors (Dark → System was leaving cards/sidebar stuck dark).
+    private(set) var appearanceRevision: UInt = 0
+    /// Bumped when the *system* appearance flips. Distinct from `appearanceRevision`,
+    /// which drives a `.id()` remount of the whole Settings window — far too heavy to do
+    /// on every OS theme change. Nothing stored changes on a system flip, but
+    /// `AppearancePreference.colorScheme` resolves `.system` against
+    /// `NSApp.effectiveAppearance` at call time, so views that apply
+    /// `.preferredColorScheme` need an explicit signal to re-evaluate.
+    private(set) var systemAppearanceRevision: UInt = 0
     /// Row IDs whose inline search field is currently expanded, per store — shared here
     /// (rather than local view state) so a keyboard shortcut can toggle a row's search
     /// regardless of which `CardLinkRow` instance it belongs to, and keyed per store so
     /// switching stores doesn't show/hide an unrelated store's search boxes.
-    @Published var expandedSearchRowIDs: [Store.ID: Set<String>] = [:]
+    var expandedSearchRowIDs: [Store.ID: Set<String>] = [:]
     /// Typed-but-not-yet-cleared search text per store/row, so switching stores and back
     /// (which tears down and recreates `CardLinkRow`, discarding any local `@State`)
     /// doesn't lose what the user typed.
-    @Published var searchQueries: [Store.ID: [String: String]] = [:]
+    var searchQueries: [Store.ID: [String: String]] = [:]
 
-    private let persistence: PersistenceStore
+    @ObservationIgnored private let persistence: PersistenceStore
+    /// In-flight debounced store write — see `scheduleSaveStores()`.
+    @ObservationIgnored private var pendingStoreSave: Task<Void, Never>?
 
     init(persistence: PersistenceStore = .shared) {
         self.persistence = persistence
@@ -112,37 +127,42 @@ final class AppState: ObservableObject {
         } catch {
             settings.launchAtLogin = SMAppService.mainApp.status == .enabled
         }
-        save()
+        saveSettings()
     }
 
     func setAppearancePreference(_ preference: AppearancePreference) {
         settings.appearancePreference = preference
         AppearancePreference.apply(preference)
         appearanceRevision &+= 1
-        save()
+        saveSettings()
+    }
+
+    /// Call when macOS itself flips Light↔Dark. See `systemAppearanceRevision`.
+    func noteSystemAppearanceChanged() {
+        systemAppearanceRevision &+= 1
     }
 
     func setAppIconPreference(_ preference: AppIconPreference) {
         settings.appIconPreference = preference
         AppIconPreference.apply(preference)
-        save()
+        saveSettings()
     }
 
     func setMenuBarIconPreference(_ preference: MenuBarIconPreference) {
         settings.menuBarIconPreference = preference
         AppDelegate.shared?.applyMenuBarIcon()
-        save()
+        saveSettings()
     }
 
     func setOpaqueMenuBarWidget(_ opaque: Bool) {
         settings.opaqueMenuBarWidget = opaque
         AppDelegate.shared?.applyPanelBackgroundOpacity(opaque)
-        save()
+        saveSettings()
     }
 
     func setOpenUnderMouse(_ enabled: Bool) {
         settings.openUnderMouse = enabled
-        save()
+        saveSettings()
     }
 
     /// Favorited stores first (starring moves a store to the top), each group
@@ -308,9 +328,45 @@ final class AppState: ObservableObject {
         }
     }
 
+    /// Writes both files. Prefer `saveStores()` / `saveSettings()` where only one
+    /// domain changed — each `save()` re-encodes and atomically rewrites *both*.
     func save() {
+        saveStores()
+        saveSettings()
+    }
+
+    func saveStores() {
+        pendingStoreSave?.cancel()
+        pendingStoreSave = nil
         persistence.save(stores: stores)
+    }
+
+    func saveSettings() {
         persistence.save(settings: settings)
+    }
+
+    /// Coalesces bursts of store writes. `NSColorPanel` emits continuous updates while
+    /// the user drags the color wheel, and each one was re-encoding and atomically
+    /// rewriting stores.json. Anything that can fire at drag rate should use this;
+    /// discrete actions stay on the immediate path.
+    func scheduleSaveStores() {
+        pendingStoreSave?.cancel()
+        pendingStoreSave = Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(300))
+            guard !Task.isCancelled else { return }
+            guard let self else { return }
+            self.pendingStoreSave = nil
+            self.persistence.save(stores: self.stores)
+        }
+    }
+
+    /// Writes anything still in flight. Must be called before the app can go away, or a
+    /// debounced change made in the last 300 ms is lost.
+    func flushPendingSaves() {
+        guard pendingStoreSave != nil else { return }
+        pendingStoreSave?.cancel()
+        pendingStoreSave = nil
+        persistence.save(stores: stores)
     }
 
     func addStore(domain: String, displayName: String, colorHex: String) {
@@ -319,7 +375,7 @@ final class AppState: ObservableObject {
         let store = Store(accountID: accountID, myshopifyDomain: domain, displayName: displayName, colorHex: colorHex, sortOrder: nextOrder)
         stores.append(store)
         if selectedStoreID == nil { selectedStoreID = store.id }
-        save()
+        saveStores()
         fetchFavicon(for: store)
     }
 
@@ -329,7 +385,7 @@ final class AppState: ObservableObject {
         let domainChanged = stores[index].myshopifyDomain != domain
         stores[index].displayName = displayName
         stores[index].myshopifyDomain = domain
-        save()
+        saveStores()
         if domainChanged {
             FaviconStore.shared.remove(storeID: store.id)
             fetchFavicon(for: stores[index], force: true)
@@ -368,52 +424,15 @@ final class AppState: ObservableObject {
         let rows = CSV.parse(contents)
         for row in rows.dropFirst() where row.count >= 2 {
             let displayName = row[0].trimmingCharacters(in: .whitespaces)
-            var domain = row[1].trimmingCharacters(in: .whitespaces)
-            guard !displayName.isEmpty, !domain.isEmpty else { continue }
-            if !domain.hasSuffix(".myshopify.com") {
-                domain = domain.replacingOccurrences(of: ".myshopify.com", with: "") + ".myshopify.com"
-            }
+            let rawDomain = row[1].trimmingCharacters(in: .whitespaces)
+            guard !displayName.isEmpty, !rawDomain.isEmpty else { continue }
+            let domain = Store.normalizedDomain(rawDomain)
             guard !stores.contains(where: { $0.myshopifyDomain == domain }) else { continue }
             let colorHex = row.count >= 3 && !row[2].isEmpty ? row[2] : palette[stores.count % palette.count]
             addStore(domain: domain, displayName: displayName, colorHex: colorHex)
             added += 1
         }
         return added
-    }
-
-    /// "Section,Title,Enabled" — one row per section, in panel order.
-    func sectionsCSV() -> String {
-        var lines = ["Section,Title,Enabled"]
-        for section in settings.sectionOrder {
-            let enabled = settings.enabledSections.contains(section) ? "true" : "false"
-            lines.append("\(section.rawValue),\(CSV.escape(section.title)),\(enabled)")
-        }
-        return lines.joined(separator: "\n")
-    }
-
-    /// Replaces section order and enabled state from a CSV. Unknown IDs are skipped;
-    /// any sections missing from the file are appended (still enabled) at the end.
-    /// Returns the number of recognized section rows applied.
-    @discardableResult
-    func importSectionsCSV(_ contents: String) -> Int {
-        let rows = CSV.parse(contents)
-        guard !rows.isEmpty else { return 0 }
-
-        let dataRows: [[String]]
-        let first = rows[0].map { $0.trimmingCharacters(in: .whitespaces).lowercased() }
-        if first.first == "section" || first.first == "id" {
-            dataRows = Array(rows.dropFirst())
-        } else {
-            dataRows = rows
-        }
-
-        guard let layout = Self.parseSectionLayoutRows(dataRows) else { return 0 }
-        settings.sectionOrder = layout.order
-        settings.enabledSections = layout.enabled
-        settings.prefersCustomSectionPreset = false
-        settings.preferredSavedSectionPresetID = nil
-        save()
-        return layout.applied
     }
 
     /// "Preset,Section,Title,Enabled" — one row per section per saved preset (built-ins omitted).
@@ -501,7 +520,7 @@ final class AppState: ObservableObject {
         }
 
         guard upserted > 0 else { return 0 }
-        save()
+        saveSettings()
         return upserted
     }
 
@@ -555,32 +574,19 @@ final class AppState: ObservableObject {
     func toggleFavorite(_ store: Store) {
         guard let index = stores.firstIndex(where: { $0.id == store.id }) else { return }
         stores[index].isFavorite.toggle()
-        save()
+        saveStores()
     }
 
     func removeStore(_ store: Store) {
         stores.removeAll { $0.id == store.id }
         FaviconStore.shared.remove(storeID: store.id)
-        save()
+        saveStores()
     }
 
     func removeAllStores() {
         stores.removeAll()
         FaviconStore.shared.removeAll()
         selectedStoreID = nil
-        save()
+        saveStores()
     }
-
-    func moveStore(fromOffsets: IndexSet, toOffset: Int) {
-        var ordered = stores.sorted { $0.sortOrder < $1.sortOrder }
-        ordered.move(fromOffsets: fromOffsets, toOffset: toOffset)
-        for (index, var store) in ordered.enumerated() {
-            store.sortOrder = index
-            if let idx = stores.firstIndex(where: { $0.id == store.id }) {
-                stores[idx] = store
-            }
-        }
-        save()
-    }
-
 }

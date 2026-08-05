@@ -5,11 +5,10 @@ import AppKit
 struct StoreFaviconView: View {
     let store: Store
     var size: CGFloat = 18
-    var cornerRadius: CGFloat? = nil
 
     @ObservedObject private var favicons = FaviconStore.shared
 
-    private var radius: CGFloat { cornerRadius ?? size * 0.22 }
+    private var radius: CGFloat { size * 0.22 }
 
     var body: some View {
         Group {

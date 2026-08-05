@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct GeneralTabView: View {
-    @EnvironmentObject var appState: AppState
+    @Environment(AppState.self) private var appState
 
     var body: some View {
         ScrollView {

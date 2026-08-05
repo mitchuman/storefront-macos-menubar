@@ -3,10 +3,8 @@ import AppKit
 import UniformTypeIdentifiers
 import OSLog
 
-private let logger = Logger(subsystem: "com.humanmarketing.storefront", category: "csv")
-
 struct StoresTabView: View {
-    @EnvironmentObject var appState: AppState
+    @Environment(AppState.self) private var appState
     @State private var isAddingStore = false
     @State private var editingStore: Store?
     @State private var storePendingDeletion: Store?
@@ -31,6 +29,11 @@ struct StoresTabView: View {
 
     var body: some View {
         ScrollView {
+            // Sorted once per body — `orderedStores` re-sorts on every access, and the
+            // row loop below reads it for each row's drop delegate and last-row check.
+            let ordered = orderedStores
+            let orderedIDs = ordered.map(\.id)
+
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
                     Text("Drag rows to reorder. Hidden stores stay out of the panel.")
@@ -44,29 +47,29 @@ struct StoresTabView: View {
                 }
 
                 VStack(spacing: 0) {
-                    ForEach(orderedStores) { store in
-                        storeRow(store: store)
+                    ForEach(ordered) { store in
+                        storeRow(store: store, isLast: store.id == ordered.last?.id)
                             .onDrag {
                                 draggingStoreID = store.id
                                 return NSItemProvider(object: store.id.uuidString as NSString)
                             }
                             .onDrop(
                                 of: [.text],
-                                delegate: StoreReorderDropDelegate(
+                                delegate: ReorderDropDelegate(
                                     targetID: store.id,
-                                    orderedIDs: orderedStores.map(\.id),
-                                    draggingStoreID: $draggingStoreID,
+                                    orderedIDs: orderedIDs,
+                                    draggingID: $draggingStoreID,
                                     onMove: { from, to in
                                         reorderStores(from: from, to: to, save: false)
                                     },
                                     onDrop: {
-                                        appState.save()
+                                        appState.saveStores()
                                     }
                                 )
                             )
                     }
 
-                    if !orderedStores.isEmpty {
+                    if !ordered.isEmpty {
                         SettingsGroupedDivider(leadingInset: SettingsRowMetrics.afterReorderSeparatorLeading)
                     }
 
@@ -110,9 +113,7 @@ struct StoresTabView: View {
                     .padding(.horizontal, SettingsRowMetrics.horizontalPadding)
                     .padding(.vertical, 9)
                 }
-                .background(Theme.settingsCardFill)
-                .clipShape(RoundedRectangle(cornerRadius: 9))
-                .overlay(RoundedRectangle(cornerRadius: 9).strokeBorder(Theme.borderColor, lineWidth: 1))
+                .settingsCardChrome()
 
                 SettingsGroupedCard {
                     SettingsGroupedRow(
@@ -165,14 +166,7 @@ struct StoresTabView: View {
         } message: {
             Text("This can't be undone. Export a CSV first if you want to restore this list later.")
         }
-        .alert("Couldn't complete that", isPresented: Binding(
-            get: { csvErrorMessage != nil },
-            set: { if !$0 { csvErrorMessage = nil } }
-        )) {
-            Button("OK", role: .cancel) { csvErrorMessage = nil }
-        } message: {
-            Text(csvErrorMessage ?? "")
-        }
+        .csvErrorAlert($csvErrorMessage)
         .alert("Favicons", isPresented: Binding(
             get: { faviconRefreshMessage != nil },
             set: { if !$0 { faviconRefreshMessage = nil } }
@@ -192,10 +186,10 @@ struct StoresTabView: View {
         for index in appState.stores.indices {
             appState.stores[index].isVisible = newValue
         }
-        appState.save()
+        appState.saveStores()
     }
 
-    private func storeRow(store: Store) -> some View {
+    private func storeRow(store: Store, isLast: Bool) -> some View {
         VStack(spacing: 0) {
             HStack(spacing: Column.spacing) {
                 Image(systemName: "line.3.horizontal")
@@ -256,7 +250,7 @@ struct StoresTabView: View {
             .padding(.vertical, 9)
             .opacity(draggingStoreID == store.id ? 0.45 : 1)
 
-            if store.id != orderedStores.last?.id {
+            if !isLast {
                 SettingsGroupedDivider(leadingInset: SettingsRowMetrics.afterReorderSeparatorLeading)
             }
         }
@@ -268,7 +262,7 @@ struct StoresTabView: View {
             set: { newValue in
                 guard let index = appState.stores.firstIndex(where: { $0.id == store.id }) else { return }
                 appState.stores[index].isVisible = newValue
-                appState.save()
+                appState.saveStores()
             }
         )
     }
@@ -314,7 +308,7 @@ struct StoresTabView: View {
             appState.stores[idx].sortOrder = index
         }
         if save {
-            appState.save()
+            appState.saveStores()
         }
     }
 
@@ -324,7 +318,8 @@ struct StoresTabView: View {
             set: { newColor in
                 guard let index = appState.stores.firstIndex(where: { $0.id == store.id }) else { return }
                 appState.stores[index].colorHex = newColor.hexString
-                appState.save()
+                // NSColorPanel fires continuously while the wheel is dragged.
+                appState.scheduleSaveStores()
             }
         )
     }
@@ -413,10 +408,7 @@ struct StoresTabView: View {
     }
 
     private func addStore() {
-        var domain = newDomain.trimmingCharacters(in: .whitespaces)
-        if !domain.hasSuffix(".myshopify.com") {
-            domain = domain.replacingOccurrences(of: ".myshopify.com", with: "") + ".myshopify.com"
-        }
+        let domain = Store.normalizedDomain(newDomain)
         appState.addStore(domain: domain, displayName: newDisplayName, colorHex: newColorHex)
         newDomain = ""
         newDisplayName = ""
@@ -424,10 +416,7 @@ struct StoresTabView: View {
     }
 
     private func saveEdits(to store: Store) {
-        var domain = newDomain.trimmingCharacters(in: .whitespaces)
-        if !domain.hasSuffix(".myshopify.com") {
-            domain = domain.replacingOccurrences(of: ".myshopify.com", with: "") + ".myshopify.com"
-        }
+        let domain = Store.normalizedDomain(newDomain)
         appState.updateStore(store, displayName: newDisplayName, domain: domain)
         editingStore = nil
     }
@@ -435,28 +424,22 @@ struct StoresTabView: View {
     // MARK: - CSV import/export
 
     private func exportCSV() {
-        let panel = NSSavePanel()
-        panel.nameFieldStringValue = "storefront-stores.csv"
-        panel.allowedContentTypes = [.commaSeparatedText]
-        guard panel.runModal() == .OK, let url = panel.url else { return }
+        guard let url = CSVFilePanel.exportURL(defaultName: "storefront-stores.csv") else { return }
         do {
             try appState.storesCSV().write(to: url, atomically: true, encoding: .utf8)
         } catch {
-            logger.error("CSV export failed: \(error.localizedDescription, privacy: .public)")
+            settingsCSVLogger.error("CSV export failed: \(error.localizedDescription, privacy: .public)")
             csvErrorMessage = "Couldn't save the CSV file: \(error.localizedDescription)"
         }
     }
 
     private func importCSV() {
-        let panel = NSOpenPanel()
-        panel.allowedContentTypes = [.commaSeparatedText]
-        panel.allowsMultipleSelection = false
-        guard panel.runModal() == .OK, let url = panel.url else { return }
+        guard let url = CSVFilePanel.importURL() else { return }
         do {
             let contents = try String(contentsOf: url, encoding: .utf8)
             appState.importStoresCSV(contents)
         } catch {
-            logger.error("CSV import failed: \(error.localizedDescription, privacy: .public)")
+            settingsCSVLogger.error("CSV import failed: \(error.localizedDescription, privacy: .public)")
             csvErrorMessage = "Couldn't read that file — make sure it's a valid UTF-8 CSV."
         }
     }
@@ -464,39 +447,6 @@ struct StoresTabView: View {
 
 // MARK: - Drag reorder
 
-private struct StoreReorderDropDelegate: DropDelegate {
-    let targetID: Store.ID
-    let orderedIDs: [Store.ID]
-    @Binding var draggingStoreID: Store.ID?
-    let onMove: (_ from: Int, _ to: Int) -> Void
-    let onDrop: () -> Void
-
-    func validateDrop(info: DropInfo) -> Bool {
-        draggingStoreID != nil
-    }
-
-    func dropEntered(info: DropInfo) {
-        guard let draggingStoreID,
-              draggingStoreID != targetID,
-              let from = orderedIDs.firstIndex(of: draggingStoreID),
-              let to = orderedIDs.firstIndex(of: targetID)
-        else { return }
-
-        withAnimation(.easeInOut(duration: 0.15)) {
-            onMove(from, to > from ? to + 1 : to)
-        }
-    }
-
-    func performDrop(info: DropInfo) -> Bool {
-        draggingStoreID = nil
-        onDrop()
-        return true
-    }
-
-    func dropUpdated(info: DropInfo) -> DropProposal? {
-        DropProposal(operation: .move)
-    }
-}
 
 private extension View {
     /// Applied at both the outer Stores list and inside the edit sheet, since a
