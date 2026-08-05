@@ -192,13 +192,7 @@ final class CaretTintedNSTextField: NSTextField {
 extension NSColor {
     /// Opaque sRGB color from a `"rrggbb"` / `"#rrggbb"` hex string.
     convenience init(hex: String) {
-        var hexString = hex.trimmingCharacters(in: .whitespacesAndNewlines)
-        hexString = hexString.replacingOccurrences(of: "#", with: "")
-        var value: UInt64 = 0
-        Scanner(string: hexString).scanHexInt64(&value)
-        let r = CGFloat((value >> 16) & 0xFF) / 255
-        let g = CGFloat((value >> 8) & 0xFF) / 255
-        let b = CGFloat(value & 0xFF) / 255
-        self.init(srgbRed: r, green: g, blue: b, alpha: 1)
+        let (r, g, b) = HexColor.components(hex)
+        self.init(srgbRed: r / 255, green: g / 255, blue: b / 255, alpha: 1)
     }
 }

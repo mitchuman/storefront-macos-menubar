@@ -38,20 +38,9 @@ struct Store: Identifiable, Codable, Equatable {
     /// Automatic a11y text color for content drawn on top of this store's accent color —
     /// black on light accents, white on dark ones, via a standard luma calculation.
     var accentTextColor: Color {
-        let (r, g, b) = Store.rgbComponents(fromHex: colorHex)
+        let (r, g, b) = HexColor.components(colorHex)
         let luma = 0.299 * r + 0.587 * g + 0.114 * b
         return luma > 150 ? .black : .white
-    }
-
-    private static func rgbComponents(fromHex hex: String) -> (Double, Double, Double) {
-        var hexString = hex.trimmingCharacters(in: .whitespacesAndNewlines)
-        hexString = hexString.replacingOccurrences(of: "#", with: "")
-        var value: UInt64 = 0
-        Scanner(string: hexString).scanHexInt64(&value)
-        let r = Double((value >> 16) & 0xFF)
-        let g = Double((value >> 8) & 0xFF)
-        let b = Double(value & 0xFF)
-        return (r, g, b)
     }
 
     var initials: String {
@@ -87,9 +76,23 @@ struct Store: Identifiable, Codable, Equatable {
         return result
     }
 
+    static let domainSuffix = ".myshopify.com"
+
     /// The store "handle" used in admin.shopify.com URLs, i.e. the domain minus ".myshopify.com".
     static func handle(fromDomain domain: String) -> String {
-        domain.replacingOccurrences(of: ".myshopify.com", with: "")
+        domain.replacingOccurrences(of: domainSuffix, with: "")
+    }
+
+    /// A user-typed domain coerced to a full `<handle>.myshopify.com`. Accepts either a
+    /// bare handle or a complete domain.
+    ///
+    /// Behaviour is deliberately identical to the three copies this replaced, down to
+    /// `replacingOccurrences` stripping *every* occurrence of the suffix — so an input
+    /// like `a.myshopify.com.b` normalizes oddly. Worth fixing, but as its own change.
+    static func normalizedDomain(_ raw: String) -> String {
+        let trimmed = raw.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.hasSuffix(domainSuffix) else { return trimmed }
+        return trimmed.replacingOccurrences(of: domainSuffix, with: "") + domainSuffix
     }
 
     var handle: String { Store.handle(fromDomain: myshopifyDomain) }
@@ -98,16 +101,28 @@ struct Store: Identifiable, Codable, Equatable {
     var shopURL: URL? { URL(string: "https://\(myshopifyDomain)") }
 }
 
-extension Color {
-    init(hex: String) {
+/// The one place a `"rrggbb"` / `"#rrggbb"` string is parsed. Previously this same
+/// Scanner routine existed three times, including once inside a file about text-field
+/// tuning, where nobody would look for it.
+enum HexColor {
+    /// Red, green and blue in `0...255`.
+    static func components(_ hex: String) -> (r: Double, g: Double, b: Double) {
         var hexString = hex.trimmingCharacters(in: .whitespacesAndNewlines)
         hexString = hexString.replacingOccurrences(of: "#", with: "")
         var value: UInt64 = 0
         Scanner(string: hexString).scanHexInt64(&value)
-        let r = Double((value >> 16) & 0xFF) / 255
-        let g = Double((value >> 8) & 0xFF) / 255
-        let b = Double(value & 0xFF) / 255
-        self.init(red: r, green: g, blue: b)
+        return (
+            Double((value >> 16) & 0xFF),
+            Double((value >> 8) & 0xFF),
+            Double(value & 0xFF)
+        )
+    }
+}
+
+extension Color {
+    init(hex: String) {
+        let (r, g, b) = HexColor.components(hex)
+        self.init(red: r / 255, green: g / 255, blue: b / 255)
     }
 
     /// Converts this color to a "rrggbb" hex string, for persisting user-picked colors.

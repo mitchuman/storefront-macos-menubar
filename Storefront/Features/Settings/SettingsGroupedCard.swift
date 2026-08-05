@@ -24,6 +24,21 @@ struct SettingsGroupedDivider: View {
     }
 }
 
+extension View {
+    /// The Settings card surface: fill, rounded clip, hairline border. Four panes had
+    /// this same trio inlined — two of them with a non-continuous corner curve, which
+    /// this normalizes.
+    func settingsCardChrome() -> some View {
+        self
+            .background(Theme.settingsCardFill)
+            .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                    .strokeBorder(Theme.borderColor, lineWidth: 1)
+            )
+    }
+}
+
 /// Full-width bordered group for settings rows (cmux-style card chrome).
 struct SettingsGroupedCard<Content: View>: View {
     @ViewBuilder let content: Content
@@ -36,12 +51,7 @@ struct SettingsGroupedCard<Content: View>: View {
         VStack(alignment: .leading, spacing: 0) {
             content
         }
-        .background(Theme.settingsCardFill)
-        .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 9, style: .continuous)
-                .strokeBorder(Theme.borderColor, lineWidth: 1)
-        )
+        .settingsCardChrome()
     }
 }
 
@@ -175,5 +185,93 @@ extension View {
                 bar()
             }
         }
+    }
+}
+
+// MARK: - Shared drag-reorder
+
+/// Drag-reorder drop delegate for the Settings list rows. The Stores and Sections panes
+/// each carried their own copy, identical down to the `to > from ? to + 1 : to` fixup.
+struct ReorderDropDelegate<ID: Hashable>: DropDelegate {
+    let targetID: ID
+    let orderedIDs: [ID]
+    @Binding var draggingID: ID?
+    /// Receives the destination index with the drag-past-self fixup already applied.
+    let onMove: (_ from: Int, _ to: Int) -> Void
+    let onDrop: () -> Void
+
+    func validateDrop(info: DropInfo) -> Bool {
+        draggingID != nil
+    }
+
+    func dropEntered(info: DropInfo) {
+        guard let draggingID,
+              draggingID != targetID,
+              let from = orderedIDs.firstIndex(of: draggingID),
+              let to = orderedIDs.firstIndex(of: targetID)
+        else { return }
+
+        withAnimation(.easeInOut(duration: 0.15)) {
+            onMove(from, to > from ? to + 1 : to)
+        }
+    }
+
+    func performDrop(info: DropInfo) -> Bool {
+        draggingID = nil
+        onDrop()
+        return true
+    }
+
+    func dropUpdated(info: DropInfo) -> DropProposal? {
+        DropProposal(operation: .move)
+    }
+}
+
+// MARK: - Shortcut badges
+
+/// Fill behind a shortcut badge. Keybindings tints against the card; How to use sits on
+/// a lighter surface and needs more contrast — the only thing that ever differed between
+/// the two panes' otherwise identical badge code.
+enum SettingsBadgeFill {
+    static let onCard = Color.adaptive(light: .black.opacity(0.06), dark: .white.opacity(0.06))
+    static let onSurface = Color.adaptive(light: .white, dark: .white.opacity(0.12))
+}
+
+private struct SettingsBadgeChrome: ViewModifier {
+    let fill: Color
+
+    func body(content: Content) -> some View {
+        content
+            .foregroundStyle(Theme.textMeta40)
+            .padding(.horizontal, 7)
+            .padding(.vertical, 3)
+            .frame(minHeight: 22)
+            .background(fill)
+            .clipShape(RoundedRectangle(cornerRadius: 5))
+            .overlay(RoundedRectangle(cornerRadius: 5).strokeBorder(Theme.borderColor.opacity(0.7), lineWidth: 1))
+    }
+}
+
+/// A key combo rendered as a keycap chip.
+struct SettingsKeyBadge: View {
+    let combo: KeyCombo
+    var fill: Color = SettingsBadgeFill.onCard
+
+    var body: some View {
+        KeyComboView(combo: combo, font: .system(size: 11, weight: .medium), glyphHeight: 12)
+            .modifier(SettingsBadgeChrome(fill: fill))
+    }
+}
+
+/// A plain-text chip matching `SettingsKeyBadge` (e.g. "Click", "Drag").
+struct SettingsTextBadge: View {
+    let label: String
+    var fill: Color = SettingsBadgeFill.onCard
+
+    var body: some View {
+        Text(label)
+            .font(.system(size: 11, weight: .medium))
+            .frame(height: 12)
+            .modifier(SettingsBadgeChrome(fill: fill))
     }
 }

@@ -424,11 +424,9 @@ final class AppState {
         let rows = CSV.parse(contents)
         for row in rows.dropFirst() where row.count >= 2 {
             let displayName = row[0].trimmingCharacters(in: .whitespaces)
-            var domain = row[1].trimmingCharacters(in: .whitespaces)
-            guard !displayName.isEmpty, !domain.isEmpty else { continue }
-            if !domain.hasSuffix(".myshopify.com") {
-                domain = domain.replacingOccurrences(of: ".myshopify.com", with: "") + ".myshopify.com"
-            }
+            let rawDomain = row[1].trimmingCharacters(in: .whitespaces)
+            guard !displayName.isEmpty, !rawDomain.isEmpty else { continue }
+            let domain = Store.normalizedDomain(rawDomain)
             guard !stores.contains(where: { $0.myshopifyDomain == domain }) else { continue }
             let colorHex = row.count >= 3 && !row[2].isEmpty ? row[2] : palette[stores.count % palette.count]
             addStore(domain: domain, displayName: displayName, colorHex: colorHex)

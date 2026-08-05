@@ -154,7 +154,7 @@ struct HowToUseTabView: View {
                                 HStack(spacing: 6) {
                                     if !bullet.customBadges.isEmpty {
                                         ForEach(bullet.customBadges, id: \.self) { label in
-                                            textBadge(label)
+                                            SettingsTextBadge(label: label, fill: SettingsBadgeFill.onSurface)
                                         }
                                     } else {
                                         ForEach(Array(bullet.combos.enumerated()), id: \.offset) { index, combo in
@@ -163,7 +163,7 @@ struct HowToUseTabView: View {
                                                     .font(.system(size: 11, weight: .medium))
                                                     .foregroundStyle(Theme.textMeta40)
                                             }
-                                            keyBadge(combo)
+                                            SettingsKeyBadge(combo: combo, fill: SettingsBadgeFill.onSurface)
                                         }
                                     }
                                 }
@@ -187,36 +187,8 @@ struct HowToUseTabView: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Theme.settingsCardFill)
-            .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 9, style: .continuous)
-                    .strokeBorder(Theme.borderColor, lineWidth: 1)
-            )
+            .settingsCardChrome()
         }
     }
 
-    private func keyBadge(_ combo: KeyCombo) -> some View {
-        KeyComboView(combo: combo, font: .system(size: 11, weight: .medium), glyphHeight: 12)
-            .foregroundStyle(Theme.textMeta40)
-            .padding(.horizontal, 7)
-            .padding(.vertical, 3)
-            .frame(minHeight: 22)
-            .background(Color.adaptive(light: .white, dark: .white.opacity(0.12)))
-            .clipShape(RoundedRectangle(cornerRadius: 5))
-            .overlay(RoundedRectangle(cornerRadius: 5).strokeBorder(Theme.borderColor.opacity(0.7), lineWidth: 1))
-    }
-
-    private func textBadge(_ label: String) -> some View {
-        Text(label)
-            .font(.system(size: 11, weight: .medium))
-            .foregroundStyle(Theme.textMeta40)
-            .frame(height: 12)
-            .padding(.horizontal, 7)
-            .padding(.vertical, 3)
-            .frame(minHeight: 22)
-            .background(Color.adaptive(light: .white, dark: .white.opacity(0.12)))
-            .clipShape(RoundedRectangle(cornerRadius: 5))
-            .overlay(RoundedRectangle(cornerRadius: 5).strokeBorder(Theme.borderColor.opacity(0.7), lineWidth: 1))
-    }
 }
