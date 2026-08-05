@@ -224,7 +224,7 @@ struct KeybindingsTabView: View {
         case .globalHotkey:
             if GlobalHotKeyManager.shared.updateCombo(newCombo) {
                 appState.settings.globalHotkey = newCombo
-                appState.save()
+                appState.saveSettings()
                 globalHotkeyError = nil
             } else {
                 globalHotkeyError = "Couldn't register that shortcut — try a different combo."
@@ -232,19 +232,19 @@ struct KeybindingsTabView: View {
             }
         case .openAdmin:
             appState.settings.openAdminHotkey = newCombo
-            appState.save()
+            appState.saveSettings()
         case .openOnlineStore:
             appState.settings.openOnlineStoreHotkey = newCombo
-            appState.save()
+            appState.saveSettings()
         case .focusSearch:
             appState.settings.focusSearchHotkey = newCombo
-            appState.save()
+            appState.saveSettings()
         case .toggleLinkSearch:
             appState.settings.toggleLinkSearchHotkey = newCombo
-            appState.save()
+            appState.saveSettings()
         case .openCreateLink:
             appState.settings.openCreateLinkHotkey = newCombo
-            appState.save()
+            appState.saveSettings()
         }
     }
 

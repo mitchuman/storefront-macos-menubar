@@ -65,7 +65,7 @@ struct StoresTabView: View {
                                         reorderStores(from: from, to: to, save: false)
                                     },
                                     onDrop: {
-                                        appState.save()
+                                        appState.saveStores()
                                     }
                                 )
                             )
@@ -197,7 +197,7 @@ struct StoresTabView: View {
         for index in appState.stores.indices {
             appState.stores[index].isVisible = newValue
         }
-        appState.save()
+        appState.saveStores()
     }
 
     private func storeRow(store: Store, isLast: Bool) -> some View {
@@ -273,7 +273,7 @@ struct StoresTabView: View {
             set: { newValue in
                 guard let index = appState.stores.firstIndex(where: { $0.id == store.id }) else { return }
                 appState.stores[index].isVisible = newValue
-                appState.save()
+                appState.saveStores()
             }
         )
     }
@@ -319,7 +319,7 @@ struct StoresTabView: View {
             appState.stores[idx].sortOrder = index
         }
         if save {
-            appState.save()
+            appState.saveStores()
         }
     }
 
@@ -329,7 +329,8 @@ struct StoresTabView: View {
             set: { newColor in
                 guard let index = appState.stores.firstIndex(where: { $0.id == store.id }) else { return }
                 appState.stores[index].colorHex = newColor.hexString
-                appState.save()
+                // NSColorPanel fires continuously while the wheel is dragged.
+                appState.scheduleSaveStores()
             }
         )
     }

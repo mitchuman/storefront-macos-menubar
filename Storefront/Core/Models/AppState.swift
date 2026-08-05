@@ -90,6 +90,8 @@ final class AppState {
     var searchQueries: [Store.ID: [String: String]] = [:]
 
     @ObservationIgnored private let persistence: PersistenceStore
+    /// In-flight debounced store write — see `scheduleSaveStores()`.
+    @ObservationIgnored private var pendingStoreSave: Task<Void, Never>?
 
     init(persistence: PersistenceStore = .shared) {
         self.persistence = persistence
@@ -125,14 +127,14 @@ final class AppState {
         } catch {
             settings.launchAtLogin = SMAppService.mainApp.status == .enabled
         }
-        save()
+        saveSettings()
     }
 
     func setAppearancePreference(_ preference: AppearancePreference) {
         settings.appearancePreference = preference
         AppearancePreference.apply(preference)
         appearanceRevision &+= 1
-        save()
+        saveSettings()
     }
 
     /// Call when macOS itself flips Light↔Dark. See `systemAppearanceRevision`.
@@ -143,24 +145,24 @@ final class AppState {
     func setAppIconPreference(_ preference: AppIconPreference) {
         settings.appIconPreference = preference
         AppIconPreference.apply(preference)
-        save()
+        saveSettings()
     }
 
     func setMenuBarIconPreference(_ preference: MenuBarIconPreference) {
         settings.menuBarIconPreference = preference
         AppDelegate.shared?.applyMenuBarIcon()
-        save()
+        saveSettings()
     }
 
     func setOpaqueMenuBarWidget(_ opaque: Bool) {
         settings.opaqueMenuBarWidget = opaque
         AppDelegate.shared?.applyPanelBackgroundOpacity(opaque)
-        save()
+        saveSettings()
     }
 
     func setOpenUnderMouse(_ enabled: Bool) {
         settings.openUnderMouse = enabled
-        save()
+        saveSettings()
     }
 
     /// Favorited stores first (starring moves a store to the top), each group
@@ -326,9 +328,45 @@ final class AppState {
         }
     }
 
+    /// Writes both files. Prefer `saveStores()` / `saveSettings()` where only one
+    /// domain changed — each `save()` re-encodes and atomically rewrites *both*.
     func save() {
+        saveStores()
+        saveSettings()
+    }
+
+    func saveStores() {
+        pendingStoreSave?.cancel()
+        pendingStoreSave = nil
         persistence.save(stores: stores)
+    }
+
+    func saveSettings() {
         persistence.save(settings: settings)
+    }
+
+    /// Coalesces bursts of store writes. `NSColorPanel` emits continuous updates while
+    /// the user drags the color wheel, and each one was re-encoding and atomically
+    /// rewriting stores.json. Anything that can fire at drag rate should use this;
+    /// discrete actions stay on the immediate path.
+    func scheduleSaveStores() {
+        pendingStoreSave?.cancel()
+        pendingStoreSave = Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(300))
+            guard !Task.isCancelled else { return }
+            guard let self else { return }
+            self.pendingStoreSave = nil
+            self.persistence.save(stores: self.stores)
+        }
+    }
+
+    /// Writes anything still in flight. Must be called before the app can go away, or a
+    /// debounced change made in the last 300 ms is lost.
+    func flushPendingSaves() {
+        guard pendingStoreSave != nil else { return }
+        pendingStoreSave?.cancel()
+        pendingStoreSave = nil
+        persistence.save(stores: stores)
     }
 
     func addStore(domain: String, displayName: String, colorHex: String) {
@@ -337,7 +375,7 @@ final class AppState {
         let store = Store(accountID: accountID, myshopifyDomain: domain, displayName: displayName, colorHex: colorHex, sortOrder: nextOrder)
         stores.append(store)
         if selectedStoreID == nil { selectedStoreID = store.id }
-        save()
+        saveStores()
         fetchFavicon(for: store)
     }
 
@@ -347,7 +385,7 @@ final class AppState {
         let domainChanged = stores[index].myshopifyDomain != domain
         stores[index].displayName = displayName
         stores[index].myshopifyDomain = domain
-        save()
+        saveStores()
         if domainChanged {
             FaviconStore.shared.remove(storeID: store.id)
             fetchFavicon(for: stores[index], force: true)
@@ -484,7 +522,7 @@ final class AppState {
         }
 
         guard upserted > 0 else { return 0 }
-        save()
+        saveSettings()
         return upserted
     }
 
@@ -538,19 +576,19 @@ final class AppState {
     func toggleFavorite(_ store: Store) {
         guard let index = stores.firstIndex(where: { $0.id == store.id }) else { return }
         stores[index].isFavorite.toggle()
-        save()
+        saveStores()
     }
 
     func removeStore(_ store: Store) {
         stores.removeAll { $0.id == store.id }
         FaviconStore.shared.remove(storeID: store.id)
-        save()
+        saveStores()
     }
 
     func removeAllStores() {
         stores.removeAll()
         FaviconStore.shared.removeAll()
         selectedStoreID = nil
-        save()
+        saveStores()
     }
 }

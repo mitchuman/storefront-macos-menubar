@@ -93,6 +93,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         false
     }
 
+    /// Store writes made in the last moments before quit are debounced (see
+    /// `AppState.scheduleSaveStores`) — write them out or they're lost.
+    func applicationWillTerminate(_ notification: Notification) {
+        appState.flushPendingSaves()
+    }
+
     // MARK: - Status item
 
     /// Wipe any leftover "hidden by ⌘-drag" flags for our autosave name (and a few
@@ -205,7 +211,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             var settings = appState.settings
             settings.showInDock = true
             appState.settings = settings
-            appState.save()
+            appState.saveSettings()
             applyActivationPolicy()
         }
 
@@ -351,6 +357,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func closePanel() {
+        appState.flushPendingSaves()
         popover?.performClose(nil)
         hideFloatingPanel()
     }
@@ -546,7 +553,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         var settings = appState.settings
         settings.showInMenuBar = enabled
         appState.settings = settings
-        appState.save()
+        appState.saveSettings()
         // Switching surfaces — close whichever panel is up so we don't leave a
         // floating window around after restoring the menu bar icon (or vice versa).
         closePanel()
@@ -563,7 +570,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         var settings = appState.settings
         settings.showInDock = enabled
         appState.settings = settings
-        appState.save()
+        appState.saveSettings()
         applyActivationPolicy()
         if enabled {
             NSApp.activate(ignoringOtherApps: true)

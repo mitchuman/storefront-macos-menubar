@@ -62,18 +62,18 @@ struct SectionsTabView: View {
                     appState.settings.preferredSavedSectionPresetID = nil
                     appState.settings.sectionOrder = layout.order
                     appState.settings.enabledSections = layout.enabled
-                    appState.save()
+                    appState.saveSettings()
                 case .saved(let id):
                     guard let saved = appState.settings.savedSectionPresets.first(where: { $0.id == id }) else { return }
                     appState.settings.prefersCustomSectionPreset = false
                     appState.settings.preferredSavedSectionPresetID = id
                     appState.settings.sectionOrder = saved.sectionOrder
                     appState.settings.enabledSections = saved.enabledSections
-                    appState.save()
+                    appState.saveSettings()
                 case .custom:
                     appState.settings.prefersCustomSectionPreset = true
                     appState.settings.preferredSavedSectionPresetID = nil
-                    appState.save()
+                    appState.saveSettings()
                 }
             }
         )
@@ -81,7 +81,7 @@ struct SectionsTabView: View {
 
     private func toggleAllEnabled() {
         appState.settings.enabledSections = allEnabled ? [] : Set(SectionID.allCases)
-        appState.save()
+        appState.saveSettings()
     }
 
     var body: some View {
@@ -179,7 +179,7 @@ struct SectionsTabView: View {
                                     target: section,
                                     sectionOrder: $appState.settings.sectionOrder,
                                     draggingSection: $draggingSection,
-                                    onReorder: { appState.save() }
+                                    onReorder: { appState.saveSettings() }
                                 )
                             )
                     }
@@ -349,7 +349,7 @@ struct SectionsTabView: View {
         // Prefer the saved preset even when its layout also matches a built-in.
         appState.settings.prefersCustomSectionPreset = false
         appState.settings.preferredSavedSectionPresetID = savedID
-        appState.save()
+        appState.saveSettings()
     }
 
     private func attemptRenamePreset(to rawName: String) {
@@ -364,7 +364,7 @@ struct SectionsTabView: View {
         }
         guard let index = appState.settings.savedSectionPresets.firstIndex(where: { $0.id == selected.id }) else { return }
         appState.settings.savedSectionPresets[index].name = name
-        appState.save()
+        appState.saveSettings()
         isPresentingRenameSheet = false
     }
 
@@ -374,7 +374,7 @@ struct SectionsTabView: View {
         if appState.settings.preferredSavedSectionPresetID == selected.id {
             appState.settings.preferredSavedSectionPresetID = nil
         }
-        appState.save()
+        appState.saveSettings()
     }
 
     private func bindingFor(section: SectionID) -> Binding<Bool> {
@@ -386,7 +386,7 @@ struct SectionsTabView: View {
                 } else {
                     appState.settings.enabledSections.remove(section)
                 }
-                appState.save()
+                appState.saveSettings()
             }
         )
     }
