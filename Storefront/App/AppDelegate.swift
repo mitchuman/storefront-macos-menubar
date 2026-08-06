@@ -759,29 +759,55 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// Keeps the menu bar panel popover, floating panel, and Settings windows on the
     /// chosen appearance without overriding `NSApp.appearance` (which would recolor
-    /// the status icon).
+    /// the status icon). Shopify theme forces the panel to light aqua; Settings still
+    /// follows the stored Appearance preference.
     func applyAppearancePreference(_ preference: AppearancePreference) {
         NSApp.appearance = nil
-        let appearance = preference.nsAppearance
+        let settingsAppearance = preference.nsAppearance
+        let panelAppearance: NSAppearance = {
+            if appState.settings.widgetThemePreference.isShopify {
+                return NSAppearance(named: .aqua) ?? settingsAppearance
+            }
+            return settingsAppearance
+        }()
 
-        popover?.appearance = appearance
-        popover?.contentViewController?.view.appearance = appearance
+        popover?.appearance = panelAppearance
+        popover?.contentViewController?.view.appearance = panelAppearance
 
-        floatingPanel?.appearance = appearance
-        floatingPanelHosting?.view.appearance = appearance
+        floatingPanel?.appearance = panelAppearance
+        floatingPanelHosting?.view.appearance = panelAppearance
 
         for window in NSApp.windows where Self.isSettingsWindow(window) {
-            window.appearance = appearance
-            window.contentView?.appearance = appearance
+            window.appearance = settingsAppearance
+            window.contentView?.appearance = settingsAppearance
         }
 
         statusItem?.button?.window?.appearance = nil
         applyPanelBackgroundOpacity(appState.settings.opaqueMenuBarWidget)
     }
 
-    /// Opaque mode fills the hosting view so popover vibrancy doesn’t leak under SwiftUI;
-    /// transparent mode stays clear so Liquid Glass / vibrancy show through.
+    /// Opaque / Shopify mode fills the hosting view so popover vibrancy doesn’t leak
+    /// under SwiftUI; transparent mode stays clear so Liquid Glass / vibrancy show through.
+    /// Also paints the popover frame view so the beak/triangle matches the panel body.
     func applyPanelBackgroundOpacity(_ opaque: Bool) {
+        let isShopify = appState.settings.widgetThemePreference.isShopify
+        let shouldFill = opaque || isShopify
+
+        var fillColor: NSColor?
+        if shouldFill {
+            if isShopify {
+                fillColor = Theme.Shopify.pageBackgroundNSColor
+            } else if let view = popover?.contentViewController?.view
+                ?? floatingPanelHosting?.view
+            {
+                view.effectiveAppearance.performAsCurrentDrawingAppearance {
+                    fillColor = NSColor.windowBackgroundColor
+                }
+            } else {
+                fillColor = NSColor.windowBackgroundColor
+            }
+        }
+
         let views = [
             popover?.contentViewController?.view,
             floatingPanelHosting?.view,
@@ -789,15 +815,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         for view in views {
             view.wantsLayer = true
-            if opaque {
-                var resolved: CGColor?
-                view.effectiveAppearance.performAsCurrentDrawingAppearance {
-                    resolved = NSColor.windowBackgroundColor.cgColor
-                }
-                view.layer?.backgroundColor = resolved
-            } else {
-                view.layer?.backgroundColor = NSColor.clear.cgColor
-            }
+            view.layer?.backgroundColor = fillColor?.cgColor ?? NSColor.clear.cgColor
+        }
+
+        applyPopoverBeakBackground(fillColor: fillColor)
+    }
+
+    /// Colors the NSPopover window frame (the view that includes the arrow/beak).
+    /// Content-view fill alone leaves the triangle on system vibrancy.
+    private func applyPopoverBeakBackground(fillColor: NSColor?) {
+        guard let contentView = popover?.contentViewController?.view else { return }
+        // `contentView.superview` is the popover’s shaped frame view (body + beak).
+        guard let frameView = contentView.superview else { return }
+
+        frameView.wantsLayer = true
+        if let fillColor {
+            frameView.layer?.backgroundColor = fillColor.cgColor
+        } else {
+            frameView.layer?.backgroundColor = NSColor.clear.cgColor
         }
     }
 
@@ -835,7 +870,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 }
 
-extension AppDelegate: NSPopoverDelegate {}
+extension AppDelegate: NSPopoverDelegate {
+    /// Frame view (incl. beak) only exists once the popover window is about to appear.
+    func popoverWillShow(_ notification: Notification) {
+        applyPanelBackgroundOpacity(appState.settings.opaqueMenuBarWidget)
+    }
+}
 
 /// Everything the status item shows: the Storefront glyph, then the starred stores'
 /// favicons on a subtle rounded plate. Living inside one `NSStatusItem` is what makes

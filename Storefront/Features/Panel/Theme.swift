@@ -1,6 +1,27 @@
 import SwiftUI
 import AppKit
 
+/// Resolved chrome for the menu bar widget — drives fills, borders, and shadows.
+enum WidgetChrome: Equatable {
+    /// Native Liquid Glass / vibrancy.
+    case macOSGlass
+    /// Native opaque elevated surfaces.
+    case macOSOpaque
+    /// Shopify Admin / Polaris flat surfaces.
+    case shopify
+
+    static func current(settings: AppSettings) -> WidgetChrome {
+        if settings.widgetThemePreference.isShopify { return .shopify }
+        return settings.opaqueMenuBarWidget ? .macOSOpaque : .macOSGlass
+    }
+
+    var isShopify: Bool { self == .shopify }
+    var isOpaque: Bool { self != .macOSGlass }
+
+    /// Polaris uses circular arcs; macOS chrome keeps continuous squircles.
+    var cornerStyle: RoundedCornerStyle { isShopify ? .circular : .continuous }
+}
+
 enum Theme {
     static let errorDot = Color(hex: "c0562c")
     /// Hotkey recorder “listening” label.
@@ -36,6 +57,34 @@ enum Theme {
     static let textMeta36 = Color.adaptive(light: .black.opacity(0.36), dark: .white.opacity(0.36))
     static let textMeta30 = Color.adaptive(light: .black.opacity(0.3), dark: .white.opacity(0.35))
     static let textMeta25 = Color.adaptive(light: .black.opacity(0.25), dark: .white.opacity(0.3))
+
+    /// Shopify Admin / Polaris tokens (light only — matches admin Settings).
+    enum Shopify {
+        /// Page / panel body (`bg-surface-secondary`).
+        static let pageBackground = Color(hex: "f1f1f1")
+        /// Card / sidebar surface.
+        static let surface = Color.white
+        /// Default border (`border-secondary`).
+        static let border = Color(hex: "e3e3e3")
+        /// Softer hairlines inside surfaces.
+        static let hairline = Color(hex: "ebebeb")
+        /// Nav / row hover + selected fill.
+        static let hoverFill = Color(hex: "f1f1f1")
+        static let controlFill = Color(hex: "f1f1f1")
+        /// Search field fill (white with border, not a gray wash).
+        static let searchFill = Color.white
+        static let searchBorder = Color(hex: "c9cccf")
+        static let textPrimary = Color(hex: "303030")
+        static let textSecondary = Color(hex: "616161")
+        static let textMeta = Color(hex: "8a8a8a")
+        /// Polaris action / link blue.
+        static let link = Color(hex: "005bd3")
+        /// AppKit fill for the hosting view under SwiftUI.
+        static var pageBackgroundNSColor: NSColor { NSColor(hex: "f1f1f1") }
+
+        /// Soft 1px ring on floating rail / section cards.
+        static let cardRing = Color(hex: "e2e2e2")
+    }
 
     static let panelSize = CGSize(width: 560, height: 520)
     static let railWidth: CGFloat = 186
@@ -74,6 +123,74 @@ enum Theme {
 extension Font {
     static func mono(_ size: CGFloat, weight: Font.Weight = .regular) -> Font {
         .system(size: size, weight: weight, design: .monospaced)
+    }
+
+    /// Bundled Inter face (Shopify theme). PostScript names from Inter 4.x static TTFs.
+    static func inter(_ size: CGFloat, weight: Font.Weight = .regular) -> Font {
+        .custom(InterFont.postScriptName(for: weight), size: size)
+    }
+
+    /// Panel UI type — Inter under Shopify, system otherwise.
+    static func panel(_ size: CGFloat, weight: Font.Weight = .regular, shopify: Bool) -> Font {
+        shopify ? .inter(size, weight: weight) : .system(size: size, weight: weight)
+    }
+}
+
+private enum InterFont {
+    static func postScriptName(for weight: Font.Weight) -> String {
+        if weight == .bold || weight == .heavy || weight == .black {
+            return "Inter-Bold"
+        }
+        if weight == .semibold {
+            return "Inter-SemiBold"
+        }
+        if weight == .medium {
+            return "Inter-Medium"
+        }
+        return "Inter-Regular"
+    }
+}
+
+extension View {
+    /// Border + elevation for the floating store rail and section cards.
+    ///
+    /// Shopify uses Polaris’s layered card shadow (approx.):
+    /// `rgba(0,0,0,0.03) 0 5px 5px -2.5px, … , rgba(0,0,0,0.06) 0 0 0 1px`.
+    @ViewBuilder
+    func floatingCardChrome(
+        chrome: WidgetChrome,
+        cornerRadius: CGFloat,
+        macOSShadowRadius: CGFloat,
+        macOSShadowY: CGFloat
+    ) -> some View {
+        switch chrome {
+        case .shopify:
+            self
+                .overlay {
+                    RoundedRectangle(cornerRadius: cornerRadius, style: .circular)
+                        .strokeBorder(Theme.Shopify.cardRing, lineWidth: 1)
+                }
+                .shopifyCardShadow()
+        case .macOSOpaque:
+            self
+                .overlay {
+                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                        .strokeBorder(Theme.cardBorder, lineWidth: 1)
+                }
+                .shadow(color: Theme.panelElevatedShadow, radius: macOSShadowRadius, y: macOSShadowY)
+        case .macOSGlass:
+            self
+        }
+    }
+
+    /// Soft stacked shadows matching Polaris card elevation (spread approximated away).
+    func shopifyCardShadow() -> some View {
+        self
+            .shadow(color: .black.opacity(0.014), radius: 1.75, y: 3)
+            .shadow(color: .black.opacity(0.01), radius: 1, y: 2)
+            .shadow(color: .black.opacity(0.01), radius: 0.6, y: 1.25)
+            .shadow(color: .black.opacity(0.014), radius: 0.3, y: 0.5)
+            .shadow(color: .black.opacity(0.018), radius: 0.15, y: 0.25)
     }
 }
 

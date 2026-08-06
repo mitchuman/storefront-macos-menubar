@@ -29,6 +29,7 @@ enum SettingsSearchIndex {
         hit("pane.keybindings", "Keybindings", "Keybindings", .keybindings, ["hotkey", "keyboard", "keymap", "shortcuts"]),
         hit("pane.howToUse", "How to use", "How to use", .howToUse, ["guide", "help", "onboarding", "getting started", "tutorial"]),
         hit("pane.general", "General", "General", .general, ["preferences", "options"]),
+        hit("pane.appearance", "Appearance", "Appearance", .appearance, ["theme", "icon", "look", "visual"]),
         hit("pane.about", "About", "About", .about, ["version", "credits", "update"]),
 
         // Stores
@@ -75,15 +76,18 @@ enum SettingsSearchIndex {
         hit("keybindings.escape", "Step back, then close the panel", "Keybindings", .keybindings, ["escape", "esc"]),
 
         // General
-        hit("general.appearance", "Appearance", "General", .general, ["theme", "light", "dark", "system", "auto"]),
-        hit("general.opaqueBackground", "Widget background", "General", .general, ["opaque", "transparent", "glass", "vibrancy", "liquid glass", "widget"]),
-        hit("general.appIcon", "App Icon", "General", .general, ["icon", "dock", "light", "dark", "auto", "system"]),
-        hit("general.menuBarIcon", "Menu bar icon", "General", .general, ["bag", "cart", "store", "status item", "menu bar", "outline", "filled"]),
         hit("general.login", "Launch at login", "General", .general, ["startup", "login item"]),
         hit("general.menubar", "Show in menu bar", "General", .general, ["status item", "menu bar"]),
         hit("general.starredMenuBar", "Starred stores in menu bar", "General", .general, ["favorite", "star", "favicon", "status item", "menu bar"]),
         hit("general.openUnderMouse", "Open under mouse", "General", .general, ["pointer", "cursor", "floating", "popover", "menu bar icon"]),
         hit("general.dock", "Show in Dock", "General", .general, ["dock icon", "activation"]),
+
+        // Appearance
+        hit("appearance.theme", "Theme", "Appearance", .appearance, ["macos", "shopify", "polaris", "admin"]),
+        hit("appearance.appearance", "Appearance", "Appearance", .appearance, ["theme", "light", "dark", "system", "auto"]),
+        hit("appearance.opaqueBackground", "Widget background", "Appearance", .appearance, ["opaque", "transparent", "glass", "vibrancy", "liquid glass", "widget"]),
+        hit("appearance.appIcon", "App Icon", "Appearance", .appearance, ["icon", "dock", "light", "dark", "auto", "system"]),
+        hit("appearance.menuBarIcon", "Menu bar icon", "Appearance", .appearance, ["bag", "cart", "store", "status item", "menu bar", "outline", "filled"]),
 
         // How to use
         hit("howto.addStores", "Add your stores", "How to use", .howToUse, ["add store", "myshopify", "import csv"]),
@@ -92,8 +96,9 @@ enum SettingsSearchIndex {
 
         // About
         hit("about.version", "Version", "About", .about, ["build", "release"]),
-        hit("about.repo", "Repository", "About", .about, ["github", "source"]),
+        hit("about.repo", "Repository", "About", .about, ["github", "source", "changelog", "releases"]),
         hit("about.website", "Website", "About", .about, ["homepage", "site", "docs", "documentation", "help", "guide"]),
+        hit("about.changelog", "Changelog", "About", .about, ["releases", "github", "what's new", "release notes"]),
         hit("about.dev", "Developed by", "About", .about, ["nuotsu", "author"]),
         hit("about.updates", "Check for Updates", "About", .about, ["sparkle", "update"]),
         hit("about.feedback", "Send Feedback", "About", .about, ["contact", "support", "feedback"]),

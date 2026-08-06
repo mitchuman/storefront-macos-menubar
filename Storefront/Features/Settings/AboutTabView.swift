@@ -6,6 +6,7 @@ struct AboutTabView: View {
     private static let repoURL = URL(string: "https://github.com/nuotsu/storefront-macos-menubar")!
     private static let siteURL = URL(string: "https://storefront.nuotsu.dev")!
     private static let docsURL = URL(string: "https://storefront.nuotsu.dev/docs")!
+    private static let changelogURL = URL(string: "https://github.com/nuotsu/storefront-macos-menubar/releases")!
     private static let feedbackURL = URL(string: "https://storefront.nuotsu.dev/contact?source=settings-about")!
 
     var body: some View {
@@ -41,7 +42,12 @@ struct AboutTabView: View {
                     .padding(.vertical, 0)
 
                     LabeledContent("Repository") {
-                        Link("GitHub", destination: Self.repoURL)
+                        HStack(spacing: 6) {
+                            Link("GitHub", destination: Self.repoURL)
+                            Text("·")
+                                .foregroundStyle(Theme.textMeta40)
+                            Link("Changelog", destination: Self.changelogURL)
+                        }
                     }
                     .padding(.vertical, 0)
 

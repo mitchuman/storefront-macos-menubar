@@ -59,10 +59,10 @@ struct StoreDetailView: View {
     var body: some View {
         let sections = enabledSections
         let focusedSectionIndex = appState.focusArea == .cards ? appState.focusedSectionIndex : -1
+        let chrome = WidgetChrome.current(settings: appState.settings)
 
-        // Same recipe as Settings → Keybindings: soft `scrollEdgeEffectStyle` under a
-        // top bar. `safeAreaBar` is the popover stand-in for the Settings titleband
-        // that the system progressive blur attaches to.
+        // macOS: soft progressive blur under a top bar (`safeAreaBar` + scroll edge).
+        // Shopify: solid Polaris-style header band — no blur/transparency.
         ScrollViewReader { scrollProxy in
             ScrollView {
                 Grid(horizontalSpacing: 8, verticalSpacing: 8) {
@@ -91,10 +91,9 @@ struct StoreDetailView: View {
                 }
                 .padding(12)
             }
-            .settingsTopScrollEdgeBlur()
-            .detailHeaderSafeAreaBar {
-                header
-            }
+            .modifier(StoreDetailScrollHeaderModifier(chrome: chrome) {
+                header(chrome: chrome)
+            })
             // Scroll only when keyboard navigation bumps `cardScrollGeneration` — not when
             // hover/click updates `focusedSectionIndex`.
             .onChange(of: appState.cardScrollGeneration) { _, _ in
@@ -111,13 +110,14 @@ struct StoreDetailView: View {
         }
     }
 
-    private var header: some View {
-        VStack(alignment: .leading, spacing: 0) {
+    private func header(chrome: WidgetChrome) -> some View {
+        let isShopify = chrome.isShopify
+        return VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 8) {
                 StoreFaviconView(store: store, size: 22)
                 Text(store.displayName)
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(Theme.textPrimary)
+                    .font(.panel(16, weight: .semibold, shopify: isShopify))
+                    .foregroundStyle(isShopify ? Theme.Shopify.textPrimary : Theme.textPrimary)
                     // Floating panel: drag from the title like a native titlebar label.
                     .modifier(PanelWindowDragModifier(enabled: !appState.settings.showInMenuBar || appState.settings.openUnderMouse))
             }
@@ -153,6 +153,37 @@ struct StoreDetailView: View {
         .padding(.top, 12)
         .padding(.bottom, 12)
         .frame(maxWidth: .infinity, alignment: .leading)
+        .background(isShopify ? Theme.Shopify.pageBackground : Color.clear)
+        .overlay(alignment: .bottom) {
+            if isShopify {
+                Rectangle()
+                    .fill(Theme.Shopify.hairline)
+                    .frame(height: 1)
+            }
+        }
+    }
+}
+
+/// Pins the store header above the section grid.
+/// Shopify uses a solid inset (no progressive blur); macOS keeps the soft scroll-edge recipe.
+private struct StoreDetailScrollHeaderModifier<Header: View>: ViewModifier {
+    let chrome: WidgetChrome
+    @ViewBuilder let header: () -> Header
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if chrome.isShopify {
+            content
+                .safeAreaInset(edge: .top, spacing: 0) {
+                    header()
+                }
+        } else {
+            content
+                .settingsTopScrollEdgeBlur()
+                .detailHeaderSafeAreaBar {
+                    header()
+                }
+        }
     }
 }
 
@@ -163,6 +194,7 @@ private struct CopyableHandleView: View {
     let handle: String
     let domain: String
     let accentColor: Color
+    @Environment(AppState.self) private var appState
     @State private var hoveringHandle = false
     @State private var hoveringSuffix = false
     @State private var didCopy = false
@@ -170,19 +202,33 @@ private struct CopyableHandleView: View {
 
     private static let suffix = ".myshopify.com"
 
+    private var isShopify: Bool {
+        appState.settings.widgetThemePreference.isShopify
+    }
+
     private var handleColor: Color {
-        (hoveringHandle || hoveringSuffix) ? Theme.textBody : Theme.textSecondary
+        if isShopify {
+            return (hoveringHandle || hoveringSuffix) ? Theme.Shopify.textPrimary : Theme.Shopify.textSecondary
+        }
+        return (hoveringHandle || hoveringSuffix) ? Theme.textBody : Theme.textSecondary
     }
 
     private var suffixColor: Color {
-        hoveringSuffix ? Theme.textBody : Theme.textMeta30
+        if isShopify {
+            return hoveringSuffix ? Theme.Shopify.textPrimary : Theme.Shopify.textMeta
+        }
+        return hoveringSuffix ? Theme.textBody : Theme.textMeta30
+    }
+
+    private var handleFont: Font {
+        .mono(10.5)
     }
 
     var body: some View {
         HStack(spacing: 4) {
             HStack(spacing: 0) {
                 Text(handle)
-                    .font(.mono(10.5))
+                    .font(handleFont)
                     .foregroundStyle(handleColor)
                     .overlay(alignment: .bottom) {
                         TightDashUnderline(color: handleColor)
@@ -194,7 +240,7 @@ private struct CopyableHandleView: View {
                     .help("Copy handle")
 
                 Text(Self.suffix)
-                    .font(.mono(10.5))
+                    .font(handleFont)
                     .foregroundStyle(suffixColor)
                     .overlay(alignment: .bottom) {
                         TightDashUnderline(color: suffixColor)
@@ -206,7 +252,7 @@ private struct CopyableHandleView: View {
                     .help("Copy domain")
             }
             Image(systemName: "checkmark")
-                .font(.system(size: 9, weight: .bold))
+                .font(.panel(9, weight: .bold, shopify: isShopify))
                 .foregroundStyle(accentColor)
                 .opacity(didCopy ? 1 : 0)
         }
@@ -295,11 +341,29 @@ private struct HeaderActionButton: View {
     /// underline as a mnemonic for the panel shortcut.
     var shortcutLetter: Character? = nil
     let action: () -> Void
+    @Environment(AppState.self) private var appState
 
-    private var shape: RoundedRectangle { RoundedRectangle(cornerRadius: 6) }
+    private var isShopify: Bool {
+        appState.settings.widgetThemePreference.isShopify
+    }
 
+    private var shape: RoundedRectangle {
+        RoundedRectangle(cornerRadius: isShopify ? 8 : 6, style: isShopify ? .circular : .continuous)
+    }
+
+    /// macOS: lighter at the top. Shopify/Polaris: inverted — darker top, lighter bottom.
     private var fill: LinearGradient {
-        LinearGradient(
+        if isShopify {
+            return LinearGradient(
+                colors: [
+                    Color.black.composited(over: background, alpha: 0.06),
+                    Color.white.composited(over: background, alpha: 0.05),
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+        }
+        return LinearGradient(
             colors: [
                 Color.white.composited(over: background, alpha: 0.12),
                 background,
@@ -345,19 +409,32 @@ private struct HeaderActionButton: View {
                 .scaledToFit()
                 .frame(width: 13, height: 13)
             titledText
-                .font(.system(size: 11, weight: .medium))
+                .font(.panel(11, weight: .medium, shopify: isShopify))
         }
-            .foregroundStyle(foreground)
-            .padding(.horizontal, 9)
-            .padding(.vertical, 5)
-            .background {
-                shape
-                    .fill(fill)
-                    .shadow(color: .black.opacity(0.14), radius: 1, y: 0.5)
-            }
-            .overlay(shape.strokeBorder(Color.white.opacity(0.25), lineWidth: 0.5))
-            .contentShape(shape)
-            .onTapGesture(perform: action)
+        .foregroundStyle(foreground)
+        .padding(.horizontal, 9)
+        .padding(.vertical, 5)
+        .background { buttonChrome }
+        .contentShape(shape)
+        .onTapGesture(perform: action)
+    }
+
+    @ViewBuilder
+    private var buttonChrome: some View {
+        if isShopify {
+            // Polaris primary-style: inverted fill + outer border + soft lift shadow.
+            shape
+                .fill(fill)
+                .overlay {
+                    shape.strokeBorder(Color.black.opacity(0.16), lineWidth: 0.5)
+                }
+                .shadow(color: .black.opacity(0.08), radius: 1, y: 0.5)
+        } else {
+            shape
+                .fill(fill)
+                .shadow(color: .black.opacity(0.14), radius: 1, y: 0.5)
+                .overlay(shape.strokeBorder(Color.white.opacity(0.25), lineWidth: 0.5))
+        }
     }
 }
 
@@ -372,15 +449,19 @@ struct SectionCardView: View {
     @Environment(AppState.self) private var appState
 
     private var rows: [LinkRow] { StaticLinkCatalog.rows(for: section) }
-    private var isOpaque: Bool { appState.settings.opaqueMenuBarWidget }
+    private var chrome: WidgetChrome { WidgetChrome.current(settings: appState.settings) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 6) {
-                Text(section.title.uppercased())
-                    .font(.mono(9.5, weight: .semibold))
-                    .tracking(1.2)
-                    .foregroundStyle(Theme.textMeta40)
+                Text(chrome.isShopify ? section.title : section.title.uppercased())
+                    .font(
+                        chrome.isShopify
+                            ? .inter(12, weight: .semibold)
+                            : .mono(9.5, weight: .semibold)
+                    )
+                    .tracking(chrome.isShopify ? 0 : 1.2)
+                    .foregroundStyle(chrome.isShopify ? Theme.Shopify.textSecondary : Theme.textMeta40)
                     .lineLimit(1)
                 Spacer(minLength: 4)
                 if isFocused {
@@ -388,8 +469,8 @@ struct SectionCardView: View {
                         Image(systemName: "arrow.up")
                         Image(systemName: "arrow.down")
                     }
-                    .font(.system(size: 8, weight: .medium))
-                    .foregroundStyle(Theme.textMeta25)
+                    .font(.panel(8, weight: .medium, shopify: chrome.isShopify))
+                    .foregroundStyle(chrome.isShopify ? Theme.Shopify.textMeta : Theme.textMeta25)
                 }
             }
             .padding(.horizontal, 6)
@@ -421,21 +502,23 @@ struct SectionCardView: View {
         // Clip only the backdrop so row hover shadows aren't cut off.
         .background {
             Group {
-                if isOpaque {
+                switch chrome {
+                case .shopify:
+                    Theme.Shopify.surface
+                case .macOSOpaque:
                     Theme.panelOpaqueElevatedFill
-                } else {
+                case .macOSGlass:
                     SidebarGlassBackground(cornerRadius: 9)
                 }
             }
-            .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: 9, style: chrome.cornerStyle))
         }
-        .overlay {
-            if isOpaque {
-                RoundedRectangle(cornerRadius: 9, style: .continuous)
-                    .strokeBorder(Theme.cardBorder, lineWidth: 1)
-            }
-        }
-        .shadow(color: isOpaque ? Theme.panelElevatedShadow : .clear, radius: 3, y: 1)
+        .floatingCardChrome(
+            chrome: chrome,
+            cornerRadius: 9,
+            macOSShadowRadius: 3,
+            macOSShadowY: 1
+        )
     }
 }
 
@@ -481,6 +564,10 @@ private struct CardLinkRow: View {
 
     private var hasTrailingActions: Bool { row.createAction != nil || row.supportsSearch }
 
+    private var isShopify: Bool {
+        appState.settings.widgetThemePreference.isShopify
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .center, spacing: 6) {
@@ -490,9 +577,19 @@ private struct CardLinkRow: View {
                         .resizable()
                         .scaledToFit()
                         .frame(width: 14, height: 14)
-                        .foregroundStyle(isActive ? Theme.textBody : Theme.textMeta40)
+                        .foregroundStyle(
+                            isShopify
+                                ? (isActive ? Theme.Shopify.textPrimary : Theme.Shopify.textMeta)
+                                : (isActive ? Theme.textBody : Theme.textMeta40)
+                        )
                     Text(row.title)
-                        .font(.system(size: 12, weight: row.emphasis == .emphasized ? .medium : .regular))
+                        .font(
+                            .panel(
+                                12,
+                                weight: row.emphasis == .emphasized ? .medium : .regular,
+                                shopify: isShopify
+                            )
+                        )
                         .foregroundStyle(labelColor)
                     Spacer(minLength: 4)
                 }
@@ -529,12 +626,12 @@ private struct CardLinkRow: View {
                             }
                         } label: {
                             Image(systemName: "magnifyingglass")
-                                .font(.system(size: 10, weight: .medium))
+                                .font(.panel(10, weight: .medium, shopify: isShopify))
                         }
                     }
                     if row.createAction != nil && row.supportsSearch {
                         Rectangle()
-                            .fill(Theme.divider)
+                            .fill(isShopify ? Theme.Shopify.hairline : Theme.divider)
                             .frame(width: 1, height: 12)
                     }
                     if row.createAction != nil {
@@ -544,7 +641,7 @@ private struct CardLinkRow: View {
                             openStoreLink(url)
                         } label: {
                             Text("+")
-                                .font(.system(size: 11, weight: .medium))
+                                .font(.panel(11, weight: .medium, shopify: isShopify))
                         }
                     }
                 }
@@ -562,7 +659,7 @@ private struct CardLinkRow: View {
 
             if isSearchExpanded {
                 Rectangle()
-                    .fill(Theme.divider)
+                    .fill(isShopify ? Theme.Shopify.hairline : Theme.divider)
                     .frame(height: 1)
 
                 // Custom placeholder: AppKit's cell placeholder jumps when the field
@@ -570,8 +667,8 @@ private struct CardLinkRow: View {
                 ZStack(alignment: .leading) {
                     if searchQuery.wrappedValue.isEmpty {
                         Text("Search")
-                            .font(.system(size: 11.5))
-                            .foregroundStyle(Theme.textMeta30)
+                            .font(.panel(11.5, shopify: isShopify))
+                            .foregroundStyle(isShopify ? Theme.Shopify.textMeta : Theme.textMeta30)
                             .allowsHitTesting(false)
                     }
                     CaretTintedTextField(
@@ -603,13 +700,16 @@ private struct CardLinkRow: View {
             // Active highlight is AppState-driven only — never stack hover + arrow
             // highlights. Expanded search without active focus keeps no fill.
             if isActive {
-                RoundedRectangle(cornerRadius: 5)
-                    .fill(Theme.controlFill)
+                RoundedRectangle(cornerRadius: 5, style: isShopify ? .circular : .continuous)
+                    .fill(isShopify ? Theme.Shopify.controlFill : Theme.controlFill)
             }
         }
     }
 
     private var labelColor: Color {
+        if isShopify {
+            return Theme.Shopify.textPrimary
+        }
         switch row.emphasis {
         case .emphasized: return Theme.textPrimary
         case .normal: return isActive ? Theme.textPrimary : Theme.textBody
@@ -652,11 +752,16 @@ private struct PillSegment<Label: View>: View {
     var isActive: Bool = false
     let action: () -> Void
     @ViewBuilder let label: () -> Label
+    @Environment(AppState.self) private var appState
     @State private var isHovering = false
 
     var body: some View {
         label()
-            .foregroundStyle(isHovering || isActive ? Theme.textBody : Theme.textMeta40)
+            .foregroundStyle(
+                appState.settings.widgetThemePreference.isShopify
+                    ? (isHovering || isActive ? Theme.Shopify.textPrimary : Theme.Shopify.textMeta)
+                    : (isHovering || isActive ? Theme.textBody : Theme.textMeta40)
+            )
             .padding(.horizontal, 3)
             .frame(maxHeight: .infinity)
             .contentShape(Rectangle())

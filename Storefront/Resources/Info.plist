@@ -36,5 +36,7 @@
 	<string>v/SVpv1UO0YocJuBwLCj9eF9DV5SooDM3VxnarGWJf0=</string>
 	<key>SUScheduledCheckInterval</key>
 	<integer>86400</integer>
+	<key>ATSApplicationFontsPath</key>
+	<string>Fonts</string>
 </dict>
 </plist>

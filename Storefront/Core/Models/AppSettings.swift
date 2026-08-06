@@ -162,6 +162,26 @@ enum MenuBarIconPreference: String, Codable, CaseIterable, Identifiable, Hashabl
     }
 }
 
+/// Visual language for the menu bar widget — native macOS chrome vs Shopify Admin / Polaris.
+enum WidgetThemePreference: String, Codable, CaseIterable, Identifiable, Hashable {
+    case macOS
+    case shopify
+
+    var id: Self { self }
+
+    var title: String {
+        switch self {
+        case .macOS: "macOS"
+        case .shopify: "Shopify"
+        }
+    }
+
+    /// Settings order: macOS → Shopify.
+    static let displayOrder: [WidgetThemePreference] = [.macOS, .shopify]
+
+    var isShopify: Bool { self == .shopify }
+}
+
 /// App-wide light/dark preference for the menu bar panel and Settings window.
 enum AppearancePreference: String, Codable, CaseIterable, Identifiable, Hashable {
     case light
@@ -235,13 +255,17 @@ struct AppSettings: Codable, Equatable {
     /// No-op when the menu bar icon is hidden.
     var showStarredStoresInMenuBar: Bool = true
     /// Light / Dark / System — drives panel + Settings appearance.
+    /// Ignored by the panel when `widgetThemePreference` is `.shopify` (Polaris is light).
     var appearancePreference: AppearancePreference = .system
     /// Auto / Light / Dark Dock icon (cmux-style). Auto uses Icon Composer chrome.
     var appIconPreference: AppIconPreference = .system
     /// Glyph shown in the menu bar status item (Polaris bag / cart / store).
     var menuBarIconPreference: MenuBarIconPreference = .bag
     /// When true, the menu bar widget uses opaque chrome instead of Liquid Glass vibrancy.
+    /// Ignored when `widgetThemePreference` is `.shopify` (Polaris is always flat/opaque).
     var opaqueMenuBarWidget: Bool = false
+    /// macOS (Liquid Glass / opaque) vs Shopify Admin Polaris chrome for the widget.
+    var widgetThemePreference: WidgetThemePreference = .macOS
     var globalHotkey: KeyCombo = .default
     /// Panel-local: open the selected store's Shopify admin.
     var openAdminHotkey: KeyCombo = .openAdminDefault
@@ -280,6 +304,7 @@ extension AppSettings {
         appIconPreference = try c.decodeIfPresent(AppIconPreference.self, forKey: .appIconPreference) ?? .system
         menuBarIconPreference = try c.decodeIfPresent(MenuBarIconPreference.self, forKey: .menuBarIconPreference) ?? .bag
         opaqueMenuBarWidget = try c.decodeIfPresent(Bool.self, forKey: .opaqueMenuBarWidget) ?? false
+        widgetThemePreference = try c.decodeIfPresent(WidgetThemePreference.self, forKey: .widgetThemePreference) ?? .macOS
         globalHotkey = try c.decodeIfPresent(KeyCombo.self, forKey: .globalHotkey) ?? .default
         openAdminHotkey = try c.decodeIfPresent(KeyCombo.self, forKey: .openAdminHotkey) ?? .openAdminDefault
         openOnlineStoreHotkey = try c.decodeIfPresent(KeyCombo.self, forKey: .openOnlineStoreHotkey) ?? .openOnlineStoreDefault

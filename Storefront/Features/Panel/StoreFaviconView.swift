@@ -5,10 +5,14 @@ import AppKit
 struct StoreFaviconView: View {
     let store: Store
     var size: CGFloat = 18
+    @Environment(AppState.self) private var appState
 
     @ObservedObject private var favicons = FaviconStore.shared
 
     private var radius: CGFloat { size * 0.22 }
+    private var cornerStyle: RoundedCornerStyle {
+        WidgetChrome.current(settings: appState.settings).cornerStyle
+    }
 
     var body: some View {
         Group {
@@ -22,14 +26,14 @@ struct StoreFaviconView: View {
             }
         }
         .frame(width: size, height: size)
-        .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: radius, style: cornerStyle))
         // Touch `revision` so the view refreshes when a download finishes.
         .animation(nil, value: favicons.revision)
     }
 
     private var initialsFallback: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: radius, style: .continuous)
+            RoundedRectangle(cornerRadius: radius, style: cornerStyle)
                 .fill(store.color)
             Text(store.initials)
                 .font(.system(size: max(8, size * 0.42), weight: .semibold))

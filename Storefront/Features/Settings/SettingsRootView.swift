@@ -176,6 +176,8 @@ struct SettingsRootView: View {
             HowToUseTabView()
         case .general:
             GeneralTabView()
+        case .appearance:
+            AppearanceTabView()
         case .about:
             AboutTabView()
         }

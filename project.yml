@@ -35,7 +35,12 @@ targets:
       - path: Storefront
         excludes:
           - Resources/AppIcon.icon
+          - Resources/Fonts
       - path: Storefront/Resources/AppIcon.icon
+        buildPhase: resources
+      # Folder reference so Inter TTFs land in Resources/Fonts (ATSApplicationFontsPath).
+      - path: Storefront/Resources/Fonts
+        type: folder
         buildPhase: resources
     dependencies:
       - package: Sparkle
@@ -61,6 +66,7 @@ targets:
         SUPublicEDKey: "v/SVpv1UO0YocJuBwLCj9eF9DV5SooDM3VxnarGWJf0="
         SUEnableAutomaticChecks: true
         SUScheduledCheckInterval: 86400
+        ATSApplicationFontsPath: Fonts
     entitlements:
       path: Storefront/Resources/Storefront.entitlements
       properties:

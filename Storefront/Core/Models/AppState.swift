@@ -13,6 +13,7 @@ enum PanelFocusArea: Equatable {
 /// links jump straight to a specific pane instead of always landing on the default.
 enum SettingsTab: String, Hashable, CaseIterable, Identifiable {
     case general
+    case appearance
     case stores
     case sections
     case keybindings
@@ -24,6 +25,7 @@ enum SettingsTab: String, Hashable, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .general: "General"
+        case .appearance: "Appearance"
         case .stores: "Stores"
         case .sections: "Sections"
         case .keybindings: "Keybindings"
@@ -35,6 +37,7 @@ enum SettingsTab: String, Hashable, CaseIterable, Identifiable {
     var systemImage: String {
         switch self {
         case .general: "gearshape"
+        case .appearance: "paintpalette"
         case .stores: "bag"
         case .sections: "square.grid.2x2"
         case .keybindings: "keyboard"
@@ -157,6 +160,14 @@ final class AppState {
     func setOpaqueMenuBarWidget(_ opaque: Bool) {
         settings.opaqueMenuBarWidget = opaque
         AppDelegate.shared?.applyPanelBackgroundOpacity(opaque)
+        saveSettings()
+    }
+
+    func setWidgetThemePreference(_ preference: WidgetThemePreference) {
+        settings.widgetThemePreference = preference
+        // Re-apply so the panel picks up Shopify-forced light / opaque hosting fill.
+        AppearancePreference.apply(settings.appearancePreference)
+        AppDelegate.shared?.applyPanelBackgroundOpacity(settings.opaqueMenuBarWidget)
         saveSettings()
     }
 

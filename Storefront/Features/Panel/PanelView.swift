@@ -22,9 +22,17 @@ struct PanelView: View {
     /// `.system` resolves against `NSApp.effectiveAppearance` at call time, so nothing
     /// stored changes when macOS flips Light↔Dark. Reading the revision registers the
     /// dependency that makes this re-evaluate on a system flip.
+    /// Shopify theme locks the widget to light Polaris (Appearance preference is ignored).
     private var resolvedColorScheme: ColorScheme {
         _ = appState.systemAppearanceRevision
+        if appState.settings.widgetThemePreference.isShopify {
+            return .light
+        }
         return appState.settings.appearancePreference.colorScheme
+    }
+
+    private var widgetChrome: WidgetChrome {
+        WidgetChrome.current(settings: appState.settings)
     }
 
     private var panelCornerRadius: CGFloat {
@@ -33,18 +41,23 @@ struct PanelView: View {
 
     @ViewBuilder
     private var panelChromeBackground: some View {
-        if appState.settings.opaqueMenuBarWidget {
+        switch widgetChrome {
+        case .shopify:
+            Theme.Shopify.pageBackground
+        case .macOSOpaque:
             Theme.panelOpaqueFill
-        } else if isFloatingPanel {
-            // No NSPopover vibrancy behind us — supply glass chrome for the frame.
-            // allowsHitTesting(false) is belt-and-suspenders; the NSView also
-            // passthrough-hitTests (see SidebarGlassBackground).
-            SidebarGlassBackground(
-                cornerRadius: panelCornerRadius,
-                material: .popover,
-                blendingMode: .behindWindow
-            )
-            .allowsHitTesting(false)
+        case .macOSGlass:
+            if isFloatingPanel {
+                // No NSPopover vibrancy behind us — supply glass chrome for the frame.
+                // allowsHitTesting(false) is belt-and-suspenders; the NSView also
+                // passthrough-hitTests (see SidebarGlassBackground).
+                SidebarGlassBackground(
+                    cornerRadius: panelCornerRadius,
+                    material: .popover,
+                    blendingMode: .behindWindow
+                )
+                .allowsHitTesting(false)
+            }
         }
     }
 
@@ -92,7 +105,13 @@ struct PanelView: View {
         // (opaque mode fills the frame). Floating (menu bar off): provide our own
         // rounded chrome since there is no popover arrow / system beak.
         .background { panelChromeBackground }
-        .modifier(FloatingPanelChromeModifier(isFloating: isFloatingPanel, cornerRadius: panelCornerRadius))
+        .modifier(
+            FloatingPanelChromeModifier(
+                isFloating: isFloatingPanel,
+                cornerRadius: panelCornerRadius,
+                cornerStyle: widgetChrome.cornerStyle
+            )
+        )
         .preferredColorScheme(resolvedColorScheme)
         .focusable()
         .focused($panelFocused)
@@ -305,12 +324,13 @@ struct PanelView: View {
     }
 
     private var emptyState: some View {
-        VStack(spacing: 8) {
+        let shopify = appState.settings.widgetThemePreference.isShopify
+        return VStack(spacing: 8) {
             Text("No stores yet")
-                .font(.system(size: 13, weight: .semibold))
+                .font(.panel(13, weight: .semibold, shopify: shopify))
             Text("Add a store from Settings to get started.")
-                .font(.system(size: 11.5))
-                .foregroundStyle(Theme.textSecondary)
+                .font(.panel(11.5, shopify: shopify))
+                .foregroundStyle(shopify ? Theme.Shopify.textSecondary : Theme.textSecondary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
@@ -321,11 +341,12 @@ struct PanelView: View {
 private struct FloatingPanelChromeModifier: ViewModifier {
     let isFloating: Bool
     let cornerRadius: CGFloat
+    var cornerStyle: RoundedCornerStyle = .continuous
 
     func body(content: Content) -> some View {
         if isFloating {
             content
-                .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: cornerStyle))
         } else {
             content
         }
