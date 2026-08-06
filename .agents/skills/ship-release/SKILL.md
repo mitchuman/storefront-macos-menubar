@@ -106,7 +106,7 @@ Present to the user:
 4. Locate `generate_appcast` under `build/SourcePackages/artifacts/sparkle/`, stage `dist/Storefront.dmg` into `dist/appcast-staging/`, run it, copy `appcast.xml` to `dist/appcast.xml`. Confirm `sparkle:shortVersionString` and `sparkle:version` match the release.
 5. **Archive the `.dSYM`.** Zip `build/Build/Products/Release/Storefront.app.dSYM` to `dist/Storefront-X.Y.Z.dSYM.zip` and confirm `dwarfdump --uuid` matches the shipped binary. The Release config strips the binary (`DEPLOYMENT_POSTPROCESSING = YES` in `Config/Release.xcconfig`), so this is the only thing that can symbolicate a crash report from this build — and it otherwise lives only in gitignored derived data.
 
-Sanity-check the artifacts before publishing: DMG around 5 MB (not 9.5), `lipo -archs` on the app binary and `Sparkle.framework` both `arm64`, and the DMG mounts.
+Sanity-check the artifacts before publishing: DMG around 5 MB (not 9.5), `lipo -archs` on the app binary and `Sparkle.framework` both `arm64`, Sparkle Resources only `en.lproj` (non-English locales stripped), and the DMG mounts.
 
 ## Step 5 — GitHub release
 

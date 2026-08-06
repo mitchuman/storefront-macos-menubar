@@ -119,6 +119,11 @@ if [[ -x "$ROOT/scripts/thin-frameworks.sh" ]]; then
   "$ROOT/scripts/thin-frameworks.sh" "$APP_PATH"
 fi
 
+# English-only UI — drop Sparkle's non-English .lproj trees before signing.
+if [[ -x "$ROOT/scripts/strip-sparkle-locales.sh" ]]; then
+  "$ROOT/scripts/strip-sparkle-locales.sh" "$APP_PATH"
+fi
+
 sign_app "$APP_PATH" "$IDENTITY"
 
 # --- Verify Developer ID (not ad-hoc) ----------------------------------------------

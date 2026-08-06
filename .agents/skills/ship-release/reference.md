@@ -97,6 +97,9 @@ dwarfdump --uuid build/Build/Products/Release/Storefront.app/Contents/MacOS/Stor
 ```bash
 ls -lh dist/Storefront.dmg                                    # ~5 MB, not ~9.5
 lipo -archs build/Build/Products/Release/Storefront.app/Contents/MacOS/Storefront   # arm64
+# English-only Sparkle (strip-sparkle-locales.sh runs from release-dmg.sh)
+find build/Build/Products/Release/Storefront.app/Contents/Frameworks/Sparkle.framework \
+  -type d -name '*.lproj' | grep -v '/en.lproj$' | grep -v '/Base.lproj$' && echo 'FAIL: non-English Sparkle locales' || echo 'OK: Sparkle locales English-only'
 
 MP=$(hdiutil attach dist/Storefront.dmg -nobrowse -readonly | grep -o '/Volumes/.*' | head -1)
 lipo -archs "$MP/Storefront.app/Contents/MacOS/Storefront"

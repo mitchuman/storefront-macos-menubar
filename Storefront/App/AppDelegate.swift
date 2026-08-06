@@ -42,7 +42,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var floatingGlobalClickOutsideMonitor: Any?
     /// Suppresses click-outside dismiss briefly (⌘-click keep-open → browser activation).
     private var suppressFloatingClickOutsideUntil: Date?
-    private static let floatingPanelCornerRadius: CGFloat = 14
+    private static let floatingPanelCornerRadius = Theme.floatingPanelCornerRadius
     let appState = AppState()
     /// Lazy so `self` can be the user-driver delegate (gentle reminders → rail Update button).
     private lazy var updaterController = SPUStandardUpdaterController(

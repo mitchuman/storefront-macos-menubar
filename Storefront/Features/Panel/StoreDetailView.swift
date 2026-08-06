@@ -118,7 +118,7 @@ struct StoreDetailView: View {
     }
 
     private var isFloatingPanel: Bool {
-        !appState.settings.showInMenuBar || appState.settings.openUnderMouse
+        Theme.isFloatingPanel(settings: appState.settings)
     }
 
     private func header(chrome: WidgetChrome) -> some View {
@@ -627,13 +627,7 @@ private struct CardLinkRow: View {
                                 : (isActive ? Theme.textBody : Theme.textMeta40)
                         )
                     Text(row.title)
-                        .font(
-                            .panel(
-                                12,
-                                weight: row.emphasis == .emphasized ? .medium : .regular,
-                                shopify: isShopify
-                            )
-                        )
+                        .font(.panel(12, shopify: isShopify))
                         .foregroundStyle(labelColor)
                     Spacer(minLength: 4)
                 }
@@ -754,10 +748,7 @@ private struct CardLinkRow: View {
         if isShopify {
             return Theme.Shopify.textPrimary
         }
-        switch row.emphasis {
-        case .emphasized: return Theme.textPrimary
-        case .normal: return isActive ? Theme.textPrimary : Theme.textBody
-        }
+        return isActive ? Theme.textPrimary : Theme.textBody
     }
 
     private func tryActivateFromHover() {

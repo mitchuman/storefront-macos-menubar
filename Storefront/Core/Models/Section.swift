@@ -133,11 +133,6 @@ enum ActiveSectionPreset: Hashable, Identifiable {
 }
 
 struct LinkRow: Identifiable {
-    enum Emphasis {
-        case normal
-        case emphasized
-    }
-
     /// A "New X" action attached to a row and rendered as a trailing "New +" button,
     /// rather than as its own separate row.
     struct CreateAction {
@@ -149,7 +144,6 @@ struct LinkRow: Identifiable {
     let path: String
     /// Polaris icon asset name shown leading the row's title.
     let iconName: String
-    var emphasis: Emphasis = .normal
     var createAction: CreateAction? = nil
     /// Overrides `path`'s admin.shopify.com templating with a fully-formed external URL
     /// (e.g. the public Shopify App Store, which isn't a per-store admin path).

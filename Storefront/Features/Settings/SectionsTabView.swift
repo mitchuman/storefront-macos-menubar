@@ -1,6 +1,5 @@
 import SwiftUI
 import AppKit
-import UniformTypeIdentifiers
 import OSLog
 
 /// One global list — enable/disable and reorder apply to every store. (An earlier version

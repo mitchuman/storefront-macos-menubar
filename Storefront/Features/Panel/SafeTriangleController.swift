@@ -1,3 +1,4 @@
+import Observation
 import SwiftUI
 
 /// Protects the rail's hover-to-select navigation against accidental switches while the
@@ -18,18 +19,19 @@ import SwiftUI
 /// triangle's cross-section at that scale is razor-thin and the containment test almost
 /// never passes. Freezing the apex at the transition point gives the test a triangle
 /// wide enough to actually match natural mouse movement.)
+@Observable
 @MainActor
-final class SafeTriangleController: ObservableObject {
-    @Published private(set) var suppressedRowID: Store.ID?
+final class SafeTriangleController {
+    private(set) var suppressedRowID: Store.ID?
 
-    private var rowFrames: [Store.ID: CGRect] = [:]
-    private var rightPanelFrame: CGRect = .zero
-    private var selectedRowID: Store.ID?
-    private var onSelect: ((Store.ID) -> Void)?
+    @ObservationIgnored private var rowFrames: [Store.ID: CGRect] = [:]
+    @ObservationIgnored private var rightPanelFrame: CGRect = .zero
+    @ObservationIgnored private var selectedRowID: Store.ID?
+    @ObservationIgnored private var onSelect: ((Store.ID) -> Void)?
 
-    private var apex: CGPoint?
-    private var isProtecting = false
-    private var protectionDeadline: Date?
+    @ObservationIgnored private var apex: CGPoint?
+    @ObservationIgnored private var isProtecting = false
+    @ObservationIgnored private var protectionDeadline: Date?
     private static let timeout: TimeInterval = 0.45
 
     func configure(onSelect: @escaping (Store.ID) -> Void) {
@@ -98,8 +100,8 @@ final class SafeTriangleController: ObservableObject {
         setSuppressedRowID(nil)
     }
 
-    /// Avoid `@Published` noise when the suppressed row hasn't changed — every rail row
-    /// observes this controller, so redundant assigns would refresh the whole list.
+    /// Avoid observation noise when the suppressed row hasn't changed — every rail row
+    /// that reads `suppressedRowID` would otherwise refresh on redundant assigns.
     private func setSuppressedRowID(_ id: Store.ID?) {
         guard suppressedRowID != id else { return }
         suppressedRowID = id

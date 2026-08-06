@@ -2,7 +2,7 @@ import SwiftUI
 
 struct StoreRailView: View {
     @Environment(AppState.self) private var appState
-    @EnvironmentObject var safeTriangle: SafeTriangleController
+    @Environment(SafeTriangleController.self) private var safeTriangle
     @FocusState.Binding var searchFocused: Bool
 
     private var chrome: WidgetChrome {
@@ -10,7 +10,7 @@ struct StoreRailView: View {
     }
 
     private var isFloatingPanel: Bool {
-        !appState.settings.showInMenuBar || appState.settings.openUnderMouse
+        Theme.isFloatingPanel(settings: appState.settings)
     }
 
     var body: some View {

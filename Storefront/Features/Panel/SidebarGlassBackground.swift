@@ -8,30 +8,21 @@ import SwiftUI
 /// from `hitTest` so AppKit cannot steal clicks from SwiftUI controls on top
 /// (same failure mode as `MouseTrackingOverlay` without a passthrough `hitTest`).
 struct SidebarGlassBackground: NSViewRepresentable {
-    /// `NSGlassEffectView` style — `0` regular (frosted), `1` clear (blur without white wash).
-    enum GlassStyle: Int {
-        case regular = 0
-        case clear = 1
-    }
-
     var cornerRadius: CGFloat = Theme.railCornerRadius
     var material: NSVisualEffectView.Material = .sidebar
     var blendingMode: NSVisualEffectView.BlendingMode = .withinWindow
-    var preferLiquidGlass: Bool = true
-    var glassStyle: GlassStyle = .regular
-    var tintColor: NSColor? = nil
 
     func makeNSView(context: Context) -> PassthroughContainerView {
         let container = PassthroughContainerView()
         container.autoresizingMask = [.width, .height]
 
         let chrome: NSView
-        if preferLiquidGlass, let glassClass = NSClassFromString("NSGlassEffectView") as? NSView.Type {
+        if let glassClass = NSClassFromString("NSGlassEffectView") as? NSView.Type {
             let glass = glassClass.init(frame: .zero)
             glass.autoresizingMask = [.width, .height]
             glass.wantsLayer = true
             applyCornerRadius(to: glass)
-            applyGlassConfiguration(to: glass)
+            applyDefaultGlassStyle(to: glass)
             chrome = glass
         } else {
             let view = NSVisualEffectView()
@@ -69,7 +60,7 @@ struct SidebarGlassBackground: NSViewRepresentable {
         }
 
         if chrome.className == "NSGlassEffectView" {
-            // Tint and style are fixed for every call site; applying once is enough.
+            // Style is fixed for every call site; applying once in `makeNSView` is enough.
             return
         }
 
@@ -94,19 +85,15 @@ struct SidebarGlassBackground: NSViewRepresentable {
         view.layer?.masksToBounds = cornerRadius > 0
     }
 
-    private func applyGlassConfiguration(to glassView: NSView) {
-        let tintSelector = NSSelectorFromString("setTintColor:")
-        if glassView.responds(to: tintSelector) {
-            glassView.perform(tintSelector, with: tintColor)
-        }
-
+    /// Regular (frosted) liquid-glass style — the only style call sites use.
+    private func applyDefaultGlassStyle(to glassView: NSView) {
         let styleSelector = NSSelectorFromString("setStyle:")
         if glassView.responds(to: styleSelector),
            let implementation = glassView.method(for: styleSelector)
         {
             typealias StyleSetter = @convention(c) (AnyObject, Selector, Int) -> Void
             let setter = unsafeBitCast(implementation, to: StyleSetter.self)
-            setter(glassView, styleSelector, glassStyle.rawValue)
+            setter(glassView, styleSelector, 0) // regular
         }
     }
 }

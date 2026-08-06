@@ -77,8 +77,6 @@ enum Theme {
         static let textPrimary = Color(hex: "303030")
         static let textSecondary = Color(hex: "616161")
         static let textMeta = Color(hex: "8a8a8a")
-        /// Polaris action / link blue.
-        static let link = Color(hex: "005bd3")
         /// AppKit fill for the hosting view under SwiftUI.
         static var pageBackgroundNSColor: NSColor { NSColor(hex: "f1f1f1") }
 
@@ -93,6 +91,13 @@ enum Theme {
     /// Gap between the floating rail and the detail column.
     static let railGap: CGFloat = 8
     static let railCornerRadius: CGFloat = 12
+    /// Floating / under-mouse panel chrome corner radius (matches `AppDelegate` window mask).
+    static let floatingPanelCornerRadius: CGFloat = 14
+
+    /// Detached floating window (under mouse, or menu bar icon hidden).
+    static func isFloatingPanel(settings: AppSettings) -> Bool {
+        !settings.showInMenuBar || settings.openUnderMouse
+    }
 
     /// Distance from the panel’s top-leading origin to the center of the first
     /// store row in the rail (search + “N Stores” + dividers + half a row).
@@ -125,29 +130,14 @@ extension Font {
         .system(size: size, weight: weight, design: .monospaced)
     }
 
-    /// Bundled Inter face (Shopify theme). PostScript names from Inter 4.x static TTFs.
+    /// Bundled Inter Variable face (Shopify theme). Weight via the `wght` axis.
     static func inter(_ size: CGFloat, weight: Font.Weight = .regular) -> Font {
-        .custom(InterFont.postScriptName(for: weight), size: size)
+        .custom("InterVariable", size: size).weight(weight)
     }
 
     /// Panel UI type — Inter under Shopify, system otherwise.
     static func panel(_ size: CGFloat, weight: Font.Weight = .regular, shopify: Bool) -> Font {
         shopify ? .inter(size, weight: weight) : .system(size: size, weight: weight)
-    }
-}
-
-private enum InterFont {
-    static func postScriptName(for weight: Font.Weight) -> String {
-        if weight == .bold || weight == .heavy || weight == .black {
-            return "Inter-Bold"
-        }
-        if weight == .semibold {
-            return "Inter-SemiBold"
-        }
-        if weight == .medium {
-            return "Inter-Medium"
-        }
-        return "Inter-Regular"
     }
 }
 

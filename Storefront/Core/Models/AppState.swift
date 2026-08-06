@@ -95,6 +95,8 @@ final class AppState {
     @ObservationIgnored private let persistence: PersistenceStore
     /// In-flight debounced store write — see `scheduleSaveStores()`.
     @ObservationIgnored private var pendingStoreSave: Task<Void, Never>?
+    /// Cached `visibleStores` result — fingerprint includes visibility / favorite / sort.
+    @ObservationIgnored private var visibleStoresCache: (fingerprint: Int, stores: [Store])?
 
     init(persistence: PersistenceStore = .shared) {
         self.persistence = persistence
@@ -185,10 +187,27 @@ final class AppState {
     /// Favorited stores first (starring moves a store to the top), each group
     /// otherwise in the user's chosen order.
     var visibleStores: [Store] {
-        stores.filter(\.isVisible).sorted { lhs, rhs in
+        let fingerprint = Self.visibleStoresFingerprint(stores)
+        if let cache = visibleStoresCache, cache.fingerprint == fingerprint {
+            return cache.stores
+        }
+        let value = stores.filter(\.isVisible).sorted { lhs, rhs in
             if lhs.isFavorite != rhs.isFavorite { return lhs.isFavorite }
             return lhs.sortOrder < rhs.sortOrder
         }
+        visibleStoresCache = (fingerprint, value)
+        return value
+    }
+
+    private static func visibleStoresFingerprint(_ stores: [Store]) -> Int {
+        var hasher = Hasher()
+        for store in stores {
+            hasher.combine(store.id)
+            hasher.combine(store.isVisible)
+            hasher.combine(store.isFavorite)
+            hasher.combine(store.sortOrder)
+        }
+        return hasher.finalize()
     }
 
     /// Visible starred stores in rail order — drives the adjacent menu bar favicons.
@@ -244,7 +263,8 @@ final class AppState {
     }
 
     func enterCards() {
-        guard !enabledSections.isEmpty else { return }
+        let sections = enabledSections
+        guard !sections.isEmpty else { return }
         focusArea = .cards
         focusedSectionIndex = 0
         focusedRowIndex = 0
@@ -260,7 +280,8 @@ final class AppState {
     /// - Parameter fromHover: when true, ignored while hover is disarmed after a scroll.
     func focusCardLink(section: SectionID, rowIndex: Int, fromHover: Bool = false) {
         if fromHover && !cardLinkHoverArmed { return }
-        guard let sectionIndex = enabledSections.firstIndex(of: section) else { return }
+        let sections = enabledSections
+        guard let sectionIndex = sections.firstIndex(of: section) else { return }
         let rows = StaticLinkCatalog.rows(for: section)
         guard rowIndex >= 0, rowIndex < rows.count else { return }
         focusArea = .cards
@@ -272,7 +293,8 @@ final class AppState {
     /// lays out in (a flat index into `enabledSections` reads left-to-right, row-to-row,
     /// so no 2D math is needed). Wraps at either end — Esc is the way back to the rail.
     func moveCardFocus(offset: Int) {
-        let sectionCount = enabledSections.count
+        let sections = enabledSections
+        let sectionCount = sections.count
         guard sectionCount > 0 else { return }
         focusedSectionIndex = ((focusedSectionIndex + offset) % sectionCount + sectionCount) % sectionCount
         focusedRowIndex = 0
@@ -282,8 +304,9 @@ final class AppState {
     /// Up/Down while focused on a card — wraps within that card's own rows, does not
     /// spill into the next/previous card.
     func moveRowFocus(offset: Int) {
-        guard focusedSectionIndex < enabledSections.count else { return }
-        let rowCount = StaticLinkCatalog.rows(for: enabledSections[focusedSectionIndex]).count
+        let sections = enabledSections
+        guard focusedSectionIndex < sections.count else { return }
+        let rowCount = StaticLinkCatalog.rows(for: sections[focusedSectionIndex]).count
         guard rowCount > 0 else { return }
         focusedRowIndex = ((focusedRowIndex + offset) % rowCount + rowCount) % rowCount
     }
@@ -305,8 +328,9 @@ final class AppState {
     /// `openFocusedLink()`/`openFocusedCreateLink()`/`toggleSearchForFocusedLink()` so they
     /// don't each repeat the same section/row lookup.
     private var focusedRow: LinkRow? {
-        guard focusArea == .cards, focusedSectionIndex < enabledSections.count else { return nil }
-        let rows = StaticLinkCatalog.rows(for: enabledSections[focusedSectionIndex])
+        let sections = enabledSections
+        guard focusArea == .cards, focusedSectionIndex < sections.count else { return nil }
+        let rows = StaticLinkCatalog.rows(for: sections[focusedSectionIndex])
         guard focusedRowIndex < rows.count else { return nil }
         return rows[focusedRowIndex]
     }

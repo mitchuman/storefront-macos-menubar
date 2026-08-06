@@ -3,7 +3,7 @@ import AppKit
 
 struct PanelView: View {
     @Environment(AppState.self) private var appState
-    @StateObject private var safeTriangle = SafeTriangleController()
+    @State private var safeTriangle = SafeTriangleController()
     @FocusState private var searchFocused: Bool
     @FocusState private var focusedRowSearchID: String?
     /// Non-text focus target so shortcuts keep working after the search field is blurred
@@ -16,7 +16,7 @@ struct PanelView: View {
 
     /// Detached floating window (under mouse, or menu bar icon hidden).
     private var isFloatingPanel: Bool {
-        !appState.settings.showInMenuBar || appState.settings.openUnderMouse
+        Theme.isFloatingPanel(settings: appState.settings)
     }
 
     /// `.system` resolves against `NSApp.effectiveAppearance` at call time, so nothing
@@ -36,7 +36,7 @@ struct PanelView: View {
     }
 
     private var panelCornerRadius: CGFloat {
-        isFloatingPanel ? 14 : 0
+        isFloatingPanel ? Theme.floatingPanelCornerRadius : 0
     }
 
     @ViewBuilder
@@ -107,7 +107,7 @@ struct PanelView: View {
             }
             .allowsHitTesting(false)
         )
-        .environmentObject(safeTriangle)
+        .environment(safeTriangle)
         .onPreferenceChange(RowFramePreferenceKey.self) { frames in
             safeTriangle.updateRowFrames(frames)
         }
