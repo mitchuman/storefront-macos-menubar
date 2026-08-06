@@ -9,6 +9,10 @@ struct StoreRailView: View {
         WidgetChrome.current(settings: appState.settings)
     }
 
+    private var isFloatingPanel: Bool {
+        !appState.settings.showInMenuBar || appState.settings.openUnderMouse
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 1) {
             searchField
@@ -31,6 +35,9 @@ struct StoreRailView: View {
             }
             .padding(.horizontal, 8)
             .padding(.bottom, 4)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+            .modifier(PanelWindowDragModifier(enabled: isFloatingPanel))
 
             Divider().overlay(chrome.isShopify ? Theme.Shopify.hairline : Theme.hairline)
 
@@ -49,6 +56,12 @@ struct StoreRailView: View {
                         }
                         .equatable()
                     }
+                    // Trailing void inside the list — drag only; rows above keep their hits.
+                    Color.clear
+                        .frame(maxWidth: .infinity)
+                        .frame(minHeight: 48)
+                        .contentShape(Rectangle())
+                        .modifier(PanelWindowDragModifier(enabled: isFloatingPanel))
                 }
             }
             .padding(.vertical, 4)
@@ -62,13 +75,21 @@ struct StoreRailView: View {
         .padding(.horizontal, 7)
         .frame(width: Theme.railWidth)
         .background {
-            switch chrome {
-            case .shopify:
-                Theme.Shopify.surface
-            case .macOSOpaque:
-                Theme.panelOpaqueElevatedFill
-            case .macOSGlass:
-                SidebarGlassBackground(cornerRadius: Theme.railCornerRadius)
+            ZStack {
+                switch chrome {
+                case .shopify:
+                    Theme.Shopify.surface
+                case .macOSOpaque:
+                    Theme.panelOpaqueElevatedFill
+                case .macOSGlass:
+                    SidebarGlassBackground(cornerRadius: Theme.railCornerRadius)
+                }
+                // Inner chrome padding / gaps: drag only where no control claims the hit.
+                if isFloatingPanel {
+                    Color.clear
+                        .contentShape(Rectangle())
+                        .modifier(PanelWindowDragModifier(enabled: true))
+                }
             }
         }
         .clipShape(RoundedRectangle(cornerRadius: Theme.railCornerRadius, style: chrome.cornerStyle))

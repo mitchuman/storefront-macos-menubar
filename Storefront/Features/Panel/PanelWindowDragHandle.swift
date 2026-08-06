@@ -1,8 +1,8 @@
 import SwiftUI
 
-/// Floating-panel-only: drag the window from a label (e.g. store title).
-/// Uses SwiftUI’s `WindowDragGesture` so it never installs an AppKit view that
-/// can steal hits from neighboring controls.
+/// Floating-panel-only: drag the window from an explicit region (edge ring, sidebar
+/// void, detail header). Uses SwiftUI’s `WindowDragGesture` so it never installs an
+/// AppKit view that can steal hits from neighboring controls.
 struct PanelWindowDragModifier: ViewModifier {
     let enabled: Bool
 

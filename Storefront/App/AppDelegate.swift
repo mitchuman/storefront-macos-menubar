@@ -574,9 +574,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         panel.backgroundColor = .clear
         panel.hasShadow = true
         panel.isMovable = true
-        // Empty chrome / non-interactive labels move the window; buttons and fields
-        // keep their own hit targets.
-        panel.isMovableByWindowBackground = true
+        // Drag only via explicit WindowDragGesture regions (ring, sidebar void, header) —
+        // not card chrome or other non-control fills.
+        panel.isMovableByWindowBackground = false
         panel.level = .floating
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         panel.hidesOnDeactivate = false

@@ -75,6 +75,15 @@ struct PanelView: View {
             StoreRailView(searchFocused: $searchFocused)
                 .padding(.leading, Theme.railInset)
                 .padding(.vertical, Theme.railInset)
+                // Edge-ring void (rail insets): drag without changing layout. Rail controls
+                // sit above this and keep their own hits.
+                .background {
+                    if isFloatingPanel {
+                        Color.clear
+                            .contentShape(Rectangle())
+                            .modifier(PanelWindowDragModifier(enabled: true))
+                    }
+                }
 
             if let store = appState.selectedStore {
                 // Keep identity across hover-select so the detail column updates in place
@@ -86,6 +95,8 @@ struct PanelView: View {
                 )
             } else {
                 emptyState
+                    .contentShape(Rectangle())
+                    .modifier(PanelWindowDragModifier(enabled: isFloatingPanel))
             }
         }
         .coordinateSpace(name: "panel")
@@ -101,6 +112,14 @@ struct PanelView: View {
             safeTriangle.updateRowFrames(frames)
         }
         .frame(width: Theme.panelSize.width, height: Theme.panelSize.height)
+        // Catch rail-gap / page-void hits that aren't claimed by the rail or detail column.
+        .background {
+            if isFloatingPanel {
+                Color.clear
+                    .contentShape(Rectangle())
+                    .modifier(PanelWindowDragModifier(enabled: true))
+            }
+        }
         // Menu bar popover: root stays clear so NSPopover vibrancy fills body + beak
         // (opaque mode fills the frame). Floating (menu bar off): provide our own
         // rounded chrome since there is no popover arrow / system beak.

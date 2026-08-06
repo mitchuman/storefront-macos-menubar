@@ -90,6 +90,13 @@ struct StoreDetailView: View {
                     }
                 }
                 .padding(12)
+                // Gaps / padding around cards: drag. Cards sit above and keep their hits.
+                // (Background is sized to the grid — never use maxHeight: .infinity here.)
+                .background {
+                    Color.clear
+                        .contentShape(Rectangle())
+                        .modifier(PanelWindowDragModifier(enabled: isFloatingPanel))
+                }
             }
             .modifier(StoreDetailScrollHeaderModifier(chrome: chrome) {
                 header(chrome: chrome)
@@ -110,6 +117,10 @@ struct StoreDetailView: View {
         }
     }
 
+    private var isFloatingPanel: Bool {
+        !appState.settings.showInMenuBar || appState.settings.openUnderMouse
+    }
+
     private func header(chrome: WidgetChrome) -> some View {
         let isShopify = chrome.isShopify
         return VStack(alignment: .leading, spacing: 0) {
@@ -118,11 +129,15 @@ struct StoreDetailView: View {
                 Text(store.displayName)
                     .font(.panel(16, weight: .semibold, shopify: isShopify))
                     .foregroundStyle(isShopify ? Theme.Shopify.textPrimary : Theme.textPrimary)
-                    // Floating panel: drag from the title like a native titlebar label.
-                    .modifier(PanelWindowDragModifier(enabled: !appState.settings.showInMenuBar || appState.settings.openUnderMouse))
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .modifier(HeaderRowDragBackground(enabled: isFloatingPanel))
+
             CopyableHandleView(handle: store.handle, domain: store.myshopifyDomain, accentColor: store.color)
                 .padding(.top, 3)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .modifier(HeaderRowDragBackground(enabled: isFloatingPanel))
+
             HStack(spacing: 6) {
                 if let adminURL = store.adminURL {
                     HeaderActionButton(
@@ -148,18 +163,45 @@ struct StoreDetailView: View {
                 }
             }
             .padding(.top, 10)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .modifier(HeaderRowDragBackground(enabled: isFloatingPanel))
         }
         .padding(.horizontal, 14)
         .padding(.top, 12)
         .padding(.bottom, 12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(isShopify ? Theme.Shopify.pageBackground : Color.clear)
+        // Opaque page fill must own the drag gesture — a clear layer behind it never
+        // receives void hits. Background is layout-neutral (unlike Color.clear children).
+        .background {
+            Group {
+                if isShopify {
+                    Theme.Shopify.pageBackground
+                } else {
+                    Color.clear
+                }
+            }
+            .contentShape(Rectangle())
+            .modifier(PanelWindowDragModifier(enabled: isFloatingPanel))
+        }
         .overlay(alignment: .bottom) {
             if isShopify {
                 Rectangle()
                     .fill(Theme.Shopify.hairline)
                     .frame(height: 1)
             }
+        }
+    }
+}
+
+/// Drag handle behind a header row so trailing void moves the window without layout flex.
+private struct HeaderRowDragBackground: ViewModifier {
+    let enabled: Bool
+
+    func body(content: Content) -> some View {
+        content.background {
+            Color.clear
+                .contentShape(Rectangle())
+                .modifier(PanelWindowDragModifier(enabled: enabled))
         }
     }
 }
