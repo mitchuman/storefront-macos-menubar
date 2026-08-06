@@ -78,11 +78,12 @@ struct TextFieldAppKitTuning: NSViewRepresentable {
     }
 }
 
-// MARK: - Owned AppKit field (reliable caret tint)
+// MARK: - Owned AppKit text view (stable layout + caret tint)
 
-/// Single-line plain text field that owns its field-editor caret color. Use this
-/// instead of SwiftUI `TextField` + `TextFieldAppKitTuning` when caret color must
-/// match a store accent — SwiftUI resets the shared field editor after focus.
+/// Single-line plain field that owns its caret color and drawing path. Prefer this over
+/// SwiftUI `TextField` / `NSTextField` for card-row search: the window’s shared field
+/// editor both resets `insertionPointColor` and lays out text with different insets than
+/// the idle cell, which caused accent-caret loss and focus layout shift.
 struct CaretTintedTextField: NSViewRepresentable {
     @Binding var text: String
     var caretColor: NSColor
@@ -93,52 +94,38 @@ struct CaretTintedTextField: NSViewRepresentable {
         Coordinator(self)
     }
 
-    func makeNSView(context: Context) -> CaretTintedNSTextField {
-        let field = CaretTintedNSTextField(string: text)
-        field.isBordered = false
-        field.isBezeled = false
-        field.drawsBackground = false
-        field.focusRingType = .none
-        field.font = .systemFont(ofSize: fontSize)
-        field.textColor = NSColor.labelColor
-        field.caretColor = caretColor
-        field.delegate = context.coordinator
-        field.cell?.isScrollable = true
-        field.lineBreakMode = .byClipping
-        field.usesSingleLineMode = true
-        field.maximumNumberOfLines = 1
-        return field
+    func makeNSView(context: Context) -> CaretTintedNSTextView {
+        let view = CaretTintedNSTextView(fontSize: fontSize)
+        view.delegate = context.coordinator
+        view.caretColor = caretColor
+        view.string = text
+        return view
     }
 
-    func updateNSView(_ nsView: CaretTintedNSTextField, context: Context) {
+    func updateNSView(_ nsView: CaretTintedNSTextView, context: Context) {
         context.coordinator.parent = self
-        if !nsView.caretColor.isEqual(caretColor) {
-            nsView.caretColor = caretColor
+        nsView.caretColor = caretColor
+        if nsView.string != text {
+            nsView.string = text
         }
-        if nsView.stringValue != text {
-            nsView.stringValue = text
-        }
-        nsView.applyCaretColor()
     }
 
-    final class Coordinator: NSObject, NSTextFieldDelegate {
+    final class Coordinator: NSObject, NSTextViewDelegate {
         var parent: CaretTintedTextField
 
         init(_ parent: CaretTintedTextField) {
             self.parent = parent
         }
 
-        func controlTextDidChange(_ obj: Notification) {
-            guard let field = obj.object as? NSTextField else { return }
-            parent.text = field.stringValue
+        func textDidChange(_ notification: Notification) {
+            guard let textView = notification.object as? NSTextView else { return }
+            parent.text = textView.string
         }
 
-        func control(
-            _ control: NSControl,
-            textView: NSTextView,
-            doCommandBy commandSelector: Selector
-        ) -> Bool {
-            if commandSelector == #selector(NSResponder.insertNewline(_:)) {
+        func textView(_ textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
+            if commandSelector == #selector(NSResponder.insertNewline(_:))
+                || commandSelector == #selector(NSResponder.insertNewlineIgnoringFieldEditor(_:))
+            {
                 parent.onSubmit()
                 return true
             }
@@ -147,44 +134,76 @@ struct CaretTintedTextField: NSViewRepresentable {
     }
 }
 
-/// `NSTextField` subclass that re-applies caret color whenever the shared field
-/// editor is attached or queried — AppKit otherwise paints the system accent.
-final class CaretTintedNSTextField: NSTextField {
-    var caretColor: NSColor = .controlAccentColor {
-        didSet { applyCaretColor() }
+/// Single-line `NSTextView` that keeps the same layout metrics focused and blurred, and
+/// owns `insertionPointColor` (unlike `NSTextField`’s shared field editor).
+final class CaretTintedNSTextView: NSTextView {
+    private let fontSize: CGFloat
+
+    var caretColor: NSColor {
+        get { insertionPointColor }
+        set { insertionPointColor = newValue }
     }
 
-    override func becomeFirstResponder() -> Bool {
-        let became = super.becomeFirstResponder()
-        if became {
-            applyCaretColor()
-            // Field editor finishes configuring after becomeFirstResponder returns.
-            DispatchQueue.main.async { [weak self] in
-                self?.applyCaretColor()
-            }
+    init(fontSize: CGFloat) {
+        self.fontSize = fontSize
+        let storage = NSTextStorage()
+        let layoutManager = NSLayoutManager()
+        storage.addLayoutManager(layoutManager)
+        let container = NSTextContainer(size: .zero)
+        container.widthTracksTextView = true
+        container.heightTracksTextView = false
+        container.lineFragmentPadding = 0
+        layoutManager.addTextContainer(container)
+        super.init(frame: .zero, textContainer: container)
+
+        font = .systemFont(ofSize: fontSize)
+        textColor = .labelColor
+        drawsBackground = false
+        isRichText = false
+        importsGraphics = false
+        isEditable = true
+        isSelectable = true
+        allowsUndo = true
+        isVerticallyResizable = false
+        isHorizontallyResizable = false
+        autoresizingMask = [.width, .height]
+        minSize = .zero
+        maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
+        focusRingType = .none
+        textContainerInset = .zero
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override func setFrameSize(_ newSize: NSSize) {
+        super.setFrameSize(newSize)
+        syncLayoutMetrics()
+    }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        syncLayoutMetrics()
+    }
+
+    /// Vertical centering via equal top/bottom container inset; horizontal flush. Same
+    /// path while focused and blurred, so the caret cannot nudge text.
+    private func syncLayoutMetrics() {
+        textContainer?.lineFragmentPadding = 0
+        let font = self.font ?? .systemFont(ofSize: fontSize)
+        let lineHeight = ceil(font.ascender - font.descender + font.leading)
+        let verticalInset = max(0, floor((bounds.height - lineHeight) / 2))
+        let inset = NSSize(width: 0, height: verticalInset)
+        if textContainerInset != inset {
+            textContainerInset = inset
         }
-        return became
-    }
-
-    override func currentEditor() -> NSText? {
-        let editor = super.currentEditor()
-        if let textView = editor as? NSTextView {
-            textView.textContainerInset = .zero
-            textView.textContainer?.lineFragmentPadding = 0
-            if !textView.insertionPointColor.isEqual(caretColor) {
-                textView.insertionPointColor = caretColor
-                textView.updateInsertionPointStateAndRestartTimer(true)
-            }
-        }
-        return editor
-    }
-
-    func applyCaretColor() {
-        // Prefer the window field editor — avoid re-entering `currentEditor()`.
-        guard let editor = window?.fieldEditor(false, for: self) as? NSTextView else { return }
-        if !editor.insertionPointColor.isEqual(caretColor) {
-            editor.insertionPointColor = caretColor
-            editor.updateInsertionPointStateAndRestartTimer(true)
+        if let textContainer {
+            textContainer.size = NSSize(
+                width: max(0, bounds.width - inset.width * 2),
+                height: max(0, bounds.height - inset.height * 2)
+            )
         }
     }
 }

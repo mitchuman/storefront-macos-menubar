@@ -557,7 +557,9 @@ private struct CardLinkRow: View {
     /// Store accent when it passes a 3:1 check against the panel surface; otherwise the
     /// native macOS caret color (dark navy on dark mode, pale yellow on light mode, etc.).
     private var searchCaretColor: NSColor {
-        store.color.contrastsWithPanelSurface(colorScheme: colorScheme)
+        // Shopify chrome is always a light surface regardless of system appearance.
+        let surfaceScheme: ColorScheme = isShopify ? .light : colorScheme
+        return store.color.contrastsWithPanelSurface(colorScheme: surfaceScheme)
             ? NSColor(hex: store.colorHex)
             : .controlAccentColor
     }
