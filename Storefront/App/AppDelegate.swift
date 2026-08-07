@@ -316,6 +316,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     Self.drawInitialsFallback(for: store, in: bounds)
                     return true
                 }
+                let isDark = NSApp.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+                if isDark {
+                    NSColor.white.withAlphaComponent(Theme.faviconPlateDarkOpacity).setFill()
+                    bounds.fill()
+                }
                 let scale = max(bounds.width / sourceSize.width, bounds.height / sourceSize.height)
                 let drawSize = NSSize(width: sourceSize.width * scale, height: sourceSize.height * scale)
                 let drawRect = NSRect(

@@ -33,6 +33,10 @@ enum Theme {
     static let hairline = Color.adaptive(light: .black.opacity(0.07), dark: .white.opacity(0.08))
     static let divider = Color.adaptive(light: .black.opacity(0.08), dark: .white.opacity(0.08))
     static let borderColor = Color.adaptive(light: .black.opacity(0.12), dark: .white.opacity(0.1))
+    /// Light plate behind store favicons in dark appearance so dark logos stay legible.
+    static let faviconPlate = Color.adaptive(light: .clear, dark: .white)
+    /// Matching AppKit fill opacity for menu-bar favicon drawing (dark appearance only).
+    static let faviconPlateDarkOpacity: CGFloat = 1
 
     /// Flat card border — the fill comes from `SidebarGlassBackground` for panel section cards.
     static let cardBorder = Color.adaptive(light: .black.opacity(0.08), dark: .white.opacity(0.07))

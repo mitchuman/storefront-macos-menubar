@@ -21,6 +21,7 @@ struct StoreFaviconView: View {
                     .resizable()
                     .interpolation(.high)
                     .scaledToFill()
+                    .background(Theme.faviconPlate)
             } else {
                 initialsFallback
             }
