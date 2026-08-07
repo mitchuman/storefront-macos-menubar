@@ -31,6 +31,8 @@ struct StoreRailView: View {
                     }
                     .font(.panel(8, weight: .medium, shopify: chrome.isShopify))
                     .foregroundStyle(chrome.isShopify ? Theme.Shopify.textMeta : Theme.textMeta25)
+                    .contentShape(Rectangle())
+                    .hoverTooltip("Navigate stores")
                 }
             }
             .padding(.horizontal, 8)
@@ -166,7 +168,7 @@ struct StoreRailView: View {
                         .clipShape(Capsule())
                 }
                 .buttonStyle(.plain)
-                .help("Install available update")
+                .hoverTooltip(updatePillHelp)
                 .padding(.top, 6)
             }
 
@@ -176,6 +178,14 @@ struct StoreRailView: View {
             }
             .padding(.top, 4)
         }
+    }
+
+    private var updatePillHelp: String {
+        if let version = appState.pendingUpdateVersion, !version.isEmpty {
+            let labeled = version.hasPrefix("v") ? version : "v\(version)"
+            return "Update to \(labeled) is ready. Click to install and restart."
+        }
+        return "An update is ready. Click to install and restart."
     }
 }
 
@@ -254,6 +264,8 @@ private struct StoreRowView: View, Equatable {
     let isShopify: Bool
     let onToggleFavorite: () -> Void
     @State private var isHovering = false
+    /// Row frame in tooltip space — stars and ←→ share this for a common tooltip Y.
+    @State private var tooltipRowFrame: CGRect = .zero
 
     static func == (lhs: StoreRowView, rhs: StoreRowView) -> Bool {
         lhs.store == rhs.store
@@ -310,10 +322,11 @@ private struct StoreRowView: View, Equatable {
                     .offset(x: isSelected ? Self.selectedBadgeNudge : 0)
             }
 
-            StarButton(
+            FavoriteButton(
                 isFavorite: store.isFavorite,
                 isRowHovering: effectiveHovering,
                 isShopify: isShopify,
+                verticalBand: tooltipRowFrame,
                 action: onToggleFavorite
             )
                 .padding(.trailing, starTrailingOffset)
@@ -326,6 +339,7 @@ private struct StoreRowView: View, Equatable {
         .padding(.vertical, 7)
         // Accent sits above the selection/hover fill so an opaque selected
         // background can't cover it (stacked `.background` draws behind the prior one).
+        // Clip only the backdrop so favorite tooltips aren't cut off.
         .background {
             ZStack(alignment: .leading) {
                 rowBackground
@@ -335,12 +349,19 @@ private struct StoreRowView: View, Equatable {
                     .padding(.leading, 5)
                     .padding(.vertical, 5)
             }
+            .clipShape(RoundedRectangle(cornerRadius: 7, style: isShopify ? .circular : .continuous))
         }
-        .clipShape(RoundedRectangle(cornerRadius: 7, style: isShopify ? .circular : .continuous))
-        .contentShape(Rectangle())
+        .contentShape(RoundedRectangle(cornerRadius: 7, style: isShopify ? .circular : .continuous))
         .background(
             GeometryReader { geo in
-                Color.clear.preference(key: RowFramePreferenceKey.self, value: [store.id: geo.frame(in: .named("panel"))])
+                let panelFrame = geo.frame(in: .named("panel"))
+                let tooltipFrame = geo.frame(in: .named(HoverTooltipController.coordinateSpaceName))
+                Color.clear
+                    .preference(key: RowFramePreferenceKey.self, value: [store.id: panelFrame])
+                    .onAppear { tooltipRowFrame = tooltipFrame }
+                    .onChange(of: tooltipFrame) { _, frame in
+                        tooltipRowFrame = frame
+                    }
             }
         )
         .onHover { hovering in
@@ -360,6 +381,11 @@ private struct StoreRowView: View, Equatable {
                     Image(systemName: "arrow.right")
                 }
                 .font(.panel(8, weight: .medium, shopify: isShopify))
+                .contentShape(Rectangle())
+                .hoverTooltip(
+                    "Navigate cards",
+                    verticalBand: tooltipRowFrame == .zero ? nil : tooltipRowFrame
+                )
             } else if shortcutIndex <= 9 {
                 HStack(spacing: 1) {
                     Image(systemName: "command")
@@ -386,10 +412,11 @@ private struct StoreRowView: View, Equatable {
 
 /// Favorite toggle drawn as a fixed-position overlay (see `StoreRowView`) rather than
 /// an `HStack` participant, so its own fade-in/out never nudges any sibling.
-private struct StarButton: View {
+private struct FavoriteButton: View {
     let isFavorite: Bool
     let isRowHovering: Bool
     var isShopify: Bool = false
+    var verticalBand: CGRect = .zero
     let action: () -> Void
 
     var body: some View {
@@ -402,6 +429,10 @@ private struct StarButton: View {
             )
             .frame(width: 16, height: 16)
             .contentShape(Rectangle())
+            .hoverTooltip(
+                "Toggle favorite",
+                verticalBand: verticalBand == .zero ? nil : verticalBand
+            )
             .onTapGesture(perform: action)
     }
 }

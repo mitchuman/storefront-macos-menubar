@@ -1156,15 +1156,18 @@ extension AppDelegate: SPUStandardUserDriverDelegate {
         state: SPUUserUpdateState
     ) {
         if !handleShowingUpdate {
+            appState.pendingUpdateVersion = update.displayVersionString
             appState.updateAvailable = true
         }
     }
 
     func standardUserDriverDidReceiveUserAttention(forUpdate update: SUAppcastItem) {
+        appState.pendingUpdateVersion = nil
         appState.updateAvailable = false
     }
 
     func standardUserDriverWillFinishUpdateSession() {
+        appState.pendingUpdateVersion = nil
         appState.updateAvailable = false
     }
 }

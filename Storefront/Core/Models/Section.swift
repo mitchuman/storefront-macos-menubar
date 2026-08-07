@@ -137,6 +137,8 @@ struct LinkRow: Identifiable {
     /// rather than as its own separate row.
     struct CreateAction {
         let path: String
+        /// Singular noun for the create tooltip (e.g. "Product" for a Products row).
+        let noun: String
     }
 
     let id: String
@@ -197,12 +199,12 @@ enum StaticLinkCatalog {
         switch section {
         case .products:
             return [
-                LinkRow(id: "products.all", title: "Products", path: "/products", iconName: "ProductListIcon", createAction: .init(path: "/products/new"), supportsSearch: true),
+                LinkRow(id: "products.all", title: "Products", path: "/products", iconName: "ProductListIcon", createAction: .init(path: "/products/new", noun: "Product"), supportsSearch: true),
                 LinkRow(id: "products.inventory", title: "Inventory", path: "/products/inventory", iconName: "InventoryIcon", supportsSearch: true),
             ]
         case .collections:
             return [
-                LinkRow(id: "collections.all", title: "Collections", path: "/collections", iconName: "CollectionListIcon", createAction: .init(path: "/collections/new"), supportsSearch: true),
+                LinkRow(id: "collections.all", title: "Collections", path: "/collections", iconName: "CollectionListIcon", createAction: .init(path: "/collections/new", noun: "Collection"), supportsSearch: true),
             ]
         case .themes:
             return [
@@ -211,8 +213,8 @@ enum StaticLinkCatalog {
             ]
         case .navigationAndRedirects:
             return [
-                LinkRow(id: "navigation.all", title: "Menus", path: "/menus", iconName: "ListBulletedIcon", createAction: .init(path: "/menus/new")),
-                LinkRow(id: "redirects.all", title: "Redirects", path: "/content/redirects", iconName: "DomainRedirectIcon", createAction: .init(path: "/content/redirects/new"), supportsSearch: true),
+                LinkRow(id: "navigation.all", title: "Menus", path: "/menus", iconName: "ListBulletedIcon", createAction: .init(path: "/menus/new", noun: "Menu")),
+                LinkRow(id: "redirects.all", title: "Redirects", path: "/content/redirects", iconName: "DomainRedirectIcon", createAction: .init(path: "/content/redirects/new", noun: "Redirect"), supportsSearch: true),
             ]
         case .orders:
             return [
@@ -223,7 +225,7 @@ enum StaticLinkCatalog {
             ]
         case .discounts:
             return [
-                LinkRow(id: "discounts.all", title: "Discounts", path: "/discounts", iconName: "DiscountIcon", createAction: .init(path: "/discounts/new"), supportsSearch: true),
+                LinkRow(id: "discounts.all", title: "Discounts", path: "/discounts", iconName: "DiscountIcon", createAction: .init(path: "/discounts/new", noun: "Discount"), supportsSearch: true),
             ]
         case .settings:
             return [
@@ -249,9 +251,9 @@ enum StaticLinkCatalog {
             ]
         case .content:
             return [
-                LinkRow(id: "content.pages", title: "Pages", path: "/pages", iconName: "PageIcon", createAction: .init(path: "/pages/new"), supportsSearch: true),
-                LinkRow(id: "content.blogs", title: "Blogs", path: "/content/blogs", iconName: "BlogIcon", createAction: .init(path: "/content/blogs/new"), supportsSearch: true),
-                LinkRow(id: "content.blog", title: "Blog posts", path: "/content/articles", iconName: "BlogIcon", createAction: .init(path: "/content/articles/new"), supportsSearch: true),
+                LinkRow(id: "content.pages", title: "Pages", path: "/pages", iconName: "PageIcon", createAction: .init(path: "/pages/new", noun: "Page"), supportsSearch: true),
+                LinkRow(id: "content.blogs", title: "Blogs", path: "/content/blogs", iconName: "BlogIcon", createAction: .init(path: "/content/blogs/new", noun: "Blog"), supportsSearch: true),
+                LinkRow(id: "content.blog", title: "Blog posts", path: "/content/articles", iconName: "BlogIcon", createAction: .init(path: "/content/articles/new", noun: "Blog post"), supportsSearch: true),
                 LinkRow(id: "content.files", title: "Files", path: "/content/files", iconName: "FileIcon", supportsSearch: true),
                 LinkRow(id: "content.metafields", title: "Metafields", path: "/settings/custom_data", iconName: "MetaobjectListIcon"),
             ]

@@ -72,6 +72,8 @@ final class AppState {
     var selectedSettingsTab: SettingsTab = .general
     /// Sparkle found an OTA update — panel rail shows an Update button while true.
     var updateAvailable = false
+    /// Display version of the pending Sparkle update (e.g. `"0.4.2"`), when known.
+    var pendingUpdateVersion: String? = nil
     /// Bumped when the *stored* appearance preference changes so Settings can remount and
     /// pick up fresh dynamic colors (Dark → System was leaving cards/sidebar stuck dark).
     private(set) var appearanceRevision: UInt = 0

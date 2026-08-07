@@ -279,7 +279,7 @@ private struct CopyableHandleView: View {
                     .contentShape(Rectangle())
                     .onHover { hoveringHandle = $0 }
                     .onTapGesture { copy(handle) }
-                    .help("Copy handle")
+                    .hoverTooltip("Copy store handle")
 
                 Text(Self.suffix)
                     .font(handleFont)
@@ -291,7 +291,7 @@ private struct CopyableHandleView: View {
                     .contentShape(Rectangle())
                     .onHover { hoveringSuffix = $0 }
                     .onTapGesture { copy(domain) }
-                    .help("Copy domain")
+                    .hoverTooltip("Copy store domain")
             }
             Image(systemName: "checkmark")
                 .font(.panel(9, weight: .bold, shopify: isShopify))
@@ -513,6 +513,8 @@ struct SectionCardView: View {
                     }
                     .font(.panel(8, weight: .medium, shopify: chrome.isShopify))
                     .foregroundStyle(chrome.isShopify ? Theme.Shopify.textMeta : Theme.textMeta25)
+                    .contentShape(Rectangle())
+                    .hoverTooltip("Cycle through links. Enter to open.")
                 }
             }
             .padding(.horizontal, 6)
@@ -646,9 +648,18 @@ private struct CardLinkRow: View {
 
                 // Its own tight-spacing group — the outer HStack's spacing (6) only applies
                 // between the link zone and this whole cluster, not within it.
-                HStack(alignment: .center, spacing: 2) {
-                    if row.supportsSearch {
-                        PillSegment(isActive: isSearchExpanded) {
+                // Intrinsic glyph widths + equal hit-only extensions toward a non-interactive
+                // divider: equal visual gap, no dead zone for tooltips/taps.
+                let hasSearch = row.supportsSearch
+                let hasCreate = row.createAction != nil
+                let hasBothTrailingActions = hasSearch && hasCreate
+                let trailingActionHalfGap: CGFloat = 3
+                HStack(alignment: .center, spacing: 0) {
+                    if hasSearch {
+                        PillSegment(
+                            isActive: isSearchExpanded,
+                            hitExpandTrailing: hasBothTrailingActions ? trailingActionHalfGap : 0
+                        ) {
                             becomeActive()
                             if isSearchExpanded {
                                 appState.expandedSearchRowIDs[store.id]?.remove(row.id)
@@ -666,21 +677,46 @@ private struct CardLinkRow: View {
                             Image(systemName: "magnifyingglass")
                                 .font(.panel(10, weight: .medium, shopify: isShopify))
                         }
+                        .hoverTooltip(
+                            "Toggle search",
+                            shortcut: appState.settings.toggleLinkSearchHotkey,
+                            gap: 1
+                        )
                     }
-                    if row.createAction != nil && row.supportsSearch {
-                        Rectangle()
-                            .fill(isShopify ? Theme.Shopify.hairline : Theme.divider)
-                            .frame(width: 1, height: 12)
+                    if hasBothTrailingActions {
+                        // Zero-width join so search/+ hit expansions meet with no dead strip;
+                        // divider is drawn centered on that join (equal gap each side).
+                        // Slightly stronger than `Theme.divider` / Polaris hairline so it
+                        // still reads against the row’s hover/active fill.
+                        Color.clear
+                            .frame(width: 0, height: 12)
+                            .overlay {
+                                Rectangle()
+                                    .fill(
+                                        isShopify
+                                            ? Color(hex: "d8d8d8")
+                                            : Color.adaptive(light: .black.opacity(0.14), dark: .white.opacity(0.18))
+                                    )
+                                    .frame(width: 1, height: 12)
+                            }
+                            .allowsHitTesting(false)
                     }
-                    if row.createAction != nil {
-                        PillSegment {
+                    if let createAction = row.createAction {
+                        PillSegment(
+                            hitExpandLeading: hasBothTrailingActions ? trailingActionHalfGap : 0
+                        ) {
                             becomeActive()
                             guard let url = row.createURL(for: store.myshopifyDomain) else { return }
                             openStoreLink(url)
                         } label: {
                             Text("+")
-                                .font(.panel(11, weight: .medium, shopify: isShopify))
+                                .font(.panel(10, weight: .medium, shopify: isShopify))
                         }
+                        .hoverTooltip(
+                            "Create new \(createAction.noun)",
+                            shortcut: appState.settings.openCreateLinkHotkey,
+                            gap: 1
+                        )
                     }
                 }
             }
@@ -783,24 +819,38 @@ private struct CardLinkRow: View {
 /// (via `frame` before `contentShape`, so the hit area actually grows with it, not just
 /// the glyph) so there's no dead space above/below it that would otherwise fall through
 /// to the row's own link tap gesture.
+///
+/// `hitExpandLeading` / `hitExpandTrailing` add clear space that is part of the hit
+/// target (and tooltip hover) without changing the glyph’s own padding — used so
+/// search/+ meet across a non-interactive divider.
 private struct PillSegment<Label: View>: View {
     var isActive: Bool = false
+    var hitExpandLeading: CGFloat = 0
+    var hitExpandTrailing: CGFloat = 0
     let action: () -> Void
     @ViewBuilder let label: () -> Label
     @Environment(AppState.self) private var appState
     @State private var isHovering = false
 
     var body: some View {
-        label()
-            .foregroundStyle(
-                appState.settings.widgetThemePreference.isShopify
-                    ? (isHovering || isActive ? Theme.Shopify.textPrimary : Theme.Shopify.textMeta)
-                    : (isHovering || isActive ? Theme.textBody : Theme.textMeta40)
-            )
-            .padding(.horizontal, 3)
-            .frame(maxHeight: .infinity)
-            .contentShape(Rectangle())
-            .onHover { isHovering = $0 }
-            .onTapGesture(perform: action)
+        HStack(spacing: 0) {
+            if hitExpandLeading > 0 {
+                Color.clear.frame(width: hitExpandLeading)
+            }
+            label()
+                .foregroundStyle(
+                    appState.settings.widgetThemePreference.isShopify
+                        ? (isHovering || isActive ? Theme.Shopify.textPrimary : Theme.Shopify.textMeta)
+                        : (isHovering || isActive ? Theme.textBody : Theme.textMeta40)
+                )
+                .padding(.horizontal, 2)
+            if hitExpandTrailing > 0 {
+                Color.clear.frame(width: hitExpandTrailing)
+            }
+        }
+        .frame(maxHeight: .infinity)
+        .contentShape(Rectangle())
+        .onHover { isHovering = $0 }
+        .onTapGesture(perform: action)
     }
 }

@@ -37,7 +37,7 @@ struct GeneralTabView: View {
 
                     SettingsGroupedDivider()
 
-                    SettingsGroupedRow("Starred stores in menu bar") {
+                    SettingsGroupedRow("Favorited stores in menu bar") {
                         Toggle(
                             "",
                             isOn: Binding(

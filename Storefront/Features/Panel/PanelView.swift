@@ -4,6 +4,7 @@ import AppKit
 struct PanelView: View {
     @Environment(AppState.self) private var appState
     @State private var safeTriangle = SafeTriangleController()
+    @State private var hoverTooltips = HoverTooltipController()
     @FocusState private var searchFocused: Bool
     @FocusState private var focusedRowSearchID: String?
     /// Non-text focus target so shortcuts keep working after the search field is blurred
@@ -131,6 +132,9 @@ struct PanelView: View {
                 cornerStyle: widgetChrome.cornerStyle
             )
         )
+        // After the floating clip so tooltips aren't cropped by the rounded mask;
+        // the host still clamps into the panel with an edge margin.
+        .hoverTooltipContainer(controller: hoverTooltips)
         .preferredColorScheme(resolvedColorScheme)
         .focusable()
         .focused($panelFocused)

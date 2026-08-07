@@ -89,7 +89,7 @@ struct KeybindingsTabView: View {
                 ),
                 Shortcut(
                     combos: [appState.settings.openCreateLinkHotkey],
-                    description: "Open the focused link's \"New +\"",
+                    description: "Create new on the focused link",
                     editable: .openCreateLink
                 ),
                 Shortcut(combos: [KeyCombo(keyCode: UInt32(kVK_Escape), modifierFlags: 0)], description: "Step back, then close the panel"),

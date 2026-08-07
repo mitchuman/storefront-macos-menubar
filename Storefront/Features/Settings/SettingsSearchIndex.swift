@@ -72,13 +72,13 @@ enum SettingsSearchIndex {
         hit("keybindings.openLink", "Open the focused link", "Keybindings", .keybindings, ["return", "enter"]),
         hit("keybindings.keepOpen", "Open a link and keep the panel open", "Keybindings", .keybindings, ["command-click", "⌘-click"]),
         hit("keybindings.linkSearch", "Toggle search on the focused link", "Keybindings", .keybindings, ["inline search"]),
-        hit("keybindings.create", "Open the focused link's New +", "Keybindings", .keybindings, ["create", "add"]),
+        hit("keybindings.create", "Create new on the focused link", "Keybindings", .keybindings, ["create", "add", "new"]),
         hit("keybindings.escape", "Step back, then close the panel", "Keybindings", .keybindings, ["escape", "esc"]),
 
         // General
         hit("general.login", "Launch at login", "General", .general, ["startup", "login item"]),
         hit("general.menubar", "Show in menu bar", "General", .general, ["status item", "menu bar"]),
-        hit("general.starredMenuBar", "Starred stores in menu bar", "General", .general, ["favorite", "star", "favicon", "status item", "menu bar"]),
+        hit("general.starredMenuBar", "Favorited stores in menu bar", "General", .general, ["favorite", "star", "favicon", "status item", "menu bar"]),
         hit("general.openUnderMouse", "Open under mouse", "General", .general, ["pointer", "cursor", "floating", "popover", "menu bar icon"]),
         hit("general.dock", "Show in Dock", "General", .general, ["dock icon", "activation"]),
 
