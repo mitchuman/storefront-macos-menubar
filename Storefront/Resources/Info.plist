@@ -2,6 +2,8 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>ATSApplicationFontsPath</key>
+	<string>Fonts</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
@@ -21,9 +23,9 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>0.0.11</string>
+	<string>0.0.12</string>
 	<key>CFBundleVersion</key>
-	<string>11</string>
+	<string>12</string>
 	<key>LSUIElement</key>
 	<true/>
 	<key>NSHumanReadableCopyright</key>
@@ -36,7 +38,5 @@
 	<string>v/SVpv1UO0YocJuBwLCj9eF9DV5SooDM3VxnarGWJf0=</string>
 	<key>SUScheduledCheckInterval</key>
 	<integer>86400</integer>
-	<key>ATSApplicationFontsPath</key>
-	<string>Fonts</string>
 </dict>
 </plist>
