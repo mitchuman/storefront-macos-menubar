@@ -199,24 +199,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         guard let assetName = preference.assetName,
-              let source = NSImage(named: assetName) else { return nil }
-        // Polaris SVGs read smaller than SF Symbols at the same point size; ~1.5× matches bag.
-        let size = NSSize(width: 19.5, height: 19.5)
-        let image = NSImage(size: size)
-        image.lockFocus()
-        NSGraphicsContext.current?.imageInterpolation = .high
-        source.draw(
-            in: NSRect(origin: .zero, size: size),
-            from: .zero,
-            operation: .sourceOver,
-            fraction: 1,
-            respectFlipped: true,
-            hints: [.interpolation: NSImageInterpolation.high]
-        )
-        image.unlockFocus()
-        image.isTemplate = true
-        image.accessibilityDescription = "Storefront"
-        return image
+              let source = NSImage(named: assetName)?.copy() as? NSImage else { return nil }
+        // Polaris assets are authored at 20×20. Draw at exactly 20pt and keep only the
+        // preserved SVG rep so AppKit re-rasters at the display scale — the catalog's
+        // 20/40px bitmap stands-ins look soft when scaled or drawn off-pixel.
+        let hasSVG = source.representations.contains {
+            String(describing: type(of: $0)).contains("SVG")
+        }
+        if hasSVG {
+            for rep in source.representations
+                where !String(describing: type(of: rep)).contains("SVG") {
+                source.removeRepresentation(rep)
+            }
+        }
+        source.size = NSSize(width: 20, height: 20)
+        source.isTemplate = true
+        source.accessibilityDescription = "Storefront"
+        return source
     }
 
     /// macOS 26 (Tahoe) added System Settings → Menu Bar permissions. Without the
@@ -992,47 +991,49 @@ private final class MenuBarContentView: NSView {
     }
 
     override func draw(_ dirtyRect: NSRect) {
-        let tint: NSColor = isHighlighted ? .selectedMenuItemTextColor : .labelColor
-        drawGlyph(tint: tint)
+        // Resolve colors against this view's appearance (menu bar light/dark), not the
+        // app's. Pure black/white matches system status items better than labelColor,
+        // which can read slightly gray / off-white in the menu bar.
+        effectiveAppearance.performAsCurrentDrawingAppearance {
+            let isDark = effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+            let tint: NSColor = isHighlighted
+                ? .selectedMenuItemTextColor
+                : (isDark ? .white : .black)
+            drawGlyph(tint: tint)
 
-        guard let groupFrame else { return }
-        let plate = NSBezierPath(
-            roundedRect: groupFrame,
-            xRadius: Metrics.groupCornerRadius,
-            yRadius: Metrics.groupCornerRadius
-        )
-        tint.withAlphaComponent(isHighlighted ? 0.22 : 0.12).setFill()
-        plate.fill()
-
-        for (index, favorite) in favorites.enumerated() {
-            guard let frame = iconFrame(at: index) else { continue }
-            favorite.image.draw(
-                in: frame,
-                from: .zero,
-                operation: .sourceOver,
-                fraction: 1,
-                respectFlipped: true,
-                hints: [.interpolation: NSImageInterpolation.high]
+            guard let groupFrame else { return }
+            let plate = NSBezierPath(
+                roundedRect: groupFrame,
+                xRadius: Metrics.groupCornerRadius,
+                yRadius: Metrics.groupCornerRadius
             )
+            tint.withAlphaComponent(isHighlighted ? 0.22 : 0.12).setFill()
+            plate.fill()
+
+            for (index, favorite) in favorites.enumerated() {
+                guard let frame = iconFrame(at: index) else { continue }
+                favorite.image.draw(
+                    in: frame,
+                    from: .zero,
+                    operation: .sourceOver,
+                    fraction: 1,
+                    respectFlipped: true,
+                    hints: [.interpolation: NSImageInterpolation.high]
+                )
+            }
         }
     }
 
     private func drawGlyph(tint: NSColor) {
         if let glyphImage {
-            let size = glyphImage.size
-            let rect = NSRect(
-                x: glyphFrame.midX - size.width / 2,
-                y: bounds.midY - size.height / 2,
-                width: size.width,
-                height: size.height
-            )
+            let rect = pixelAlignedRect(for: glyphImage.size, centeredIn: glyphFrame)
             glyphImage.draw(
                 in: rect,
                 from: .zero,
                 operation: .sourceOver,
                 fraction: 1,
                 respectFlipped: true,
-                hints: [.interpolation: NSImageInterpolation.high]
+                hints: [.interpolation: NSImageInterpolation.none]
             )
             // Template glyphs carry no color of their own — tint them the way the
             // status bar would have, so they still flip with the menu bar appearance.
@@ -1047,11 +1048,21 @@ private final class MenuBarContentView: NSView {
             ]
             let text = glyphFallbackTitle as NSString
             let size = text.size(withAttributes: attributes)
-            text.draw(
-                at: NSPoint(x: glyphFrame.midX - size.width / 2, y: bounds.midY - size.height / 2),
-                withAttributes: attributes
-            )
+            let origin = pixelAlignedRect(for: size, centeredIn: glyphFrame).origin
+            text.draw(at: origin, withAttributes: attributes)
         }
+    }
+
+    /// Snap a centered draw rect to device pixels — half-pixel origins soften edges.
+    private func pixelAlignedRect(for size: NSSize, centeredIn container: NSRect) -> NSRect {
+        let scale = window?.backingScaleFactor
+            ?? NSScreen.main?.backingScaleFactor
+            ?? 2
+        let width = (size.width * scale).rounded() / scale
+        let height = (size.height * scale).rounded() / scale
+        let x = ((container.midX - width / 2) * scale).rounded() / scale
+        let y = ((bounds.midY - height / 2) * scale).rounded() / scale
+        return NSRect(x: x, y: y, width: width, height: height)
     }
 
     // MARK: - Tooltips
