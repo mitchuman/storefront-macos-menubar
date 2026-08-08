@@ -284,7 +284,7 @@ struct PanelView: View {
         }
 
         // While typing in the rail or row search field, let the TextField handle
-        // keys (including A/O/arrows) instead of panel shortcuts / grid nav.
+        // keys (including A/O/H/arrows) instead of panel shortcuts / grid nav.
         guard !typingInSearch else { return .ignored }
 
         if appState.settings.openAdminHotkey.matches(keyPress) {
@@ -293,6 +293,10 @@ struct PanelView: View {
         }
         if appState.settings.openOnlineStoreHotkey.matches(keyPress) {
             appState.openSelectedOnlineStore()
+            return .handled
+        }
+        if appState.settings.openSupportHotkey.matches(keyPress) {
+            appState.openSelectedSupport()
             return .handled
         }
         if appState.settings.openCreateLinkHotkey.matches(keyPress) {

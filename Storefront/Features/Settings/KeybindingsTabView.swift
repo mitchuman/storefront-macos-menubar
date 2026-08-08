@@ -11,6 +11,7 @@ struct KeybindingsTabView: View {
         case globalHotkey
         case openAdmin
         case openOnlineStore
+        case openSupport
         case focusSearch
         case toggleLinkSearch
         case openCreateLink
@@ -71,6 +72,11 @@ struct KeybindingsTabView: View {
                     combos: [appState.settings.openOnlineStoreHotkey],
                     description: "Open Online Store for the selected store",
                     editable: .openOnlineStore
+                ),
+                Shortcut(
+                    combos: [appState.settings.openSupportHotkey],
+                    description: "Open Support for the selected store",
+                    editable: .openSupport
                 ),
             ]),
             Group(title: "Section grid", shortcuts: [
@@ -200,6 +206,7 @@ struct KeybindingsTabView: View {
         case .globalHotkey: appState.settings.globalHotkey
         case .openAdmin: appState.settings.openAdminHotkey
         case .openOnlineStore: appState.settings.openOnlineStoreHotkey
+        case .openSupport: appState.settings.openSupportHotkey
         case .focusSearch: appState.settings.focusSearchHotkey
         case .toggleLinkSearch: appState.settings.toggleLinkSearchHotkey
         case .openCreateLink: appState.settings.openCreateLinkHotkey
@@ -211,6 +218,7 @@ struct KeybindingsTabView: View {
         case .globalHotkey: .default
         case .openAdmin: .openAdminDefault
         case .openOnlineStore: .openOnlineStoreDefault
+        case .openSupport: .openSupportDefault
         case .focusSearch: .focusSearchDefault
         case .toggleLinkSearch: .toggleLinkSearchDefault
         case .openCreateLink: .openCreateLinkDefault
@@ -233,6 +241,9 @@ struct KeybindingsTabView: View {
             appState.saveSettings()
         case .openOnlineStore:
             appState.settings.openOnlineStoreHotkey = newCombo
+            appState.saveSettings()
+        case .openSupport:
+            appState.settings.openSupportHotkey = newCombo
             appState.saveSettings()
         case .focusSearch:
             appState.settings.focusSearchHotkey = newCombo

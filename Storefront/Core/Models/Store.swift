@@ -99,6 +99,7 @@ struct Store: Identifiable, Codable, Equatable {
 
     var adminURL: URL? { URL(string: "https://admin.shopify.com/store/\(handle)") }
     var shopURL: URL? { URL(string: "https://\(myshopifyDomain)") }
+    var supportURL: URL? { URL(string: "https://help.shopify.com") }
 }
 
 /// The one place a `"rrggbb"` / `"#rrggbb"` string is parsed. Previously this same

@@ -199,17 +199,19 @@ enum StaticLinkCatalog {
         switch section {
         case .products:
             return [
-                LinkRow(id: "products.all", title: "Products", path: "/products", iconName: "ProductListIcon", createAction: .init(path: "/products/new", noun: "Product"), supportsSearch: true),
+                LinkRow(id: "products.all", title: "Products", path: "/products", iconName: "ProductIcon", createAction: .init(path: "/products/new", noun: "Product"), supportsSearch: true),
                 LinkRow(id: "products.inventory", title: "Inventory", path: "/products/inventory", iconName: "InventoryIcon", supportsSearch: true),
+                LinkRow(id: "products.giftCards", title: "Gift Cards", path: "/gift_cards", iconName: "GiftCardIcon"),
             ]
         case .collections:
             return [
-                LinkRow(id: "collections.all", title: "Collections", path: "/collections", iconName: "CollectionListIcon", createAction: .init(path: "/collections/new", noun: "Collection"), supportsSearch: true),
+                LinkRow(id: "collections.all", title: "Collections", path: "/collections", iconName: "CollectionIcon", createAction: .init(path: "/collections/new", noun: "Collection"), supportsSearch: true),
             ]
         case .themes:
             return [
-                LinkRow(id: "themes.library", title: "Theme library", path: "/themes", iconName: "ThemeIcon"),
+                LinkRow(id: "themes.library", title: "Theme library", path: "/themes", iconName: "ThemeTemplateIcon"),
                 LinkRow(id: "themes.rollouts", title: "Rollouts", path: "/rollouts", iconName: "RocketIcon"),
+                LinkRow(id: "themes.preferences", title: "Online Store Preferences", path: "/online_store/preferences", iconName: "SettingsIcon"),
             ]
         case .navigationAndRedirects:
             return [
@@ -261,6 +263,7 @@ enum StaticLinkCatalog {
             return [
                 LinkRow(id: "customers.all", title: "Customers", path: "/customers", iconName: "PersonIcon"),
                 LinkRow(id: "customers.segments", title: "Segments", path: "/customers/segments", iconName: "PersonSegmentIcon"),
+                LinkRow(id: "customers.companies", title: "Companies", path: "/companies", iconName: "WorkIcon"),
             ]
         }
     }

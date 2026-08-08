@@ -363,6 +363,12 @@ final class AppState {
         openStoreLink(url, keepOpen: false)
     }
 
+    /// Opens Shopify Help Center (panel shortcut; closes the panel).
+    func openSelectedSupport() {
+        guard let url = selectedStore?.supportURL else { return }
+        openStoreLink(url, keepOpen: false)
+    }
+
     /// Toggles the focused row's inline search field, if it supports search. Returns
     /// the row's id and its new expanded state so the caller (which owns the `@FocusState`
     /// needed to actually focus the field) can react — `nil` if the focused row can't search.

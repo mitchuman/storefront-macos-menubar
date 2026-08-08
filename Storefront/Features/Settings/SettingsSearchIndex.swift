@@ -68,6 +68,7 @@ enum SettingsSearchIndex {
         hit("keybindings.jumpStore", "Jump to a specific store", "Keybindings", .keybindings, ["command", "⌘1", "⌘9"]),
         hit("keybindings.openAdmin", "Open Admin", "Keybindings", .keybindings, ["admin", "backend"]),
         hit("keybindings.openOnlineStore", "Open Online Store", "Keybindings", .keybindings, ["storefront", "online store"]),
+        hit("keybindings.openSupport", "Open Support", "Keybindings", .keybindings, ["help", "help center"]),
         hit("keybindings.sectionGrid", "Move between cards", "Keybindings", .keybindings, ["sections", "grid"]),
         hit("keybindings.openLink", "Open the focused link", "Keybindings", .keybindings, ["return", "enter"]),
         hit("keybindings.keepOpen", "Open a link and keep the panel open", "Keybindings", .keybindings, ["command-click", "⌘-click"]),

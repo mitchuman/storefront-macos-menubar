@@ -271,6 +271,8 @@ struct AppSettings: Codable, Equatable {
     var openAdminHotkey: KeyCombo = .openAdminDefault
     /// Panel-local: open the selected store's online storefront.
     var openOnlineStoreHotkey: KeyCombo = .openOnlineStoreDefault
+    /// Panel-local: open Shopify Help Center.
+    var openSupportHotkey: KeyCombo = .openSupportDefault
     /// Panel-local: focus the store search field.
     var focusSearchHotkey: KeyCombo = .focusSearchDefault
     /// Panel-local: toggle inline search on the focused link.
@@ -308,6 +310,7 @@ extension AppSettings {
         globalHotkey = try c.decodeIfPresent(KeyCombo.self, forKey: .globalHotkey) ?? .default
         openAdminHotkey = try c.decodeIfPresent(KeyCombo.self, forKey: .openAdminHotkey) ?? .openAdminDefault
         openOnlineStoreHotkey = try c.decodeIfPresent(KeyCombo.self, forKey: .openOnlineStoreHotkey) ?? .openOnlineStoreDefault
+        openSupportHotkey = try c.decodeIfPresent(KeyCombo.self, forKey: .openSupportHotkey) ?? .openSupportDefault
         focusSearchHotkey = try c.decodeIfPresent(KeyCombo.self, forKey: .focusSearchHotkey) ?? .focusSearchDefault
         toggleLinkSearchHotkey = try c.decodeIfPresent(KeyCombo.self, forKey: .toggleLinkSearchHotkey) ?? .toggleLinkSearchDefault
         openCreateLinkHotkey = try c.decodeIfPresent(KeyCombo.self, forKey: .openCreateLinkHotkey) ?? .openCreateLinkDefault

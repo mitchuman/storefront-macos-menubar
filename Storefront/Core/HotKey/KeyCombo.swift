@@ -24,6 +24,11 @@ struct KeyCombo: Codable, Equatable {
         modifierFlags: 0
     )
 
+    static let openSupportDefault = KeyCombo(
+        keyCode: UInt32(kVK_ANSI_H),
+        modifierFlags: 0
+    )
+
     static let focusSearchDefault = KeyCombo(
         keyCode: UInt32(kVK_ANSI_Slash),
         modifierFlags: 0

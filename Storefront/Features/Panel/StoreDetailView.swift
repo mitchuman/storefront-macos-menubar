@@ -161,6 +161,17 @@ struct StoreDetailView: View {
                         openStoreLink(shopURL)
                     }
                 }
+                if let supportURL = store.supportURL {
+                    HeaderActionButton(
+                        title: "Support",
+                        iconName: "QuestionCircleIcon",
+                        background: store.color.pillBackground(colorScheme: colorScheme),
+                        foreground: store.color.pillTextColor(colorScheme: colorScheme),
+                        shortcutLetter: appState.settings.openSupportHotkey.mnemonicLetter
+                    ) {
+                        openStoreLink(supportURL)
+                    }
+                }
             }
             .padding(.top, 10)
             .frame(maxWidth: .infinity, alignment: .leading)
